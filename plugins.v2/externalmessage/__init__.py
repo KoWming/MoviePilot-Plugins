@@ -1,6 +1,7 @@
 from typing import Any, List, Dict, Tuple, Optional
 from pathlib import Path
 
+from fastapi import Body
 from app.log import logger
 from app.chain.dashboard import DashboardChain
 from app.core.config import settings
@@ -44,23 +45,27 @@ class ExternalMessage(_PluginBase):
     def get_state(self) -> bool:
         return self._enabled
 
-    def send_json(self, apikey: str) -> Any:
+class MessageData(schemas.BaseModel):
+    title: str
+    content: str
+
+    def send_json(self, apikey: str, data: MessageData = Body(...)) -> Any:
         """
         外部应用自定义消息接口使用的API
         """
         try:
             if apikey != settings.API_TOKEN:
                 return schemas.Response(success=False, message="API密钥错误")
-            
+            """
             # 解析请求体中的JSON数据
             data = RequestUtils.get_json_request()
             if not data:
                 logger.warn("请求体为空或格式不正确")
                 return schemas.Response(success=False, message="请求体为空或格式不正确")
-            
+            """
             # 提取title和text字段
-            title = data.get('title')
-            content = data.get('content')
+            title = data.title
+            content = data.content
 
             if not title or not content:
                 logger.warn("缺少必要的字段title或content")
