@@ -76,7 +76,7 @@ class ExternalMessage(_PluginBase):
             self.post_message(
                 mtype=NotificationType.Plugin,
                 title=f"{title}\n",
-                text=f"{title}\n内容: {content}"
+                content=f"{title}\n内容: {content}"
             )
             return schemas.Response(success=True, message="消息接收成功", data={"title": title, "content": content})
 
