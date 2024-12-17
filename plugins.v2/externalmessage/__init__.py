@@ -1,3 +1,4 @@
+import requests
 from typing import Any, List, Dict, Tuple, Optional
 from pathlib import Path
 
@@ -44,43 +45,27 @@ class ExternalMessage(_PluginBase):
     def get_state(self) -> bool:
         return self._enabled
 
-    def send_json(self, apikey: str) -> Any:
+    def parse_json_data(data: bytes) -> Dict[str, Any]:
         """
-        外部应用自定义消息接口使用的API
+        解析接收到的POST请求中的JSON数据
+
+        参数:
+            data (bytes): 接收到的POST请求数据
+
+        返回:
+            Dict[str, Any]: 解析后的JSON数据
         """
         try:
-            if apikey != settings.API_TOKEN:
-                return schemas.Response(success=False, message="API密钥错误")
-            
-            # 解析请求体中的JSON数据
-            data = schemas.ExternalMessage(**data)
-            if not data:
-                logger.warn("请求体为空或格式不正确")
-                return schemas.Response(success=False, message="请求体为空或格式不正确")
-
-            # 提取title和text字段
-            title = data.title
-            content = data.content
-
-            if not title or not content:
-                logger.warn("缺少必要的字段title或content")
-                return schemas.Response(success=False, message="缺少必要的字段title或content")
-            
-            # 记录title和text到日志
-            logger.info(f"Received title: {title}, text: {content}")
-
-            # 调用post_message方法发送消息
-            self.post_message(
-                mtype=NotificationType.Plugin,
-                title=f"{title}\n",
-                text=f"{title}\n内容: {content}"
-            )
-
-            return schemas.Response(success=True, message="消息接收成功", data={"title": title, "content": content})
-
+            # 将接收到的数据转换为字符串
+            data_str = data.decode('utf-8')
+            # 解析JSON数据
+            json_data = requests.post(data_str).json()
+            return json_data
         except Exception as e:
-            logger.error(f"处理消息时发生错误: {e}")
-            return schemas.Response(success=False, message=f"处理消息时发生错误: {e}")
+            # 解析失败时记录错误日志
+            logger.error(f"解析JSON数据失败: {e}")
+            return {}
+        
     @staticmethod
     def get_command() -> List[Dict[str, Any]]:
         pass
@@ -195,51 +180,9 @@ class ExternalMessage(_PluginBase):
     def get_page(self) -> List[dict]:
         """
         拼装插件详情页面，需要返回页面配置，同时附带数据
-        
+        """
         pass
-        
-    @eventmanager.register(EventType.NoticeMessage)
-    def send(self, event: Event):
-        """
-        消息发送事件
-        """
-        if not self.get_state():
-            return
-
-        if not event.event_data:
-            return
-
-        msg_body = event.event_data
-        # 渠道
-        channel = msg_body.get("channel")
-        if channel:
-            return
-        # 类型
-        msg_type: NotificationType = msg_body.get("type")
-        # 标题
-        title = msg_body.get("title")
-        # 文本
-        text = msg_body.get("text")
-
-        if not title and not text:
-            logger.warn("标题和内容不能同时为空")
-            return
-
-        if (msg_type and self._msgtypes
-                and msg_type.name not in self._msgtypes):
-            logger.info(f"消息类型 {msg_type.value} 未开启消息发送")
-            return
-
-        try:
-            if not self._server or not self._port or not self._topic:
-                return False, "参数未配置"
-            mqtt_client = MqttClient(server=self._server, port=self._port, topic=self._topic, user=self._user, password=self._password)
-            mqtt_client.send(title=title, message=text, format_as_markdown=True)
-
-        except Exception as msg_e:
-            logger.error(f"MQTT消息发送失败，错误信息：{str(msg_e)}")
-"""
-
+    
     def stop_service(self):
         """
         退出插件
