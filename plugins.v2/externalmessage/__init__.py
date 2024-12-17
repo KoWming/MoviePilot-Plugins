@@ -1,16 +1,17 @@
+from typing import Any, List, Dict, Tuple, Optional
 from pathlib import Path
 
-from flask import request, jsonify
 from app.log import logger
 from app.chain.dashboard import DashboardChain
 from app.core.config import settings
 from app.db.subscribe_oper import SubscribeOper
 from app.helper.directory import DirectoryHelper
 from app.plugins import _PluginBase
-from typing import Any, List, Dict, Tuple, Optional
-from app.schemas import NotificationType
+from app.core.event import eventmanager, Event
+from app.schemas.types import EventType, NotificationType
 from app import schemas
 from app.utils.system import SystemUtils
+from app.utils.http import RequestUtils
 
 
 class ExternalMessage(_PluginBase):
@@ -52,7 +53,7 @@ class ExternalMessage(_PluginBase):
                 return schemas.Response(success=False, message="API密钥错误")
             
             # 解析请求体中的JSON数据
-            data = request.get_json()
+            data = RequestUtils.get_json_request()
             if not data:
                 logger.warn("请求体为空或格式不正确")
                 return schemas.Response(success=False, message="请求体为空或格式不正确")
@@ -192,12 +193,52 @@ class ExternalMessage(_PluginBase):
         }
 
     def get_page(self) -> List[dict]:
-        # dict = self.ExternalPushSendJson(settings.API_TOKEN)
         """
         拼装插件详情页面，需要返回页面配置，同时附带数据
-        """
+        
         pass
         
+    @eventmanager.register(EventType.NoticeMessage)
+    def send(self, event: Event):
+        """
+        消息发送事件
+        """
+        if not self.get_state():
+            return
+
+        if not event.event_data:
+            return
+
+        msg_body = event.event_data
+        # 渠道
+        channel = msg_body.get("channel")
+        if channel:
+            return
+        # 类型
+        msg_type: NotificationType = msg_body.get("type")
+        # 标题
+        title = msg_body.get("title")
+        # 文本
+        text = msg_body.get("text")
+
+        if not title and not text:
+            logger.warn("标题和内容不能同时为空")
+            return
+
+        if (msg_type and self._msgtypes
+                and msg_type.name not in self._msgtypes):
+            logger.info(f"消息类型 {msg_type.value} 未开启消息发送")
+            return
+
+        try:
+            if not self._server or not self._port or not self._topic:
+                return False, "参数未配置"
+            mqtt_client = MqttClient(server=self._server, port=self._port, topic=self._topic, user=self._user, password=self._password)
+            mqtt_client.send(title=title, message=text, format_as_markdown=True)
+
+        except Exception as msg_e:
+            logger.error(f"MQTT消息发送失败，错误信息：{str(msg_e)}")
+"""
 
     def stop_service(self):
         """
