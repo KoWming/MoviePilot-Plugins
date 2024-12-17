@@ -104,6 +104,21 @@ class ExternalMessage(_PluginBase):
             "methods": ["POST"],
             "summary": "外部应用自定义消息接口使用的API",
             "description": "接收外部应用的json自定义消息接口",
+            "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "apikey": {"type": "string"},
+                            "data": {"type": "string"}
+                        },
+                        "required": ["apikey", "data"]
+                    }
+                }
+            }
+        }
         }]
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
