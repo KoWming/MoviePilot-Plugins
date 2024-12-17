@@ -1,4 +1,4 @@
-import requests
+import requests, json
 from typing import Any, List, Dict, Tuple, Optional
 from pathlib import Path
 
@@ -56,15 +56,15 @@ class ExternalMessage(_PluginBase):
                 return schemas.Response(success=False, message="API密钥错误")
             
             # 将接收到的数据转换为字符串,并解析JSON数据
-            # data_str = data.decode('utf-8')
-            json_data = requests.post().json()
+            data_str = data.decode('utf-8')
+            json_data = json.loads(data_str)
             if not json_data:
                 logger.warn("请求体为空或格式不正确")
                 return schemas.Response(success=False, message="请求体为空或格式不正确")
             
             # 提取title和text字段
-            title = data.get('title')
-            content = data.get('content')
+            title = json_data.get('title')
+            content = json_data.get('content')
             if not title or not content:
                 logger.warn("缺少必要的字段title或content")
                 return schemas.Response(success=False, message="缺少必要的字段title或content")
@@ -80,6 +80,9 @@ class ExternalMessage(_PluginBase):
             )
             return schemas.Response(success=True, message="消息接收成功", data={"title": title, "content": content})
 
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON解析错误: {e}")
+            return schemas.Response(success=False, message=f"JSON解析错误: {e}")
         except Exception as e:
             logger.error(f"处理消息时发生错误: {e}")
             return schemas.Response(success=False, message=f"处理消息时发生错误: {e}")
