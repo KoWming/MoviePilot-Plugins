@@ -23,7 +23,7 @@ class ExternalMessage(_PluginBase):
     # 插件图标
     plugin_icon = "forward.png"
     # 插件版本
-    plugin_version = "0.1"
+    plugin_version = "0.2"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -45,26 +45,44 @@ class ExternalMessage(_PluginBase):
     def get_state(self) -> bool:
         return self._enabled
 
-    def parse_json_data(data: bytes) -> Dict[str, Any]:
+    def send_json(self, apikey: str, data: bytes) -> Dict[str, Any]:
         """
         解析接收到的POST请求中的JSON数据
-
-        参数:
-            data (bytes): 接收到的POST请求数据
-
-        返回:
-            Dict[str, Any]: 解析后的JSON数据
+        参数: data (bytes): 接收到的POST请求数据
+        返回: Dict[str, Any]: 解析后的JSON数据
         """
         try:
-            # 将接收到的数据转换为字符串
+            if apikey != settings.API_TOKEN:
+                return schemas.Response(success=False, message="API密钥错误")
+            
+            # 将接收到的数据转换为字符串,并解析JSON数据
             data_str = data.decode('utf-8')
-            # 解析JSON数据
             json_data = requests.post(data_str).json()
-            return json_data
+            if not json_data:
+                logger.warn("请求体为空或格式不正确")
+                return schemas.Response(success=False, message="请求体为空或格式不正确")
+            
+            # 提取title和text字段
+            title = data.get('title')
+            content = data.get('content')
+            if not title or not content:
+                logger.warn("缺少必要的字段title或content")
+                return schemas.Response(success=False, message="缺少必要的字段title或content")
+            
+            # 记录title和text到日志
+            logger.info(f"Received title: {title}, text: {content}")
+
+            # 调用post_message方法发送消息
+            self.post_message(
+                mtype=NotificationType.Plugin,
+                title=f"{title}\n",
+                text=f"{title}\n内容: {content}"
+            )
+            return schemas.Response(success=True, message="消息接收成功", data={"title": title, "content": content})
+
         except Exception as e:
-            # 解析失败时记录错误日志
-            logger.error(f"解析JSON数据失败: {e}")
-            return {}
+            logger.error(f"处理消息时发生错误: {e}")
+            return schemas.Response(success=False, message=f"处理消息时发生错误: {e}")
         
     @staticmethod
     def get_command() -> List[Dict[str, Any]]:

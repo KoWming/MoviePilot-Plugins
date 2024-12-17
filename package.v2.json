@@ -3,12 +3,12 @@
         "name": "External Message",
         "description": "外部应用消息推送。",
         "labels": "消息通知",
-        "version": "0.1",
+        "version": "0.2",
         "icon": "forward.png",
         "author": "KoWming",
         "level": 1,
         "history": {
-            "v0.1": "第一个测试版"
+            "v0.2": "第一个测试版"
         }
     }
 }
