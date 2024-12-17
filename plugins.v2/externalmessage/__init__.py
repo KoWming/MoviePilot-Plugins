@@ -56,8 +56,8 @@ class ExternalMessage(_PluginBase):
                 return schemas.Response(success=False, message="API密钥错误")
             
             # 将接收到的数据转换为字符串,并解析JSON数据
-            data_str = data.decode('utf-8')
-            json_data = requests.post(data_str).json()
+            # data_str = data.decode('utf-8')
+            json_data = requests.post().json()
             if not json_data:
                 logger.warn("请求体为空或格式不正确")
                 return schemas.Response(success=False, message="请求体为空或格式不正确")
@@ -104,21 +104,6 @@ class ExternalMessage(_PluginBase):
             "methods": ["POST"],
             "summary": "外部应用自定义消息接口使用的API",
             "description": "接收外部应用的json自定义消息接口",
-            "requestBody": {
-            "required": True,
-            "content": {
-                "application/json": {
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "apikey": {"type": "string"},
-                            "data": {"type": "string"}
-                        },
-                        "required": ["apikey", "data"]
-                    }
-                }
-            }
-        }
         }]
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
