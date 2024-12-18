@@ -45,47 +45,37 @@ class ExternalMessage(_PluginBase):
     def get_state(self) -> bool:
         return self._enabled
 
-    def send_json(self, apikey: str, data: str, ) -> schemas.Response:
+    def send_json(self, apikey: str, data: str) -> schemas.Response:
         """
-        解析接收到的POST请求中的JSON数据
-        参数: data (bytes): 接收到的POST请求数据
-        返回: Dict[str, Any]: 解析后的JSON数据
+        解析接收到的POST请求中的JSON数据，然后调用post_message方法发送消息。
         """
-        try:
-            if apikey != settings.API_TOKEN:
-                return schemas.Response(success=False, message="API密钥错误")
+        if apikey != settings.API_TOKEN:
+            return schemas.Response(success=False, message="API密钥错误")
             
-            # 将接收到的数据转换为字符串,并解析JSON数据
-            # data_str = data.decode('utf-8')
-            json_data = json.loads(data)
-            if not json_data:
-                logger.warn("请求体为空或格式不正确")
-                return schemas.Response(success=False, message="请求体为空或格式不正确")
+        # 将接收到的数据转换为字符串,并解析JSON数据
+        # data_str = data.decode('utf-8')
+        json_data = json.loads(data)
+        if not json_data:
+            logger.warn("请求体为空或格式不正确")
+            return schemas.Response(success=False, message="请求体为空或格式不正确")
             
-            # 提取title和text字段
-            title = json_data.get('title')
-            content = json_data.get('content')
-            if not title or not content:
-                logger.warn("缺少必要的字段title或content")
-                return schemas.Response(success=False, message="缺少必要的字段title或content")
+        # 提取title和text字段
+        title = json_data.get('title')
+        content = json_data.get('content')
+        if not title or not content:
+            logger.warn("缺少必要的字段title或content")
+            return schemas.Response(success=False, message="缺少必要的字段title或content")
             
-            # 记录title和text到日志
-            logger.info(f"Received title: {title}, text: {content}")
+        # 记录title和text到日志
+        logger.info(f"Received title: {title}, text: {content}")
 
-            # 调用post_message方法发送消息
-            self.post_message(
-                mtype=NotificationType.Plugin,
-                title=title,
-                content=content
+        # 调用post_message方法发送消息
+        self.post_message(
+            mtype=NotificationType.Plugin,
+            title=title,
+            content=content
             )
-            return schemas.Response(success=True, message="消息接收成功", data={"title": title, "content": content})
-
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON解析错误: {e}")
-            return schemas.Response(success=False, message=f"JSON解析错误: {e}")
-        except Exception as e:
-            logger.error(f"处理消息时发生错误: {e}")
-            return schemas.Response(success=False, message=f"处理消息时发生错误: {e}")
+        return schemas.Response(success=True, message="消息接收成功", data={"title": title, "content": content})
         
     @staticmethod
     def get_command() -> List[Dict[str, Any]]:
