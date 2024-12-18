@@ -45,7 +45,7 @@ class ExternalMessage(_PluginBase):
     def get_state(self) -> bool:
         return self._enabled
 
-    def send_json(self, apikey: str, data: bytes) -> Dict[str, Any]:
+    def send_json(self, apikey: str, data: str, ) -> schemas.Response:
         """
         解析接收到的POST请求中的JSON数据
         参数: data (bytes): 接收到的POST请求数据
@@ -56,8 +56,8 @@ class ExternalMessage(_PluginBase):
                 return schemas.Response(success=False, message="API密钥错误")
             
             # 将接收到的数据转换为字符串,并解析JSON数据
-            data_str = data.decode('utf-8')
-            json_data = json.loads(data_str)
+            # data_str = data.decode('utf-8')
+            json_data = json.loads(data)
             if not json_data:
                 logger.warn("请求体为空或格式不正确")
                 return schemas.Response(success=False, message="请求体为空或格式不正确")
@@ -75,8 +75,8 @@ class ExternalMessage(_PluginBase):
             # 调用post_message方法发送消息
             self.post_message(
                 mtype=NotificationType.Plugin,
-                title=f"{title}\n",
-                content=f"{title}\n内容: {content}"
+                title=title,
+                content=content
             )
             return schemas.Response(success=True, message="消息接收成功", data={"title": title, "content": content})
 
