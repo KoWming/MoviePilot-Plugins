@@ -4,7 +4,7 @@
     "description": "接收外部应用自定义消息并推送。",
     "labels": "消息通知",
     "version": "1.0",
-    "icon": "MsgNotify.png",
+    "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/MsgNotify.png",
     "author": "KoWming",
     "level": 1,
     "v2": true,
