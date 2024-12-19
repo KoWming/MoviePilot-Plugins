@@ -15,7 +15,7 @@ class MsgNotify(_PluginBase):
     # 插件描述
     plugin_desc = "接收外部应用自定义消息并推送。"
     # 插件图标
-    plugin_icon = "MsgNotify.png"
+    plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/MsgNotify.png"
     # 插件版本
     plugin_version = "1.0"
     # 插件作者
