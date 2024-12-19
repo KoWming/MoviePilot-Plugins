@@ -3,7 +3,12 @@ from typing import Any, List, Dict, Tuple
 from app.log import logger
 from app.schemas import NotificationType
 from app import schemas
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
+class NotifyRequest(BaseModel):
+    title: str
+    text: str
 
 class MgNotify(_PluginBase):
     # 插件名称
@@ -36,10 +41,12 @@ class MgNotify(_PluginBase):
             self._notify = config.get("notify")
             self._msgtype = config.get("msgtype")
 
-    def mg_notify(self, title: str, text: str) -> schemas.Response:
+    def mg_notify(self, request: NotifyRequest) -> schemas.Response:
         """
         发送通知
         """
+        title = request.title
+        text = request.text
         logger.info(f"收到webhook消息啦,{title}\n{text}")
         if self._enabled and self._notify:
             mtype = NotificationType.Manual
