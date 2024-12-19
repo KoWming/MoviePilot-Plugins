@@ -1,8 +1,8 @@
 {
     "test": {
         "name": "test",
-        "description": "外部应用消息推送。",
-        "labels": "消息通知",
+        "description": "test",
+        "labels": "test",
         "version": "0.3",
         "icon": "forward.png",
         "author": "KoWming",
