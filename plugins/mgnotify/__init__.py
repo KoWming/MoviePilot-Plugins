@@ -3,28 +3,27 @@ from typing import Any, List, Dict, Tuple
 from app.log import logger
 from app.schemas import NotificationType
 from app import schemas
-from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 class NotifyRequest(BaseModel):
     title: str
     text: str
 
-class MgNotify(_PluginBase):
+class MsgNotify(_PluginBase):
     # 插件名称
-    plugin_name = "魔改Webhook通知"
+    plugin_name = "外部消息转发"
     # 插件描述
-    plugin_desc = "接收webhook通知并推送。"
+    plugin_desc = "接收外部应用自定义消息并推送。"
     # 插件图标
-    plugin_icon = "https://raw.githubusercontent.com/thsrite/MoviePilot-Plugins/main/icons/synology.png"
+    plugin_icon = "MsgNotify.png"
     # 插件版本
-    plugin_version = "1.3"
+    plugin_version = "1.0"
     # 插件作者
-    plugin_author = "thsrite"
+    plugin_author = "KoWming"
     # 作者主页
-    author_url = "https://github.com/thsrite"
+    author_url = "https://github.com/KoWming/MoviePilot-Plugins"
     # 插件配置项ID前缀
-    plugin_config_prefix = "mgnotify_"
+    plugin_config_prefix = "msgnotify_"
     # 加载顺序
     plugin_order = 30
     # 可使用的用户级别
@@ -41,19 +40,19 @@ class MgNotify(_PluginBase):
             self._notify = config.get("notify")
             self._msgtype = config.get("msgtype")
 
-    def mg_notify(self, request: NotifyRequest) -> schemas.Response:
+    def msg_notify(self, request: NotifyRequest) -> schemas.Response:
         """
         发送通知
         """
         title = request.title
         text = request.text
-        logger.info(f"收到webhook消息啦,{title}\n{text}")
+        logger.info(f"收到以下消息:\n{title}\n{text}")
         if self._enabled and self._notify:
             mtype = NotificationType.Manual
             if self._msgtype:
                 mtype = NotificationType.__getitem__(str(self._msgtype)) or NotificationType.Manual
-            self.post_message(title=title,
-                              mtype=mtype,
+            self.post_message(mtype=mtype,
+                              title=title,
                               text=text)
 
         return schemas.Response(
@@ -79,11 +78,11 @@ class MgNotify(_PluginBase):
         }]
         """
         return [{
-            "path": "/mgwebhook",
-            "endpoint": self.mg_notify,
+            "path": "/send_json",
+            "endpoint": self.msg_notify,
             "methods": ["POST"],
-            "summary": "魔改webhook",
-            "description": "接受webhook通知并推送",
+            "summary": "外部应用自定义消息接口使用的API",
+            "description": "接受自定义消息webhook通知并推送",
         }]
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
@@ -173,11 +172,15 @@ class MgNotify(_PluginBase):
                                     {
                                         'component': 'VAlert',
                                         'props': {
-                                            'type': 'info',
-                                            'variant': 'tonal',
-                                            'text': 'webhook配置http://ip:3001/api/v1/plugin/MgNotify/mgwebhook?apikey=*****&text=hello world。'
-                                                    'text参数类型是消息内容。此插件安装完需要重启生效api。消息类型默认为手动处理通知。'
-                                        }
+                                            'type': 'success',
+                                            'variant': 'tonal'
+                                        },
+                                        'content': [
+                                            {
+                                                'component': 'span',
+                                                'text': 'API接口地址参考：http://MoviePilot_IP:PORT/api/v1/plugin/MsgNotify/send_json?apikey=api_token'
+                                            },
+                                        ]
                                     }
                                 ]
                             }
@@ -197,7 +200,7 @@ class MgNotify(_PluginBase):
                                         'props': {
                                             'type': 'info',
                                             'variant': 'tonal',
-                                            'text': '如安装完插件后，发送webhook提示404，重启MoviePilot即可。'
+                                            'text': '其中MoviePilot_IP为MoviePilot的IP地址，PORT为MoviePilot的端口号，api_token为MoviePilot的API Token。\n发送POST请求，请求体为JSON格式，包含title和text两个字段，分别为消息的标题和内容。\n示例请求体：\n {"title": "测试消息", "text": "这是一条测试消息"}\n此插件安装完需要重启生效api。消息类型默认为手动处理通知。\n如安装完插件后，消息发送失败，重启MoviePilot即可。\n此项目魔改了@thsrite大佬的"群辉Webhook通知"插件而来，感谢大佬的无私分享。'
                                         }
                                     }
                                 ]
