@@ -19,7 +19,7 @@ class ExternalMessage(_PluginBase):
     # 插件名称
     plugin_name = "External Message"
     # 插件描述
-    plugin_desc = "外部应用消息推送。"
+    plugin_desc = "test外部应用消息推送。"
     # 插件图标
     plugin_icon = "forward.png"
     # 插件版本
