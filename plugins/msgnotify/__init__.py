@@ -17,7 +17,7 @@ class MsgNotify(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/MsgNotify.png"
     # 插件版本
-    plugin_version = "1.0"
+    plugin_version = "1.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -178,7 +178,33 @@ class MsgNotify(_PluginBase):
                                         'content': [
                                             {
                                                 'component': 'span',
-                                                'text': 'API接口地址参考：http://MoviePilot_IP:PORT/api/v1/plugin/MsgNotify/send_json?apikey=api_token'
+                                                'text': 'API接口地址：http://MoviePilot_IP:PORT/api/v1/plugin/MsgNotify/send_json?apikey=api_token'
+                                            },
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        'component': 'VRow',
+                        'content': [
+                            {
+                                'component': 'VCol',
+                                'props': {
+                                    'cols': 12,
+                                },
+                                'content': [
+                                    {
+                                        'component': 'VAlert',
+                                        'props': {
+                                            'type': 'info',
+                                            'variant': 'tonal'
+                                        },
+                                        'content': [
+                                            {
+                                                'component': 'div',
+                                                'html': '参考了 <a href="https://github.com/thsrite/MoviePilot-Plugins/" target="_blank" style="text-decoration: underline;">thsrite/MoviePilot-Plugins</a> 项目，实现了插件的相关功能。特此感谢 <a href="https://github.com/thsrite" target="_blank" style="text-decoration: underline;">thsrite</a> 大佬！'
                                             },
                                         ]
                                     }
@@ -200,7 +226,7 @@ class MsgNotify(_PluginBase):
                                         'props': {
                                             'type': 'info',
                                             'variant': 'tonal',
-                                            'text': '其中MoviePilot_IP为MoviePilot的IP地址，PORT为MoviePilot的端口号，api_token为MoviePilot的API Token。\n发送POST请求，请求体为JSON格式，包含title和text两个字段，分别为消息的标题和内容。\n示例请求体：\n {"title": "测试消息", "text": "这是一条测试消息"}\n此插件安装完需要重启生效api。消息类型默认为手动处理通知。\n如安装完插件后，消息发送失败，重启MoviePilot即可。\n此项目魔改了@thsrite大佬的"群辉Webhook通知"插件而来，感谢大佬的无私分享。'
+                                            'text': '此插件安装完后API未生效需要重启生效API。消息类型默认为[手动处理]。\n其中MoviePilot_IP为MoviePilot的IP地址，PORT为MoviePilot的端口号，api_token为MoviePilot的API令牌。\n请求方法：POST；请求类型：application/json；请求体：{"title": "标题变量{title}", "text": "内容变量{content}"}'
                                         }
                                     }
                                 ]
