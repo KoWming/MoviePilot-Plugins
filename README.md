@@ -8,9 +8,11 @@ MoviePilot官方插件市场：https://github.com/jxxghp/MoviePilot-Plugins
 - 本插件库地址：[https://github.com/KoWming/MoviePilot-Plugins](https://github.com/KoWming/MoviePilot-Plugins)
 
 ### 1. 外部消息转发
-
-- 接收外部应用自定义消息并推送。
+- 
+- ![](images/1.png)
+- ![](images/3.png)
 
 ### 2. Lucky助手
-
-- 定时备份Lucky配置文件。
+- 
+- ![](images/2.png)
+- ![](images/4.png)
