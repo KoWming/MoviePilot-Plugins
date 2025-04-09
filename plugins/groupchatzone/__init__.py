@@ -32,7 +32,7 @@ class GroupChatZone(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/GroupChat.png"
     # 插件版本
-    plugin_version = "1.3.1"
+    plugin_version = "1.3.2"
     # 插件作者
     plugin_author = "KoWming,madrays"
     # 作者主页
@@ -77,6 +77,8 @@ class GroupChatZone(_PluginBase):
         self.sites = SitesHelper()
         self.siteoper = SiteOper()
         self.sitechain = SiteChain()
+        self._ua = config.get("ua", "") if config else ""
+        self._ua = config.get("ua", "")
         
         # 初始化缓存
         self._site_cache = TTLCache(maxsize=1, ttl=self._cache_ttl)
@@ -214,7 +216,8 @@ class GroupChatZone(_PluginBase):
                 "chat_sites": self._chat_sites,
                 "sites_messages": self._sites_messages,
                 "get_feedback": self._get_feedback,
-                "feedback_timeout": self._feedback_timeout
+                "feedback_timeout": self._feedback_timeout,
+                "ua": self._ua
             }
         )
 
@@ -537,6 +540,28 @@ class GroupChatZone(_PluginBase):
                                 'component': 'VCol',
                                 'props': {
                                     'cols': 12,
+                                    'md': 12
+                                },
+                                'content': [
+                                    {
+                                        'component': 'VTextField',
+                                        'props': {
+                                            'model': 'ua',
+                                            'label': '插件User-Agent',
+                                            'placeholder': '可不填，留空则使用各站点配置的UA'
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        'component': 'VRow',
+                        'content': [
+                            {
+                                'component': 'VCol',
+                                'props': {
+                                    'cols': 12,
                                 },
                                 'content': [
                                     {
@@ -547,6 +572,7 @@ class GroupChatZone(_PluginBase):
                                             'text': '配置注意事项：'
                                                     '1、消息发送执行间隔(秒)不能小于0，也不建议设置过大。1~5秒即可，设置过大可能导致线程运行时间过长；'
                                                     '2、如配置有全局代理，会默认调用全局代理执行。'
+                                                    '3、UA信息可不填，优先使用站点管理内对应站点填写的UA。'
                                         }
                                     }
                                 ]
@@ -611,7 +637,8 @@ class GroupChatZone(_PluginBase):
             "chat_sites": [],
             "sites_messages": "",
             "get_feedback": False,
-            "feedback_timeout": 5
+            "feedback_timeout": 5,
+            "ua": ""
         }
 
     def __custom_sites(self) -> List[Any]:
@@ -897,12 +924,20 @@ class GroupChatZone(_PluginBase):
         site_name = site_info.get("name", "").strip()
         site_url = site_info.get("url", "").strip()
         site_cookie = site_info.get("cookie", "").strip()
-        ua = site_info.get("ua", "").strip()
+        site_ua = site_info.get("ua") or ""
+        global_ua = self._ua or ""
+        ua = (site_ua.strip() if site_ua else global_ua.strip()) or ""
+        if not ua:
+            logger.error(f"⚠️站点 {site_name} 未配置UA！请检查站点设置或插件全局UA")
+            raise ValueError(f"站点 {site_name} 未配置UA")
+        if len(ua) < 20 or "Mozilla" not in ua:
+            logger.error(f"❌ 无效的UA配置：{ua[:50]}...（长度不足或格式错误）")
+            raise ValueError(f"站点 {site_name} 无效的UA配置")
         proxies = settings.PROXY if site_info.get("proxy") else None
 
         if not all([site_name, site_url, site_cookie, ua]):
             logger.error(f"站点 {site_name} 缺少必要信息，无法发送消息！")
-            return
+            raise ValueError(f"站点 {site_name} 缺少必要信息")
 
         # 构建URL和请求参数
         send_url = urljoin(site_url, "/shoutbox.php")
