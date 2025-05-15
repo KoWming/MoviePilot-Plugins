@@ -1,0 +1,60 @@
+
+.plugin-page[data-v-62356147] {
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 0.5rem;
+}
+.bg-primary-lighten-5[data-v-62356147] {
+  background-color: rgba(var(--v-theme-primary), 0.07);
+}
+.border[data-v-62356147] {
+  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+.status-card[data-v-62356147], .history-card[data-v-62356147] {
+  background-image: linear-gradient(to right, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.95)), 
+                    repeating-linear-gradient(45deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0.03) 10px, transparent 10px, transparent 20px);
+  background-attachment: fixed;
+  box-shadow: 0 1px 2px rgba(var(--v-border-color), 0.05) !important;
+  transition: all 0.3s ease;
+}
+.status-card[data-v-62356147]:hover, .history-card[data-v-62356147]:hover {
+  box-shadow: 0 3px 6px rgba(var(--v-border-color), 0.1) !important;
+}
+.info-card[data-v-62356147] {
+  background-image: linear-gradient(to right, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.95)), 
+                    repeating-linear-gradient(45deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0.03) 10px, transparent 10px, transparent 20px);
+  background-attachment: fixed;
+  box-shadow: 0 1px 2px rgba(var(--v-border-color), 0.05) !important;
+  transition: all 0.3s ease;
+}
+.info-card[data-v-62356147]:hover {
+  box-shadow: 0 3px 6px rgba(var(--v-border-color), 0.1) !important;
+}
+.history-container[data-v-62356147] {
+  height: 300px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+.history-container[data-v-62356147]::-webkit-scrollbar {
+  width: 6px;
+}
+.history-container[data-v-62356147]::-webkit-scrollbar-track {
+  background: rgba(var(--v-theme-surface), 0.1);
+  border-radius: 3px;
+}
+.history-container[data-v-62356147]::-webkit-scrollbar-thumb {
+  background: rgba(var(--v-theme-primary), 0.2);
+  border-radius: 3px;
+}
+.history-container[data-v-62356147]::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--v-theme-primary), 0.3);
+}
+.timeline-item[data-v-62356147] {
+  position: relative;
+}
+.timeline-date[data-v-62356147] {
+  font-size: 0.75rem;
+  color: #999;
+  margin-bottom: 2px;
+  margin-left: 2px;
+}
