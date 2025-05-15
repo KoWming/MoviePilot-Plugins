@@ -1,0 +1,14 @@
+{
+    "VicomoFarm": {
+        "name": "Vue-象岛农场",
+        "description": "监听象岛农场相关信息，我在PT学卖菜。",
+        "labels": "站点",
+        "version": "1.0",
+        "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomofarm.png",
+        "author": "KoWming",
+        "level": 2,
+        "history": {
+            "v1.0": "初始版本。"
+        }
+    }
+}
