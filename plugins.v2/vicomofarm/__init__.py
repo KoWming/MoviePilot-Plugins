@@ -1,0 +1,794 @@
+import re
+import pytz
+import time
+import requests
+
+from lxml import etree
+from datetime import datetime, timedelta
+from typing import Any, List, Dict, Tuple, Optional
+
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.schedulers.background import BackgroundScheduler
+
+from app.log import logger
+from app.core.config import settings
+from app.plugins import _PluginBase
+from app.schemas import NotificationType
+from app.db.site_oper import SiteOper
+
+class VicomoFarm(_PluginBase):
+    # 插件名称
+    plugin_name = "Vue-象岛农场"
+    # 插件描述
+    plugin_desc = "监听象岛农场相关信息，我在PT学卖菜。"
+    # 插件图标
+    plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomofarm.png"
+    # 插件版本
+    plugin_version = "1.0"
+    # 插件作者
+    plugin_author = "KoWming"
+    # 作者主页
+    author_url = "https://github.com/KoWming"
+    # 插件配置项ID前缀
+    plugin_config_prefix = "vicomofarm_"
+    # 加载顺序
+    plugin_order = 26
+    # 可使用的用户级别
+    auth_level = 2
+
+    # 私有属性
+    _enabled: bool = False  # 是否启用插件
+    _onlyonce: bool = False  # 是否仅运行一次
+    _notify: bool = False  # 是否开启通知
+    _use_proxy: bool = True  # 是否使用代理，默认启用
+    _retry_count: int = 2  # 失败重试次数
+    _cron: Optional[str] = None  # 定时任务表达式
+    _cookie: Optional[str] = None  # 站点Cookie
+    _history_count: Optional[int] = None  # 历史记录数量
+
+    # 操作参数
+    _farm_interval: int = 15  # 重试间隔
+    _site_url: str = "https://ptvicomo.net/"
+    
+    # 定时器
+    _scheduler: Optional[BackgroundScheduler] = None
+    # 站点操作实例
+    _siteoper = None
+
+    def init_plugin(self, config: Optional[dict] = None) -> None:
+        """
+        初始化插件
+        """
+        # 停止现有任务
+        self.stop_service()
+        # 创建站点操作实例
+        self._siteoper = SiteOper()
+
+        # 更新配置
+        if config is not None:
+            self._enabled = config.get("enabled", False)
+            self._cron = config.get("cron")
+            self._cookie = config.get("cookie")
+            self._notify = config.get("notify", False)
+            self._onlyonce = config.get("onlyonce", False)
+            self._history_count = int(config.get("history_count", 10))
+            self._farm_interval = int(config.get("farm_interval", 15))
+            self._use_proxy = config.get("use_proxy", True)
+            self._retry_count = int(config.get("retry_count", 2))
+            
+        try:
+            if self._enabled:
+                # 创建调度器
+                self._scheduler = BackgroundScheduler(timezone=settings.TZ)
+                
+                if self._onlyonce:
+                    # 立即运行一次
+                    logger.info(f"象岛农场服务启动，立即运行一次")
+                    self._scheduler.add_job(func=self._battle_task, trigger='date',
+                                          run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
+                                          name="象岛农场")
+                    # 关闭一次性开关
+                    self._onlyonce = False
+                    self.update_config({
+                        "onlyonce": False,
+                        "cron": self._cron,
+                        "enabled": self._enabled,
+                        "cookie": self._cookie,
+                        "notify": self._notify,
+                        "history_count": self._history_count,
+                        "farm_interval": self._farm_interval,
+                        "use_proxy": self._use_proxy,
+                        "retry_count": self._retry_count
+                    })
+                
+                # 启动调度器
+                if self._scheduler.get_jobs():
+                    self._scheduler.print_jobs()
+                    self._scheduler.start()
+                    logger.info(f"象岛农场服务启动成功")
+                else:
+                    logger.warning(f"象岛农场服务未添加任何任务")
+            else:
+                logger.info(f"象岛农场服务未启用")
+                
+        except Exception as e:
+            logger.error(f"象岛农场服务启动失败: {str(e)}")
+            self._enabled = False
+
+    @staticmethod
+    def parse_farm_info(title, subtitle):
+        result = {"名称": "", "类型": "", "状态": "", "剩余配货量": "", "说明": ""}
+        # 从title提取名称和状态
+        m = re.search(r'【([^】]+)】', title)
+        if m:
+            name_status = m.group(1)
+            # 可能有" - "分隔
+            if ' - ' in name_status:
+                name, status = name_status.split(' - ', 1)
+                result["名称"] = name.strip()
+                result["状态"] = status.strip()
+            else:
+                result["名称"] = name_status.strip()
+        # 提取剩余时间（如"剩余110小时"）并拼接到状态
+        m_time = re.search(r'剩余[\d]+小时', title)
+        if m_time:
+            if result["状态"]:
+                result["状态"] += f"（{m_time.group(0)}）"
+            else:
+                result["状态"] = m_time.group(0)
+        # 剩余配货量
+        m = re.search(r'剩余配货量[：: ]*([\d,]+)kg', subtitle)
+        if m:
+            result["剩余配货量"] = m.group(1).replace(",", "")
+        # 类型
+        m = re.search(r'类型[：: ]*([\u4e00-\u9fa5A-Za-z0-9]+)', subtitle)
+        if m:
+            result["类型"] = m.group(1)
+        # 说明
+        # 只过滤掉包含"剩余配货量"、"类型"的行，其余全部拼接
+        lines = [line.strip() for line in subtitle.splitlines() if line.strip()]
+        desc_lines = []
+        for line in lines:
+            if not any(key in line for key in ["剩余配货量", "类型"]):
+                desc_lines.append(line)
+        # 如果desc_lines为空但subtitle有内容，直接用subtitle
+        if desc_lines:
+            result["说明"] = " ".join(desc_lines)
+        elif subtitle.strip():
+            result["说明"] = subtitle.strip()
+        else:
+            result["说明"] = "无"
+        return result
+
+    @staticmethod
+    def parse_vegetable_shop_info(title, desc_text, full_text):
+        result = {"名称": "", "市场单价": "", "库存": "", "成本": "", "开店累计盈利": "", "盈利目标": "", "可卖数量": "", "说明": ""}
+        # 名称、市场单价、库存、成本
+        m = re.search(r'【([^】]+)】', title)
+        if m:
+            name_block = m.group(1)
+            # 名称和市场单价
+            name = name_block.split(' 市场单价')[0].strip()
+            result["名称"] = name
+            m2 = re.search(r'市场单价[：: ]*([\d.]+)', name_block)
+            if m2:
+                result["市场单价"] = m2.group(1)
+            m3 = re.search(r'库存[：: ]*([\d]+)', name_block)
+            if m3:
+                result["库存"] = m3.group(1)
+            m4 = re.search(r'成本[：: ]*([\d.]+)', name_block)
+            if m4:
+                result["成本"] = m4.group(1)
+        # 开店累计盈利
+        m = re.search(r'开店累计盈利[：: ]*([\-\d.]+)', full_text)
+        if m:
+            result["开店累计盈利"] = m.group(1)
+        # 盈利目标
+        m = re.search(r'盈利目标[：: ]*([\d]+)', full_text)
+        if m:
+            result["盈利目标"] = m.group(1)
+        # 可卖数量
+        m = re.search(r'可卖数量[为: ]*([\d]+)', full_text)
+        if m:
+            result["可卖数量"] = m.group(1)
+        # 说明只用desc_text
+        result["说明"] = desc_text.strip() if desc_text.strip() else "无"
+        return result
+
+    @staticmethod
+    def parse_section_info(title: str, desc_text: str, full_text: str = None) -> dict:
+        if '农庄' in title:
+            return VicomoFarm.parse_farm_info(title, desc_text)
+        elif '蔬菜店' in title:
+            return VicomoFarm.parse_vegetable_shop_info(title, desc_text, full_text or desc_text)
+        else:
+            return {"名称": "", "类型": "", "状态": "", "剩余配货量": "", "说明": desc_text}
+
+    def __farm_and_vegetable(self) -> dict:
+        """
+        解析象岛农庄、象岛新鲜蔬菜店的标题和副标题说明，并提取当前象草余额。
+        返回格式：
+        {
+            "farm": {...结构化字段...},
+            "vegetable_shop": {...结构化字段...},
+            "bonus": "象草余额"
+        }
+        """
+        # 初始化重试次数
+        retry_count = 0
+        max_retries = self._retry_count
+
+        while retry_count <= max_retries:
+            try:
+                url = f"{self._site_url}/customgame.php"
+                headers = {
+                    "cookie": self._cookie,
+                    "referer": self._site_url,
+                    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0"
+                }
+                proxies = self._get_proxies()
+                response = requests.get(url, headers=headers, proxies=proxies)
+                html = etree.HTML(response.text)
+
+                result = {}
+                # 解析象岛农庄（兼容id="buyTurnipSunday"和id="buyTurnip"）
+                farm_td = html.xpath('//td[@id="buyTurnipSunday" or @id="buyTurnip"]')
+                if farm_td:
+                    farm_h1 = farm_td[0].xpath('.//h1')[0] if farm_td[0].xpath('.//h1') else None
+                    farm_title = farm_h1.xpath('string(.)').strip() if farm_h1 is not None else ""
+                    # 优化subtitle提取逻辑：h1.tail为空则查找下一个兄弟节点的文本
+                    farm_subtitle = ""
+                    if farm_h1 is not None:
+                        if farm_h1.tail and farm_h1.tail.strip():
+                            farm_subtitle = farm_h1.tail.strip()
+                        else:
+                            # 查找下一个兄弟节点的文本
+                            next_node = farm_h1.getnext()
+                            while next_node is not None:
+                                text = next_node.text or ''
+                                if text.strip():
+                                    farm_subtitle = text.strip()
+                                    break
+                                # 也查tail（如<br>标签的tail）
+                                if next_node.tail and next_node.tail.strip():
+                                    farm_subtitle = next_node.tail.strip()
+                                    break
+                                next_node = next_node.getnext()
+                    result["farm"] = self.parse_section_info(farm_title, farm_subtitle)
+                else:
+                    result["farm"] = {"名称": "", "类型": "", "状态": "", "剩余配货量": "", "说明": ""}
+
+                # 解析象岛新鲜蔬菜店
+                veg_td = html.xpath('//td[@id="saleTurnip"]')
+                if veg_td:
+                    veg_h1 = veg_td[0].xpath('.//h1')[0] if veg_td[0].xpath('.//h1') else None
+                    veg_title = veg_h1.xpath('string(.)').strip() if veg_h1 is not None else ""
+                    # 说明字段：h1.tail或下一个非空文本节点
+                    veg_subtitle = ""
+                    if veg_h1 is not None:
+                        if veg_h1.tail and veg_h1.tail.strip():
+                            veg_subtitle = veg_h1.tail.strip()
+                        else:
+                            next_node = veg_h1.getnext()
+                            while next_node is not None:
+                                text = next_node.text or ''
+                                if text.strip():
+                                    veg_subtitle = text.strip()
+                                    break
+                                if next_node.tail and next_node.tail.strip():
+                                    veg_subtitle = next_node.tail.strip()
+                                    break
+                                next_node = next_node.getnext()
+                    # 数值字段：h1所有兄弟节点文本拼接
+                    veg_extra_text = []
+                    if veg_h1 is not None:
+                        sib = veg_h1.getnext()
+                        while sib is not None:
+                            # 拼接<b>标签文本和所有兄弟节点的text、tail
+                            if sib.tag == 'b':
+                                b_text = sib.xpath('string(.)').strip()
+                                if b_text:
+                                    veg_extra_text.append(b_text)
+                            if sib.text and sib.text.strip():
+                                veg_extra_text.append(sib.text.strip())
+                            if sib.tail and sib.tail.strip():
+                                veg_extra_text.append(sib.tail.strip())
+                            sib = sib.getnext()
+                    # 合成subtitle用于正则提取
+                    veg_full_subtitle = veg_subtitle + '\n' + '\n'.join(veg_extra_text) if veg_extra_text else veg_subtitle
+                    result["vegetable_shop"] = self.parse_section_info(veg_title, veg_subtitle, veg_full_subtitle)
+                else:
+                    result["vegetable_shop"] = {"名称": "", "市场单价": "", "库存": "", "成本": "", "开店累计盈利": "", "盈利目标": "", "可卖数量": "", "说明": ""}
+
+                # 提取当前象草余额
+                bonus = html.xpath('//div[contains(@class, "info-container-mybonus-1")]//div[normalize-space(text())="当前象草余额"]/following-sibling::div[1]/text()')
+                result["bonus"] = bonus[0].strip() if bonus else ""
+
+                return result
+
+            except Exception as e:
+                retry_count += 1
+                if retry_count <= max_retries:
+                    logger.warning(f"解析农庄、蔬菜店和象草余额信息失败，正在进行第 {retry_count} 次重试: {e}")
+                    time.sleep(self._farm_interval)
+                else:
+                    logger.error(f"解析农庄、蔬菜店和象草余额信息失败，已重试 {max_retries} 次: {e}")
+                    return {"farm": {"名称": "", "类型": "", "状态": "", "剩余配货量": "", "说明": ""}, "vegetable_shop": {"名称": "", "市场单价": "", "库存": "", "成本": "", "开店累计盈利": "", "盈利目标": "", "可卖数量": "", "说明": ""}, "bonus": ""}
+
+    def __purchase_task(self, buy_num: int):
+        """进货任务：自动提交进货表单，跟随重定向并解析进货结果"""
+        try:
+            url = self._site_url + "/customgame.php?action=exchange"
+            headers = {
+                "cookie": self._cookie,
+                "referer": self._site_url,
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0",
+                "content-type": "application/x-www-form-urlencoded",
+                "pragma": "no-cache",
+            }
+            proxies = self._get_proxies()
+
+            # 构造POST参数
+            data = {
+                "option": 5,
+                "buyTurnipNum": str(buy_num),
+                "submit": "进货"
+            }
+
+            # 提交进货请求
+            response = requests.post(url, headers=headers, data=data, proxies=proxies)
+
+            # 提取重定向URL（window.location.href）
+            redirect_url = None
+            pattern = r"window.location.href\s*=\s*['\"]([^'\"]*buy[^'\"]*)['\"]"
+            match = re.search(pattern, response.text, re.DOTALL)
+            if match:
+                redirect_url = match.group(1)
+                logger.info(f"提取到的进货结果重定向 URL: {redirect_url}")
+            else:
+                logger.error("未找到进货结果重定向 URL")
+                return {"success": False, "msg": "未找到进货结果重定向 URL"}
+
+            # 访问重定向URL，获取进货结果页面
+            result_response = requests.get(redirect_url, headers=headers, proxies=proxies)
+            logger.info(f"进货结果页面状态码: {result_response.status_code}")
+
+            # 解析进货结果页面，优先用class=striking的div
+            html = etree.HTML(result_response.text)
+            striking_texts = html.xpath("//div[@class='striking']/text()")
+            result_text = " ".join([t.strip() for t in striking_texts if t.strip()])
+            if not result_text:
+                # 兜底：模糊查找
+                result_texts = html.xpath("//*[contains(text(), '进货成功') or contains(text(), '进货失败') or contains(text(), '获得')]/text()")
+                result_text = " ".join([t.strip() for t in result_texts if t.strip()])
+            if not result_text:
+                # 兜底：取页面所有文本，找包含"进货"字样的句子
+                all_text = " ".join(html.xpath('//text()'))
+                for line in all_text.split():
+                    if '进货' in line:
+                        result_text = line
+                        break
+            if result_text:
+                logger.info(f"进货结果: {result_text}")
+                return {"success": True, "msg": result_text}
+            else:
+                logger.error("未能解析到进货结果")
+                return {"success": False, "msg": "未能解析到进货结果"}
+        except Exception as e:
+            logger.error(f"进货任务异常: {e}")
+            return {"success": False, "msg": str(e)}
+
+    def __sale_task(self, sale_num: int):
+        """出售任务：自动提交出售表单，跟随重定向并解析出售结果"""
+        try:
+            url = self._site_url + "/customgame.php?action=exchange"
+            headers = {
+                "cookie": self._cookie,
+                "referer": self._site_url,
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0",
+                "content-type": "application/x-www-form-urlencoded",
+                "pragma": "no-cache",
+            }
+            proxies = self._get_proxies()
+
+            # 构造POST参数
+            data = {
+                "option": 6,
+                "saleTurnipNum": str(sale_num),
+                "submit": "出售"
+            }
+
+            # 提交出售请求
+            response = requests.post(url, headers=headers, data=data, proxies=proxies)
+
+            # 提取重定向URL（window.location.href）
+            redirect_url = None
+            pattern = r"window.location.href\s*=\s*['\"]([^'\"]*sale[^'\"]*)['\"]"
+            match = re.search(pattern, response.text, re.DOTALL)
+            if match:
+                redirect_url = match.group(1)
+                logger.info(f"提取到的出售结果重定向 URL: {redirect_url}")
+            else:
+                logger.error("未找到出售结果重定向 URL")
+                return {"success": False, "msg": "未找到出售结果重定向 URL"}
+
+            # 访问重定向URL，获取出售结果页面
+            result_response = requests.get(redirect_url, headers=headers, proxies=proxies)
+            logger.info(f"出售结果页面状态码: {result_response.status_code}")
+
+            # 解析出售结果页面，优先用class=striking的div
+            html = etree.HTML(result_response.text)
+            striking_texts = html.xpath("//div[@class='striking']/text()")
+            result_text = " ".join([t.strip() for t in striking_texts if t.strip()])
+            if not result_text:
+                # 兜底：模糊查找
+                result_texts = html.xpath("//*[contains(text(), '出售成功') or contains(text(), '出售失败') or contains(text(), '获得')]/text()")
+                result_text = " ".join([t.strip() for t in result_texts if t.strip()])
+            if not result_text:
+                # 兜底：取页面所有文本，找包含"出售"字样的句子
+                all_text = " ".join(html.xpath('//text()'))
+                for line in all_text.split():
+                    if '出售' in line:
+                        result_text = line
+                        break
+            if result_text:
+                logger.info(f"出售结果: {result_text}")
+                return {"success": True, "msg": result_text}
+            else:
+                logger.error("未能解析到出售结果")
+                return {"success": False, "msg": "未能解析到出售结果"}
+        except Exception as e:
+            logger.error(f"出售任务异常: {e}")
+            return {"success": False, "msg": str(e)}
+
+    def _battle_task(self):
+        """
+        执行农场任务
+        """
+        try:
+            # 获取农场和蔬菜店信息
+            logger.info("开始获取农场和蔬菜店信息...")
+            farm_info = self.__farm_and_vegetable()
+            
+            # 检查是否成功获取信息
+            if not farm_info:
+                msg = "😵‍💫获取农场信息失败！"
+                logger.error(msg)
+                if self._notify:
+                    self.post_message(
+                        mtype=NotificationType.SiteMessage,
+                        title="【🐘象岛农场】任务失败",
+                        text=f"━━━━━━━━━━━━━━\n"
+                             f"⚠️ 错误提示：\n"
+                             f"😵‍💫 获取农场信息失败！\n\n"
+                             f"━━━━━━━━━━━━━━\n"
+                             f"📊 状态信息：\n"
+                             f"🌿 当前象草余额：{farm_info.get('bonus', '未知')}")
+                # 失败时也要返回结构化响应
+                return {"success": False, "msg": "获取农场信息失败"}
+            # 生成报告
+            logger.info("开始生成报告...")
+            rich_text_report = self.generate_farm_report(farm_info)
+            logger.info(f"报告生成完成：\n{rich_text_report}")
+
+            # 保存历史记录
+            farm_dict = {
+                "date": datetime.today().strftime('%Y-%m-%d %H:%M:%S'),
+                "farm_info": farm_info
+            }
+
+            # 读取历史记录
+            history = self.get_data('sign_dict') or []
+            history.append(farm_dict)
+            # 始终按时间降序排序，确保最新的在前
+            history = sorted(history, key=lambda x: x.get("date") or "", reverse=True)
+            # 只保留最新的N条记录
+            if len(history) > self._history_count:
+                history = history[:self._history_count]
+            self.save_data(key="sign_dict", value=history)
+
+            # 发送通知
+            if self._notify:
+                self.post_message(
+                    mtype=NotificationType.SiteMessage,
+                    title="【🐘象岛农场】任务完成",
+                    text=rich_text_report)
+            # 成功时返回结构化响应
+            return {"success": True, "msg": "任务已执行"}
+        except Exception as e:
+            logger.error(f"执行农场任务时发生异常: {e}")
+            return {"success": False, "msg": f"执行农场任务异常: {e}"}
+
+    def generate_farm_report(self, farm_info: dict) -> str:
+        """生成农场报告"""
+        try:
+            # 获取农场和蔬菜店信息
+            farm = farm_info.get("farm", {})
+            vegetable_shop = farm_info.get("vegetable_shop", {})
+            bonus = farm_info.get("bonus", "未知")
+            
+            # 生成报告
+            report = f"━━━━━━━━━━━━━━\n"
+            report += f"🌿 象草余额：\n"
+            report += f"{bonus}\n\n"
+            
+            report += f"━━━━━━━━━━━━━━\n"
+            report += f"🏡 农场信息：\n"
+            report += f"📝 名称：{farm.get('名称', '未知')}\n"
+            report += f"📊 类型：{farm.get('类型', '未知')}\n"
+            report += f"📈 状态：{farm.get('状态', '未知')}\n"
+            report += f"📦 剩余配货量：{farm.get('剩余配货量', '未知')}kg\n"
+            report += f"📄 说明：{farm.get('说明', '无')}\n\n"
+            
+            report += f"━━━━━━━━━━━━━━\n"
+            report += f"🥬 蔬菜店信息：\n"
+            report += f"📝 名称：{vegetable_shop.get('名称', '未知')}\n"
+            report += f"💰 市场单价：{vegetable_shop.get('市场单价', '未知')}\n"
+            report += f"📦 库存：{vegetable_shop.get('库存', '未知')}\n"
+            report += f"💵 成本：{vegetable_shop.get('成本', '未知')}\n"
+            report += f"📈 开店累计盈利：{vegetable_shop.get('开店累计盈利', '未知')}\n"
+            report += f"🎯 盈利目标：{vegetable_shop.get('盈利目标', '未知')}\n"
+            report += f"📦 可卖数量：{vegetable_shop.get('可卖数量', '未知')}\n"
+            report += f"📄 说明：{vegetable_shop.get('说明', '无')}\n"
+            
+            # 添加时间戳
+            report += f"\n⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            
+            return report
+        except Exception as e:
+            logger.error(f"生成农场报告时发生异常: {e}")
+            return "象岛农场\n生成报告时发生错误，请检查日志以获取更多信息。"
+
+    def _get_proxies(self):
+        """
+        获取代理设置
+        """
+        if not self._use_proxy:
+            logger.info("未启用代理")
+            return None
+            
+        try:
+            # 获取系统代理设置
+            if hasattr(settings, 'PROXY') and settings.PROXY:
+                logger.info(f"使用系统代理: {settings.PROXY}")
+                return settings.PROXY
+            else:
+                logger.warning("系统代理未配置")
+                return None
+        except Exception as e:
+            logger.error(f"获取代理设置出错: {str(e)}")
+            return None
+
+    def get_state(self) -> bool:
+        """获取插件状态"""
+        return bool(self._enabled)
+
+    @staticmethod
+    def get_command() -> List[Dict[str, Any]]:
+        """获取命令"""
+        pass
+
+    def _get_config(self) -> Dict[str, Any]:
+        """API接口: 返回当前插件配置"""
+        return {
+            "enabled": self._enabled,
+            "notify": self._notify,
+            "cookie": self._cookie,
+            "cron": self._cron,
+            "farm_interval": self._farm_interval,
+            "use_proxy": self._use_proxy,
+            "retry_count": self._retry_count,
+            "onlyonce": False  # 始终返回False
+        }
+
+    def _save_config(self, config_payload: dict) -> Dict[str, Any]:
+        """API接口: 保存插件配置。期望一个字典负载。"""
+        logger.info(f"{self.plugin_name}: 收到配置保存请求: {config_payload}")
+        try:
+            # 布尔类型兼容处理
+            def to_bool(val):
+                if isinstance(val, bool):
+                    return val
+                if isinstance(val, str):
+                    return val.lower() == 'true'
+                return bool(val)
+
+            self._enabled = to_bool(config_payload.get('enabled', self._enabled))
+            self._notify = to_bool(config_payload.get('notify', self._notify))
+            self._cookie = config_payload.get('cookie', self._cookie)
+            self._use_proxy = to_bool(config_payload.get('use_proxy', self._use_proxy))
+            self._cron = config_payload.get('cron', self._cron)
+            self._farm_interval = int(config_payload.get('farm_interval', self._farm_interval))
+            self._retry_count = int(config_payload.get('retry_count', self._retry_count))
+            # 忽略onlyonce参数
+
+            # 准备保存的配置
+            config_to_save = {
+                "enabled": self._enabled,
+                "notify": self._notify,
+                "cookie": self._cookie,
+                "cron": self._cron,
+                "farm_interval": self._farm_interval,
+                "use_proxy": self._use_proxy,
+                "retry_count": self._retry_count,
+                "onlyonce": False  # 始终设为False
+            }
+            
+            # 保存配置
+            self.update_config(config_to_save)
+            
+            # 重新初始化插件，直接使用 config_to_save 而不是 get_config()
+            self.stop_service()
+            self.init_plugin(config_to_save)
+            
+            logger.info(f"{self.plugin_name}: 配置已保存并通过 init_plugin 重新初始化。当前内存状态: enabled={self._enabled}")
+            
+            # 返回最终状态
+            return {"message": "配置已成功保存", "saved_config": self._get_config()}
+
+        except Exception as e:
+            logger.error(f"{self.plugin_name}: 保存配置时发生错误: {e}", exc_info=True)
+            # 返回当前内存配置
+            return {"message": f"保存配置失败: {e}", "error": True, "saved_config": self._get_config()}
+
+    def _get_status(self) -> Dict[str, Any]:
+        """API接口: 返回当前插件状态和历史记录。"""
+        last_run = self.get_data('last_run_results') or []
+        history = self.get_data('sign_dict') or []
+        next_run_time = None
+        if self._scheduler and self._scheduler.running:
+            jobs = self._scheduler.get_jobs()
+            if jobs:
+                next_run_time_dt = jobs[0].next_run_time
+                if next_run_time_dt:
+                     # 如果可能，明确指定时区
+                     try:
+                         tz = pytz.timezone(settings.TZ)
+                         localized_time = tz.localize(next_run_time_dt.replace(tzinfo=None)) # 假设为naive，使其aware
+                         next_run_time = localized_time.strftime('%Y-%m-%d %H:%M:%S %Z')
+                     except Exception: # 任何时区问题回退
+                         next_run_time = next_run_time_dt.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    next_run_time = "无计划运行"
+            else:
+                 next_run_time = "无计划任务"
+        else:
+            if not self._enabled: next_run_time = "插件已禁用"
+            else: next_run_time = "调度器未运行"
+
+        return {
+            "enabled": self._enabled,
+            "cron": self._cron,
+            "cookie": self._cookie,
+            "farm_interval": self._farm_interval,
+            "use_proxy": self._use_proxy,
+            "retry_count": self._retry_count,
+            "next_run_time": next_run_time,
+            "last_run_results": last_run,
+            "sign_dict": history
+        }
+
+    # 插件前端渲染模式
+    def get_render_mode(self) -> Tuple[str, Optional[str]]:
+        """返回Vue渲染模式和组件路径"""
+        return "vue", "dist/assets"
+
+    # 注册API接口
+    def get_api(self) -> List[Dict[str, Any]]:
+        """注册插件API"""
+        return [
+            {
+                "path": "/config",
+                "endpoint": self._get_config,
+                "methods": ["GET"],
+                "auth": "bear",
+                "summary": "获取配置"
+            },
+            {
+                "path": "/config",
+                "endpoint": self._save_config,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "保存配置"
+            },
+            {
+                "path": "/status",
+                "endpoint": self._get_status,
+                "methods": ["GET"],
+                "auth": "bear",
+                "summary": "获取状态"
+            },
+            {
+                "path": "/purchase",
+                "endpoint": self.__purchase_task,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "进货"
+            },
+            {
+                "path": "/sale",
+                "endpoint": self.__sale_task,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "出售"
+            },
+            {
+                "path": "/task",
+                "endpoint": self._battle_task,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "执行任务"
+            },
+            {
+                "path": "/cookie",
+                "endpoint": self.__get_cookie,
+                "methods": ["GET"],
+                "auth": "bear",
+                "summary": "使用已配置站点cookie"
+            }
+        ]
+
+    def get_form(self) -> Tuple[Optional[List[dict]], Dict[str, Any]]:
+        """
+        即使使用Vue模式，这个方法也必须实现，否则将导致插件加载失败。
+        Vue模式下，第一个参数返回None，第二个参数返回初始配置数据。
+        """
+        return None, self._get_config()
+
+    def get_page(self) -> List[dict]:
+        """
+        即使使用Vue模式，这个方法也必须实现，否则将导致插件加载失败。
+        Vue模式下，返回一个空列表即可。
+        """
+        return []
+
+    def get_service(self) -> List[Dict[str, Any]]:
+        """
+        注册插件公共服务
+        """
+        service = []
+        if self._enabled and self._cron:
+            service.append({
+                "id": "VicomoFarm",
+                "name": "象岛农场 - 定时任务",
+                "trigger": CronTrigger.from_crontab(self._cron),
+                "func": self._battle_task,
+                "kwargs": {}
+            })
+
+        if service:
+            return service
+
+    def stop_service(self) -> None:
+        """
+        退出插件
+        """
+        try:
+            if self._scheduler:
+                self._scheduler.remove_all_jobs()
+                if self._scheduler.running:
+                    self._scheduler.shutdown()
+                self._scheduler = None
+        except Exception as e:
+            logger.error("退出插件失败：%s" % str(e))
+
+    def __get_cookie(self):
+        try:
+            # 优先使用手动输入的cookie
+            if self._cookie:
+                if str(self._cookie).strip().lower() == "cookie":
+                    return {"success": False, "msg": "请先在站点管理中配置有效的 Cookie！"}
+                return {"success": True, "cookie": self._cookie}
+            # 如果手动输入的cookie为空，则尝试从站点配置获取
+            site = self._siteoper.get_by_domain('ptvicomo.net')
+            if not site:
+                return {"success": False, "msg": "未添加象岛站点！"}
+            cookie = site.cookie
+            if not cookie or str(cookie).strip().lower() == "cookie":
+                return {"success": False, "msg": "站点cookie为空或无效，请在站点管理中配置！"}
+            # 将站点cookie赋值给self._cookie
+            self._cookie = cookie
+            return {"success": True, "cookie": cookie}
+        except Exception as e:
+            logger.error(f"获取站点cookie失败: {str(e)}")
+            return {"success": False, "msg": f"获取站点cookie失败: {str(e)}"}
