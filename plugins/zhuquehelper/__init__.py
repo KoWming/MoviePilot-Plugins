@@ -7,11 +7,13 @@ from typing import Any, List, Dict, Tuple, Optional
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from app.core.config import settings
 from app.plugins import _PluginBase
 from app.log import logger
 from app.scheduler import Scheduler
 from app.schemas import NotificationType
 from app.utils.http import RequestUtils
+from app.db.site_oper import SiteOper
 
 
 class ZhuqueHelper(_PluginBase):
@@ -22,7 +24,7 @@ class ZhuqueHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/zhuquehelper.png"
     # 插件版本
-    plugin_version = "1.3.1"
+    plugin_version = "1.3.2"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -37,6 +39,8 @@ class ZhuqueHelper(_PluginBase):
     # 私有属性
     _enabled: bool = False
     _adjust_time: int = 0
+    _auto_cookie: bool = False
+    _use_proxy: bool = True
 
     # 任务执行间隔
     _cron: Optional[str] = None
@@ -53,6 +57,9 @@ class ZhuqueHelper(_PluginBase):
 
     # 定时器
     _scheduler: Optional[BackgroundScheduler] = None
+    
+    # 站点操作实例
+    _siteoper = None
 
     def init_plugin(self, config: Optional[dict] = None) -> None:
         """
@@ -60,18 +67,28 @@ class ZhuqueHelper(_PluginBase):
         """
         # 停止现有任务
         self.stop_service()
+        
+        # 创建站点操作实例
+        self._siteoper = SiteOper()
 
         if config:
             self._enabled = config.get("enabled", False)
             self._cron = config.get("cron")
-            self._cookie = config.get("cookie")
             self._notify = config.get("notify", False)
             self._onlyonce = config.get("onlyonce", False)
+            self._use_proxy = config.get("use_proxy", True)
             self._history_count = int(config.get("history_count", 10))
             self._level_up = config.get("level_up", False)
             self._skill_release = config.get("skill_release", False)
             self._target_level = int(config.get("target_level", 79))
             self._adjust_time = int(config.get("adjust_time", 60))
+            self._auto_cookie = config.get("auto_cookie", False)
+            
+            # 处理自动获取cookie
+            if self._auto_cookie:
+                self._cookie = self.get_site_cookie()
+            else:
+                self._cookie = config.get("cookie")
 
         if self._onlyonce:
             try:
@@ -82,7 +99,9 @@ class ZhuqueHelper(_PluginBase):
                     "onlyonce": False,
                     "cron": self._cron,
                     "enabled": self._enabled,
+                    "use_proxy": self._use_proxy,
                     "cookie": self._cookie,
+                    "auto_cookie": self._auto_cookie,
                     "notify": self._notify,
                     "history_count": self._history_count,
                     "level_up": self._level_up,
@@ -100,9 +119,11 @@ class ZhuqueHelper(_PluginBase):
         """
         获取用户信息（灵石余额、角色最低等级和技能释放时间）
         """
+        # 获取代理设置
+        proxies = self._get_proxies()
         url = "https://zhuque.in/api/gaming/listGenshinCharacter"
         try:
-            response = RequestUtils(headers=headers).get_res(url=url)
+            response = RequestUtils(headers=headers, proxies=proxies).get_res(url=url)
             response.raise_for_status()
             data = response.json().get('data', {})
             bonus = data.get('bonus', 0) 
@@ -164,8 +185,10 @@ class ZhuqueHelper(_PluginBase):
         """
         执行请求任务
         """
+        # 获取代理设置
+        proxies = self._get_proxies()
         try:
-            res = RequestUtils(cookies=self._cookie).get_res(url="https://zhuque.in/index")
+            res = RequestUtils(cookies=self._cookie, proxies=proxies).get_res(url="https://zhuque.in/index")
             if not res or res.status_code != 200:
                 logger.error("请求首页失败！状态码：%s", res.status_code if res else "无响应")
                 return
@@ -187,7 +210,7 @@ class ZhuqueHelper(_PluginBase):
             }
 
             try:
-                res = RequestUtils(headers=headers).get_res(url="https://zhuque.in/api/user/getMainInfo")
+                res = RequestUtils(headers=headers, proxies=proxies).get_res(url="https://zhuque.in/api/user/getMainInfo")
                 if not res or res.status_code != 200:
                     logger.error("请求用户信息失败！状态码：%s，响应内容：%s", res.status_code if res else "无响应",
                                  res.text if res else "")
@@ -261,7 +284,7 @@ class ZhuqueHelper(_PluginBase):
                 if self._notify:
                     self.post_message(
                         mtype=NotificationType.SiteMessage,
-                        title="【任务执行完成】",
+                        title="【🔥朱雀助手】任务完成：",
                         text=f"{rich_text_report}")
 
                 self.reregister_plugin()
@@ -279,7 +302,30 @@ class ZhuqueHelper(_PluginBase):
         logger.info("重新注册插件")
         Scheduler().update_plugin_job(self.__class__.__name__)
 
+    def _get_proxies(self):
+        """
+        获取代理设置
+        """
+        if not self._use_proxy:
+            logger.info("未启用代理")
+            return None
+            
+        try:
+            # 获取系统代理设置
+            if hasattr(settings, 'PROXY') and settings.PROXY:
+                logger.info(f"使用系统代理: {settings.PROXY}")
+                return settings.PROXY
+            else:
+                logger.warning("系统代理未配置")
+                return None
+        except Exception as e:
+            logger.error(f"获取代理设置出错: {str(e)}")
+            return None
+
     def train_genshin_character(self, level, skill_release, level_up, headers):
+
+        # 获取代理设置
+        proxies = self._get_proxies()
         results = {}
         # 释放技能
         if skill_release:
@@ -289,7 +335,7 @@ class ZhuqueHelper(_PluginBase):
                 "resetModal": True
             }
             try:
-                response = RequestUtils(headers=headers).post_res(url=url, json=data)
+                response = RequestUtils(headers=headers, proxies=proxies).post_res(url=url, json=data)
                 response.raise_for_status()
                 response_data = response.json()
                 bonus = response_data['data']['bonus']
@@ -308,7 +354,7 @@ class ZhuqueHelper(_PluginBase):
                 "level": level,
             }
             try:
-                response = RequestUtils(headers=headers).post_res(url=url, json=data)
+                response = RequestUtils(headers=headers, proxies=proxies).post_res(url=url, json=data)
                 response.raise_for_status()
                 results['level_up'] = {'status': '成功'}
             except requests.exceptions.RequestException as e:
@@ -321,32 +367,102 @@ class ZhuqueHelper(_PluginBase):
     def generate_rich_text_report(self, results: Dict[str, Any], bonus: int, min_level: int) -> str:
         """生成报告"""
         try:
-            report = "🌟 朱雀助手 🌟\n"
-            report += f"技能释放：{'✅ ' if self._skill_release else '❌ '}\n"
-            if 'skill_release' in results:
-                if results['skill_release']['status'] == '成功':
-                    report += f"成功，本次释放获得 {results['skill_release'].get('bonus', 0)} 灵石 💎\n"
-                else:
-                    report += f"失败，{results['skill_release'].get('error', '未知错误')} ❗️\n"
-                if self._min_next_time:
-                    next_time_str = self.convert_timestamp_to_datetime(self._min_next_time)
-                    if next_time_str:
-                        report += f"下次技能释放时间：{next_time_str} ⏰\n"
-            report += f"一键升级：{'✅' if self._level_up else '❌'}\n"
-            if 'level_up' in results:
-                if results['level_up']['status'] == '成功':
-                    if 'error' in results['level_up']:
-                        report += f"升级受限，{results['level_up']['error']} ⚠️\n"
+            # 技能释放状态
+            report = "━" * 14 + "\n\n"
+            report += "🎯 技能释放状态\n"
+            if self._skill_release:
+                if 'skill_release' in results:
+                    if results['skill_release']['status'] == '成功':
+                        report += f"✅ 释放成功\n"
+                        report += f"💎 获得灵石: {results['skill_release'].get('bonus', 0)}\n"
+                        if self._min_next_time:
+                            next_time_str = self.convert_timestamp_to_datetime(self._min_next_time)
+                            if next_time_str:
+                                report += f"⏰ 下次释放时间: {next_time_str}\n"
                     else:
-                        report += f"升级成功 🎉\n"
+                        report += f"❌ 释放失败\n"
+                        report += f"⚠️ 错误信息: {results['skill_release'].get('error', '未知错误')}\n"
                 else:
-                    report += f"失败，{results['level_up'].get('error', '未知错误')} ❗️\n"
-            report += f"当前角色最低等级：{min_level} \n"
-            report += f"当前账户灵石余额：{bonus} 💎\n"
+                    report += "❌ 释放失败\n"
+                    report += "⚠️ 未获取到释放结果\n"
+            else:
+                report += "⏸️ 未开启技能释放\n"
+            report += "\n"
+            
+            # 一键升级状态
+            report += "━" * 14 + "\n\n"
+            report += "📈 一键升级状态\n"
+            if self._level_up:
+                if 'level_up' in results:
+                    if results['level_up']['status'] == '成功':
+                        if 'error' in results['level_up']:
+                            report += f"⚠️ 升级受限\n"
+                            report += f"❌ 错误信息: {results['level_up']['error']}\n"
+                        else:
+                            report += f"✅ 升级成功\n"
+                            report += f"🎯 目标等级: {self._target_level}\n"
+                    else:
+                        report += f"❌ 升级失败\n"
+                        report += f"⚠️ 错误信息: {results['level_up'].get('error', '未知错误')}\n"
+                else:
+                    report += "❌ 升级失败\n"
+                    report += "⚠️ 未获取到升级结果\n"
+            else:
+                report += "⏸️ 未开启一键升级\n"
+            report += f"📊 角色最低等级: {min_level}\n"
+            report += "\n"
+            
+            # 账户信息
+            report += "━" * 14 + "\n\n"
+            report += "💰 账户信息\n"
+            report += f"💎 灵石余额: {bonus}\n"
+            
+            # 执行时间
+            report += "━" * 14 + "\n\n"
+            report += f"🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            
             return report
+            
         except Exception as e:
             logger.error(f"生成报告时发生异常: {e}")
-            return "🌟 朱雀助手 🌟\n生成报告时发生错误，请检查日志以获取更多信息。"
+            return "❌ 生成报告时发生错误，请检查日志以获取更多信息。"
+        
+    def get_site_cookie(self, domain: str = 'zhuque.in') -> str:
+        """
+        获取站点cookie
+        
+        Args:
+            domain: 站点域名,默认为朱雀站点
+            
+        Returns:
+            str: 有效的cookie字符串,如果获取失败则返回空字符串
+        """
+        try:
+            # 优先使用手动配置的cookie
+            if self._cookie:
+                if str(self._cookie).strip().lower() == "cookie":
+                    logger.warning("手动配置的cookie无效")
+                    return ""
+                return self._cookie
+                
+            # 如果手动配置的cookie无效,则从站点配置获取
+            site = self._siteoper.get_by_domain(domain)
+            if not site:
+                logger.warning(f"未找到站点: {domain}")
+                return ""
+                
+            cookie = site.cookie
+            if not cookie or str(cookie).strip().lower() == "cookie":
+                logger.warning(f"站点 {domain} 的cookie无效")
+                return ""
+                
+            # 将获取到的cookie保存到实例变量
+            self._cookie = cookie
+            return cookie
+            
+        except Exception as e:
+            logger.error(f"获取站点cookie失败: {str(e)}")
+            return ""
 
     def get_state(self) -> bool:
         """获取插件状态"""
@@ -399,6 +515,10 @@ class ZhuqueHelper(_PluginBase):
         """
         拼装插件配置页面，需要返回两块数据：1、页面配置；2、数据结构
         """
+        # 动态判断MoviePilot版本，决定定时任务输入框组件类型
+        version = getattr(settings, "VERSION_FLAG", "v1")
+        cron_field_component = "VCronField" if version == "v2" else "VTextField"
+
         return [
             {
                 'component': 'VForm',
@@ -427,7 +547,7 @@ class ZhuqueHelper(_PluginBase):
                                             {
                                                 'component': 'VIcon',
                                                 'props': {
-                                                    'color': 'primary',
+                                                    'style': 'color: #16b1ff;',
                                                     'class': 'mr-3',
                                                     'size': 'default'
                                                 },
@@ -454,7 +574,7 @@ class ZhuqueHelper(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 4
+                                                    'sm': 3
                                                 },
                                                 'content': [
                                                     {
@@ -472,7 +592,25 @@ class ZhuqueHelper(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 4
+                                                    'sm': 3
+                                                },
+                                                'content': [
+                                                    {
+                                                        'component': 'VSwitch',
+                                                        'props': {
+                                                            'model': 'use_proxy',
+                                                            'label': '使用代理',
+                                                            'color': 'primary',
+                                                            'hide-details': True
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VCol',
+                                                'props': {
+                                                    'cols': 12,
+                                                    'sm': 3
                                                 },
                                                 'content': [
                                                     {
@@ -490,7 +628,7 @@ class ZhuqueHelper(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 4
+                                                    'sm': 3
                                                 },
                                                 'content': [
                                                     {
@@ -534,7 +672,7 @@ class ZhuqueHelper(_PluginBase):
                                             {
                                                 'component': 'VIcon',
                                                 'props': {
-                                                    'color': 'primary',
+                                                    'style': 'color: #16b1ff;',
                                                     'class': 'mr-3',
                                                     'size': 'default'
                                                 },
@@ -557,9 +695,27 @@ class ZhuqueHelper(_PluginBase):
                                     {
                                         'component': 'VRow',
                                         'props': {
-                                            'class': 'mb-4'
+                                            'class': 'mb-1'
                                         },
                                         'content': [
+                                            {
+                                                'component': 'VCol',
+                                                'props': {
+                                                    'cols': 12,
+                                                    'sm': 4
+                                                },
+                                                'content': [
+                                                    {
+                                                        'component': 'VSwitch',
+                                                        'props': {
+                                                            'model': 'auto_cookie',
+                                                            'label': '使用站点Cookie',
+                                                            'color': 'primary',
+                                                            'hide-details': True
+                                                        }
+                                                    }
+                                                ]
+                                            },
                                             {
                                                 'component': 'VCol',
                                                 'props': {
@@ -582,55 +738,17 @@ class ZhuqueHelper(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 8
+                                                    'sm': 4
                                                 },
                                                 'content': [
                                                     {
-                                                        'component': 'VRow',
-                                                        'content': [
-                                                            {
-                                                                'component': 'VCol',
-                                                                'props': {
-                                                                    'cols': 6
-                                                                },
-                                                                'content': [
-                                                                    {
-                                                                        'component': 'VTextField',
-                                                                        'props': {
-                                                                            'model': 'adjust_time',
-                                                                            'label': '下次释放微调(秒)',
-                                                                            'variant': 'underlined', 
-                                                                            'color': 'primary',
-                                                                            'hide-details': True,
-                                                                            'class': 'mt-2',
-                                                                            'type': 'number',
-                                                                            'min': 0,
-                                                                            'max': 300,
-                                                                            'hint': '在下次技能释放时间基础上增加的秒数(最大300秒)'
-                                                                        }
-                                                                    }
-                                                                ]
-                                                            },
-                                                            {
-                                                                'component': 'VCol',
-                                                                'props': {
-                                                                    'cols': 6
-                                                                },
-                                                                'content': [
-                                                                    {
-                                                                        'component': 'VTextField',
-                                                                        'props': {
-                                                                            'model': 'target_level',
-                                                                            'label': '角色最高等级',
-                                                                            'variant': 'underlined',
-                                                                            'color': 'primary',
-                                                                            'hide-details': True,
-                                                                            'class': 'mt-2'
-                                                                        }
-                                                                    }
-                                                                ]
-                                                            }
-                                                        ]
+                                                        'component': 'VSwitch',
+                                                        'props': {
+                                                            'model': 'level_up',
+                                                            'label': '一键升级',
+                                                            'color': 'primary',
+                                                            'hide-details': True
+                                                        }
                                                     }
                                                 ]
                                             }
@@ -647,12 +765,13 @@ class ZhuqueHelper(_PluginBase):
                                                 },
                                                 'content': [
                                                     {
-                                                        'component': 'VSwitch',
+                                                        'component': 'VTextField',
                                                         'props': {
-                                                            'model': 'level_up',
-                                                            'label': '一键升级',
+                                                            'model': 'cookie',
+                                                            'label': '站点Cookie',
                                                             'color': 'primary',
-                                                            'hide-details': True
+                                                            'hide-details': True,
+                                                            'disabled': 'auto_cookie'
                                                         }
                                                     }
                                                 ]
@@ -661,61 +780,41 @@ class ZhuqueHelper(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 8
+                                                    'sm': 4
                                                 },
                                                 'content': [
                                                     {
                                                         'component': 'VTextField',
                                                         'props': {
-                                                            'model': 'cookie',
-                                                            'label': '站点Cookie',
-                                                            'variant': 'underlined',
+                                                            'model': 'adjust_time',
+                                                            'label': '下次释放微调(秒)',
                                                             'color': 'primary',
                                                             'hide-details': True,
-                                                            'class': 'mt-2'
+                                                            'type': 'number',
+                                                            'min': 0,
+                                                            'max': 300,
+                                                            'hint': '在下次技能释放时间基础上增加的秒数(最大300秒)'
                                                         }
                                                     }
                                                 ]
-                                            }
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    # 定时设置
-                    {
-                        'component': 'VCard',
-                        'props': {
-                            'variant': 'flat',
-                            'class': 'mb-6',
-                            'color': 'surface'
-                        },
-                        'content': [
-                            {
-                                'component': 'VCardItem',
-                                'props': {
-                                    'class': 'pa-6'
-                                },
-                                'content': [
-                                    {
-                                        'component': 'VCardTitle',
-                                        'props': {
-                                            'class': 'd-flex align-center text-h6'
-                                        },
-                                        'content': [
-                                            {
-                                                'component': 'VIcon',
-                                                'props': {
-                                                    'color': 'primary',
-                                                    'class': 'mr-3',
-                                                    'size': 'default'
-                                                },
-                                                'text': 'mdi-clock-outline'
                                             },
                                             {
-                                                'component': 'span',
-                                                'text': '定时设置'
+                                                'component': 'VCol',
+                                                'props': {
+                                                    'cols': 12,
+                                                    'sm': 4
+                                                },
+                                                'content': [
+                                                    {
+                                                        'component': 'VTextField',
+                                                        'props': {
+                                                            'model': 'target_level',
+                                                            'label': '角色最高等级',
+                                                            'color': 'primary',
+                                                            'hide-details': True
+                                                        }
+                                                    }
+                                                ]
                                             }
                                         ]
                                     }
@@ -738,11 +837,10 @@ class ZhuqueHelper(_PluginBase):
                                                 },
                                                 'content': [
                                                     {
-                                                        'component': 'VTextField',
+                                                        'component': cron_field_component,
                                                         'props': {
                                                             'model': 'cron',
-                                                            'label': '签到周期',
-                                                            'variant': 'underlined',
+                                                            'label': '执行周期(cron)',
                                                             'color': 'primary',
                                                             'hide-details': True,
                                                             'placeholder': '5位cron表达式，默认每天9点执行',
@@ -763,7 +861,6 @@ class ZhuqueHelper(_PluginBase):
                                                         'props': {
                                                             'model': 'history_count',
                                                             'label': '保留历史条数',
-                                                            'variant': 'underlined',
                                                             'color': 'primary',
                                                             'hide-details': True,
                                                             'class': 'mt-2'
@@ -801,7 +898,7 @@ class ZhuqueHelper(_PluginBase):
                                             {
                                                 'component': 'VIcon',
                                                 'props': {
-                                                    'color': 'primary',
+                                                    'style': 'color: #16b1ff;',
                                                     'class': 'mr-3',
                                                     'size': 'default'
                                                 },
@@ -832,25 +929,32 @@ class ZhuqueHelper(_PluginBase):
                                                 'props': {
                                                     'class': 'mb-4'
                                                 },
-                                                'text': '特别鸣谢 Mr.Cai 大佬，插件源码来自于他的脚本。'
+                                                'text': '🙏 特别鸣谢 Mr.Cai 大佬，插件源码来自于他的脚本。'
                                             },
                                             {
                                                 'component': 'div',
                                                 'props': {
                                                     'class': 'mb-4'
                                                 },
-                                                'text': '由于站点角色卡片技能释放时间不统一，导致cron定时器无法准确释放技能。'
+                                                'text': '⚙️ 启用【使用站点Cookie】功能后，插件会自动获取已配置站点的cookie，请确保cookie有效。'
                                             },
                                             {
                                                 'component': 'div',
                                                 'props': {
                                                     'class': 'mb-4'
                                                 },
-                                                'text': '现优化了定时器注册逻辑动态获取角色卡片下次技能释放的最近时间。'
+                                                'text': '⚠️ 由于站点角色卡片技能释放时间不统一，导致cron定时器无法准确释放技能。'
                                             },
                                             {
                                                 'component': 'div',
-                                                'text': '使用获取的技能释放时间注册date定时器，如不开启【技能释放】则还是按照cron定时器执行。'
+                                                'props': {
+                                                    'class': 'mb-4'
+                                                },
+                                                'text': '✨ 现优化了定时器注册逻辑，动态获取角色卡片下次技能释放的最近时间。'
+                                            },
+                                            {
+                                                'component': 'div',
+                                                'text': '📝 使用获取的技能释放时间注册date定时器，如不开启【技能释放】则还是按照cron定时器执行。'
                                             }
                                         ]
                                     }
@@ -863,10 +967,12 @@ class ZhuqueHelper(_PluginBase):
         ], {
             "enabled": False,
             "onlyonce": False,
-            "notify": False,
+            "notify": True,
+            "use_proxy": True,
             "level_up": False,
             "skill_release": False,
             "cookie": "",
+            "auto_cookie": False,
             "history_count": 10,
             "cron": "0 9 * * *",
             "target_level": 79,
