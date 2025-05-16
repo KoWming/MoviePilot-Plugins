@@ -25,7 +25,7 @@ class LuckyHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Lucky_B.png"
     # 插件版本
-    plugin_version = "1.2.2"
+    plugin_version = "1.2.3"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -222,6 +222,10 @@ class LuckyHelper(_PluginBase):
         """
         拼装插件配置页面，需要返回两块数据：1、页面配置；2、数据结构
         """
+        # 动态判断MoviePilot版本，决定定时任务输入框组件类型
+        version = getattr(settings, "VERSION_FLAG", "v1")
+        cron_field_component = "VCronField" if version == "v2" else "VTextField"
+
         return [
             {
                 'component': 'VForm',
@@ -331,7 +335,7 @@ class LuckyHelper(_PluginBase):
                                 },
                                 'content': [
                                     {
-                                        'component': 'VCronField',
+                                        'component': cron_field_component,
                                         'props': {
                                             'model': 'cron',
                                             'label': '备份周期',
