@@ -22,7 +22,7 @@ class CloudflaresSubscribe(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Cloudflare_C.png"
     # 插件版本
-    plugin_version = "1.0.4"
+    plugin_version = "1.0.5"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -42,6 +42,7 @@ class CloudflaresSubscribe(_PluginBase):
     _onlyonce = False    # 是否立即运行一次
     _notify = False      # 是否开启通知
     _url = None          # 订阅地址配置
+    _use_proxy = True   # 是否使用代理
 
     # 定时器
     _scheduler: Optional[BackgroundScheduler] = None
@@ -56,9 +57,10 @@ class CloudflaresSubscribe(_PluginBase):
         # 设置默认值
         self._enabled = False
         self._cron = "0 8 * * *"
-        self._notify = False
+        self._notify = True
         self._onlyonce = False
         self._url = ""
+        self._use_proxy = True
 
         # 从配置中加载设置
         if config:
@@ -67,6 +69,7 @@ class CloudflaresSubscribe(_PluginBase):
             self._notify = config.get("notify", False)
             self._onlyonce = config.get("onlyonce", False)
             self._url = config.get("url", "")
+            self._use_proxy = config.get("use_proxy", True)
 
             # 处理立即运行一次的情况
             if self._onlyonce:
@@ -87,7 +90,8 @@ class CloudflaresSubscribe(_PluginBase):
                     "cron": self._cron,
                     "enabled": self._enabled,
                     "notify": self._notify,
-                    "url": self._url
+                    "url": self._url,
+                    "use_proxy": self._use_proxy
                 })
                 
                 # 启动任务
@@ -159,8 +163,8 @@ class CloudflaresSubscribe(_PluginBase):
                     "Cache-Control": "no-cache"
                 }
                 
-                # 获取系统代理配置
-                proxies = settings.PROXY if hasattr(settings, 'PROXY') else None
+                # 获取代理设置
+                proxies = self._get_proxies()
                 
                 max_retries = 3
                 retry_count = 0
@@ -504,6 +508,25 @@ class CloudflaresSubscribe(_PluginBase):
         
         return subscriptions
 
+    def _get_proxies(self):
+        """
+        获取代理设置
+        """
+        if not self._use_proxy:
+            logger.info("未启用代理")
+            return None
+            
+        try:
+            # 获取系统代理设置
+            if hasattr(settings, 'PROXY') and settings.PROXY:
+                logger.info(f"使用系统代理: {settings.PROXY}")
+                return settings.PROXY
+            else:
+                logger.warning("系统代理未配置")
+                return None
+        except Exception as e:
+            logger.error(f"获取代理设置出错: {str(e)}")
+            return None
 
     def get_state(self) -> bool:
         """
@@ -543,6 +566,10 @@ class CloudflaresSubscribe(_PluginBase):
         """
         拼装插件配置页面，需要返回两块数据：1、页面配置；2、数据结构
         """
+        # 动态判断MoviePilot版本，决定定时任务输入框组件类型
+        version = getattr(settings, "VERSION_FLAG", "v1")
+        cron_field_component = "VCronField" if version == "v2" else "VTextField"
+
         return [
             {
                 'component': 'VForm',
@@ -554,7 +581,7 @@ class CloudflaresSubscribe(_PluginBase):
                                 'component': 'VCol',
                                 'props': {
                                     'cols': 12,
-                                    'md': 4
+                                    'md': 3
                                 },
                                 'content': [
                                     {
@@ -570,7 +597,23 @@ class CloudflaresSubscribe(_PluginBase):
                                 'component': 'VCol',
                                 'props': {
                                     'cols': 12,
-                                    'md': 4
+                                    'md': 3
+                                },
+                                'content': [
+                                    {
+                                        'component': 'VSwitch',
+                                        'props': {
+                                            'model': 'use_proxy',
+                                            'label': '使用代理',
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                'component': 'VCol',
+                                'props': {
+                                    'cols': 12,
+                                    'md': 3
                                 },
                                 'content': [
                                     {
@@ -586,7 +629,7 @@ class CloudflaresSubscribe(_PluginBase):
                                 'component': 'VCol',
                                 'props': {
                                     'cols': 12,
-                                    'md': 4
+                                    'md': 3
                                 },
                                 'content': [
                                     {
@@ -626,10 +669,10 @@ class CloudflaresSubscribe(_PluginBase):
                                 },
                                 'content': [
                                     {
-                                        'component': 'VCronField',
+                                        'component': cron_field_component,
                                         'props': {
                                             'model': 'cron',
-                                            'label': '订阅周期',
+                                            'label': '订阅周期(cron)',
                                             'placeholder': '0 8 * * *',
                                             'hint': '输入5位cron表达式，默认每天8点运行。',
                                             'persistent-hint': True
@@ -654,7 +697,7 @@ class CloudflaresSubscribe(_PluginBase):
                                             'type': 'info',
                                             'variant': 'tonal',
                                             'text': '插件依赖于【自定义Hosts】插件，使用前请先安装并启用该插件。'
-                                                    '如果订阅失败可以尝试使用CDN地址拼接订阅地址。'
+                                                    '如果订阅失败可以尝试使用加速地址拼接订阅地址。'
                                         }
                                     }
                                 ]
@@ -669,6 +712,7 @@ class CloudflaresSubscribe(_PluginBase):
             "onlyonce": self._onlyonce,
             "cron": self._cron,
             "url": self._url,
+            "use_proxy": self._use_proxy
         }
 
     def get_page(self) -> List[dict]:
