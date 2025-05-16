@@ -14,6 +14,7 @@ from app.log import logger
 from app.core.config import settings
 from app.plugins import _PluginBase
 from app.schemas import NotificationType
+from app.db.site_oper import SiteOper
 
 class ContentFilter:
 
@@ -51,7 +52,7 @@ class VicomoVS(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomovs.png"
     # 插件版本
-    plugin_version = "1.2.2"
+    plugin_version = "1.2.3"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -69,17 +70,22 @@ class VicomoVS(_PluginBase):
     _notify: bool = False  # 是否开启通知
     _use_proxy: bool = True  # 是否使用代理，默认启用
     _retry_count: int = 2  # 失败重试次数
-    _cron: Optional[str] = None
-    _cookie: Optional[str] = None
-    _history_count: Optional[int] = None
+    _cron: Optional[str] = None  # 定时任务表达式
+    _cookie: Optional[str] = None  # 手动配置的cookie
+    _auto_cookie: bool = False  # 是否使用站点cookie
+    _history_count: Optional[int] = None  # 历史记录数量
+    _retry_jobs: Dict[str, Any] = {}  # 存储重试任务信息
 
     # 对战参数
-    _vs_boss_count: int = 3
-    _vs_boss_interval: int = 15
-    _vs_site_url: str = "https://ptvicomo.net/"
+    _vs_boss_count: int = 3  # 对战次数
+    _vs_boss_interval: int = 15  # 对战间隔
+    _vs_site_url: str = "https://ptvicomo.net/"  # 对战站点URL
     
     # 定时器
     _scheduler: Optional[BackgroundScheduler] = None
+
+    # 站点操作实例
+    _siteoper = None
 
     def init_plugin(self, config: Optional[dict] = None) -> None:
         """
@@ -87,6 +93,9 @@ class VicomoVS(_PluginBase):
         """
         # 停止现有任务
         self.stop_service()
+
+        # 创建站点操作实例
+        self._siteoper = SiteOper()
 
         if config:
             self._enabled = config.get("enabled", False)
@@ -99,6 +108,13 @@ class VicomoVS(_PluginBase):
             self._vs_boss_interval = int(config.get("vs_boss_interval", 15))
             self._use_proxy = config.get("use_proxy", True)
             self._retry_count = int(config.get("retry_count", 2))
+            self._auto_cookie = config.get("auto_cookie", False)
+
+            # 处理自动获取cookie
+            if self._auto_cookie:
+                self._cookie = self.get_site_cookie()
+            else:
+                self._cookie = config.get("cookie")
             
         if self._onlyonce:
             try:
@@ -119,7 +135,8 @@ class VicomoVS(_PluginBase):
                     "vs_boss_count": self._vs_boss_count,
                     "vs_boss_interval": self._vs_boss_interval,
                     "use_proxy": self._use_proxy,
-                    "retry_count": self._retry_count
+                    "retry_count": self._retry_count,
+                    "auto_cookie": self._auto_cookie
                 })
 
                 # 启动任务
@@ -235,6 +252,7 @@ class VicomoVS(_PluginBase):
             # 开始执行对战
             logger.info("开始执行对战...")
             battle_results = []
+            failed_battles = []  # 记录失败的对战
             
             # 获取可执行的对战次数（不超过剩余次数）
             battles_to_execute = min(char_info["battles_remaining"], self._vs_boss_count)
@@ -260,6 +278,11 @@ class VicomoVS(_PluginBase):
                             time.sleep(2)  # 每次重试间隔2秒
                         else:
                             logger.error(f"第{current_battle}次对战重试已达上限({self._retry_count})，放弃本次对战")
+                            # 记录失败的对战信息
+                            failed_battles.append({
+                                "battle_number": current_battle,
+                                "battle_date": datetime.now().strftime('%Y-%m-%d')
+                            })
                 
                 if battle_result:
                     battle_results.append(battle_result)
@@ -297,6 +320,52 @@ class VicomoVS(_PluginBase):
                     mtype=NotificationType.SiteMessage,
                     title="【象岛传说竞技场】任务完成：",
                     text=f"{rich_text_report}")
+
+            # 处理失败的对战
+            if failed_battles:
+                logger.info(f"有 {len(failed_battles)} 场对战失败，将在2小时后重试")
+                if self._notify:
+                    self.post_message(
+                        mtype=NotificationType.SiteMessage,
+                        title="【象岛传说竞技场】部分对战失败",
+                        text=f"━━━━━━━━━━━━━━\n"
+                             f"⚠️ 失败信息：\n"
+                             f"共有 {len(failed_battles)} 场对战失败\n"
+                             f"将在2小时后自动重试\n\n"
+                             f"━━━━━━━━━━━━━━\n"
+                             f"📊 失败场次：\n"
+                             + "\n".join([f"第 {battle['battle_number']} 场" for battle in failed_battles]) + "\n\n"
+                             f"━━━━━━━━━━━━━━\n"
+                             f"⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+                # 为每个失败的对战创建2小时后的重试任务
+                for failed_battle in failed_battles:
+                    # 生成唯一的任务ID
+                    job_id = f"retry_battle_{failed_battle['battle_number']}_{int(time.time())}"
+                    
+                    # 创建重试任务
+                    if self._scheduler:
+                        self._scheduler.add_job(
+                            func=self._retry_battle_task,
+                            trigger='date',
+                            run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(hours=2),
+                            args=[{
+                                "battle_number": failed_battle["battle_number"],
+                                "battle_date": failed_battle["battle_date"],
+                                "job_id": job_id
+                            }],
+                            id=job_id,
+                            name=f"象岛传说竞技场-重试第{failed_battle['battle_number']}场对战"
+                        )
+                        
+                        # 保存重试任务信息
+                        self._retry_jobs[job_id] = {
+                            "battle_number": failed_battle["battle_number"],
+                            "battle_date": failed_battle["battle_date"],
+                            "create_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        }
+                        
+                        logger.info(f"已创建第 {failed_battle['battle_number']} 场对战的重试任务，将在2小时后执行")
 
         except Exception as e:
             logger.error(f"执行对战任务时发生异常: {e}")
@@ -424,6 +493,43 @@ class VicomoVS(_PluginBase):
                 "battles_remaining": 0
             }
 
+    def get_site_cookie(self, domain: str = 'ptvicomo.net') -> str:
+        """
+        获取站点cookie
+        
+        Args:
+            domain: 站点域名,默认为象岛站点
+            
+        Returns:
+            str: 有效的cookie字符串,如果获取失败则返回空字符串
+        """
+        try:
+            # 优先使用手动配置的cookie
+            if self._cookie:
+                if str(self._cookie).strip().lower() == "cookie":
+                    logger.warning("手动配置的cookie无效")
+                    return ""
+                return self._cookie
+                
+            # 如果手动配置的cookie无效,则从站点配置获取
+            site = self._siteoper.get_by_domain(domain)
+            if not site:
+                logger.warning(f"未找到站点: {domain}")
+                return ""
+                
+            cookie = site.cookie
+            if not cookie or str(cookie).strip().lower() == "cookie":
+                logger.warning(f"站点 {domain} 的cookie无效")
+                return ""
+                
+            # 将获取到的cookie保存到实例变量
+            self._cookie = cookie
+            return cookie
+            
+        except Exception as e:
+            logger.error(f"获取站点cookie失败: {str(e)}")
+            return ""
+
     def _get_proxies(self):
         """
         获取代理设置
@@ -478,6 +584,10 @@ class VicomoVS(_PluginBase):
         """
         拼装插件配置页面，需要返回两块数据：1、页面配置；2、数据结构
         """
+        # 动态判断MoviePilot版本，决定定时任务输入框组件类型
+        version = getattr(settings, "VERSION_FLAG", "v1")
+        cron_field_component = "VCronField" if version == "v2" else "VTextField"
+
         return [
             {
                 'component': 'VForm',
@@ -533,7 +643,7 @@ class VicomoVS(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 3
+                                                    'sm': 4
                                                 },
                                                 'content': [
                                                     {
@@ -551,7 +661,7 @@ class VicomoVS(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 3
+                                                    'sm': 4
                                                 },
                                                 'content': [
                                                     {
@@ -569,25 +679,7 @@ class VicomoVS(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 3
-                                                },
-                                                'content': [
-                                                    {
-                                                        'component': 'VSwitch',
-                                                        'props': {
-                                                            'model': 'use_proxy',
-                                                            'label': '开启代理',
-                                                            'color': 'primary',
-                                                            'hide-details': True
-                                                        }
-                                                    }
-                                                ]
-                                            },
-                                            {
-                                                'component': 'VCol',
-                                                'props': {
-                                                    'cols': 12,
-                                                    'sm': 3
+                                                    'sm': 4
                                                 },
                                                 'content': [
                                                     {
@@ -658,6 +750,47 @@ class VicomoVS(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
+                                                    'sm': 4
+                                                },
+                                                'content': [
+                                                    {
+                                                        'component': 'VSwitch',
+                                                        'props': {
+                                                            'model': 'auto_cookie',
+                                                            'label': '使用站点Cookie',
+                                                            'color': 'primary',
+                                                            'hide-details': True
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VCol',
+                                                'props': {
+                                                    'cols': 12,
+                                                    'sm': 4
+                                                },
+                                                'content': [
+                                                    {
+                                                        'component': 'VSwitch',
+                                                        'props': {
+                                                            'model': 'use_proxy',
+                                                            'label': '使用代理',
+                                                            'color': 'primary',
+                                                            'hide-details': True
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        'component': 'VRow',
+                                        'content': [
+                                            {
+                                                'component': 'VCol',
+                                                'props': {
+                                                    'cols': 12,
                                                     'sm': 6
                                                 },
                                                 'content': [
@@ -670,7 +803,8 @@ class VicomoVS(_PluginBase):
                                                             'color': 'primary',
                                                             'hide-details': True,
                                                             'placeholder': '🐘站点Cookie',
-                                                            'class': 'mt-2'
+                                                            'class': 'mt-2',
+                                                            'disabled': 'auto_cookie'
                                                         }
                                                     }
                                                 ]
@@ -683,7 +817,7 @@ class VicomoVS(_PluginBase):
                                                 },
                                                 'content': [
                                                     {
-                                                        'component': 'VTextField',
+                                                        'component': cron_field_component,
                                                         'props': {
                                                             'model': 'cron',
                                                             'label': '执行周期(cron)',
@@ -863,6 +997,13 @@ class VicomoVS(_PluginBase):
                                                 'props': {
                                                     'class': 'mb-4'
                                                 },
+                                                'text': '⚙️ 启用【使用站点Cookie】功能后，插件会自动获取已配置站点的cookie，请确保cookie有效。'
+                                            },
+                                            {
+                                                'component': 'div',
+                                                'props': {
+                                                    'class': 'mb-4'
+                                                },
                                                 'text': '🎮 每人每天拥有三次参战机会，每场战斗最长持续30回合，击溃敌方全体角色获得胜利。'
                                             },
                                             {
@@ -894,14 +1035,15 @@ class VicomoVS(_PluginBase):
         ], {
             "enabled": False,
             "onlyonce": False,
-            "notify": False,
+            "notify": True,
             "use_proxy": True,
             "cookie": "",
             "history_count": 10,
             "cron": "0 9 * * *",
             "vs_boss_count": 3,
             "vs_boss_interval": 15,
-            "retry_count": 2
+            "retry_count": 2,
+            "auto_cookie": False
         }
 
     def get_page(self) -> List[dict]:
@@ -1210,9 +1352,100 @@ class VicomoVS(_PluginBase):
         """
         try:
             if self._scheduler:
+                # 清理所有重试任务
+                for job_id in list(self._retry_jobs.keys()):
+                    try:
+                        self._scheduler.remove_job(job_id)
+                        del self._retry_jobs[job_id]
+                    except Exception as e:
+                        logger.error(f"清理重试任务 {job_id} 失败: {str(e)}")
+                
+                # 清理其他任务
                 self._scheduler.remove_all_jobs()
                 if self._scheduler.running:
                     self._scheduler.shutdown()
                 self._scheduler = None
         except Exception as e:
             logger.error("退出插件失败：%s" % str(e))
+
+    def _retry_battle_task(self, battle_info: Dict[str, Any]) -> None:
+        """
+        执行重试对战任务
+        
+        Args:
+            battle_info: 对战信息,包含:
+                - battle_number: 对战场次
+                - battle_date: 对战日期
+                - job_id: 任务ID
+        """
+        try:
+            logger.info(f"开始执行第 {battle_info['battle_number']} 场对战的重试任务")
+            
+            # 执行对战
+            battle_result = self.vs_boss()
+            
+            if battle_result:
+                # 更新历史记录
+                history = self.get_data('sign_dict') or []
+                # 找到对应日期的记录
+                for record in history:
+                    if record.get("date", "").startswith(battle_info['battle_date']):
+                        # 更新对战结果
+                        battle_results = record.get("battle_results", [])
+                        if len(battle_results) >= battle_info['battle_number']:
+                            battle_results[battle_info['battle_number'] - 1] = battle_result
+                            record["battle_results"] = battle_results
+                            break
+                
+                # 保存更新后的历史记录
+                self.save_data(key="sign_dict", value=history)
+                
+                # 发送通知
+                if self._notify:
+                    self.post_message(
+                        mtype=NotificationType.SiteMessage,
+                        title="【象岛传说竞技场】重试任务完成",
+                        text=f"━━━━━━━━━━━━━━\n"
+                             f"🎯 重试信息：\n"
+                             f"⚔️ 第 {battle_info['battle_number']} 场对战重试成功\n"
+                             f"📅 对战日期：{battle_info['battle_date']}\n\n"
+                             f"━━━━━━━━━━━━━━\n"
+                             f"📊 对战结果：\n"
+                             f"{battle_result}\n\n"
+                             f"━━━━━━━━━━━━━━\n"
+                             f"⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            else:
+                logger.error(f"第 {battle_info['battle_number']} 场对战重试失败")
+                if self._notify:
+                    self.post_message(
+                        mtype=NotificationType.SiteMessage,
+                        title="【象岛传说竞技场】重试任务失败",
+                        text=f"━━━━━━━━━━━━━━\n"
+                             f"⚠️ 错误提示：\n"
+                             f"第 {battle_info['battle_number']} 场对战重试失败\n"
+                             f"📅 对战日期：{battle_info['battle_date']}\n\n"
+                             f"━━━━━━━━━━━━━━\n"
+                             f"⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # 清理重试任务信息
+            if battle_info['job_id'] in self._retry_jobs:
+                del self._retry_jobs[battle_info['job_id']]
+                
+        except Exception as e:
+            logger.error(f"执行重试对战任务时发生异常: {e}")
+            if self._notify:
+                self.post_message(
+                    mtype=NotificationType.SiteMessage,
+                    title="【象岛传说竞技场】重试任务异常",
+                    text=f"━━━━━━━━━━━━━━\n"
+                         f"⚠️ 错误提示：\n"
+                         f"执行重试对战任务时发生异常\n"
+                         f"📅 对战日期：{battle_info['battle_date']}\n"
+                         f"⚔️ 对战场次：{battle_info['battle_number']}\n"
+                         f"❌ 异常信息：{str(e)}\n\n"
+                         f"━━━━━━━━━━━━━━\n"
+                         f"⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # 清理重试任务信息
+            if battle_info['job_id'] in self._retry_jobs:
+                del self._retry_jobs[battle_info['job_id']]
