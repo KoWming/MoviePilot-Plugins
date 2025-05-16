@@ -21,11 +21,12 @@
     "name": "Lucky助手",
     "description": "定时备份Lucky配置文件",
     "labels": "备份",
-    "version": "1.2.2",
+    "version": "1.2.3",
     "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Lucky_B.png",
     "author": "KoWming",
     "level": 1,
     "history": {
+        "v1.2.3": "新增定时框根据版本动态切换(V2版本使用VCronField组件,V1版本使用VTextField组件)。",
         "v1.2.2": "调整消息类型为插件。",
         "v1.2.1": "优化消息推送结构。",
         "v1.2": "修复备份删除逻辑。",
