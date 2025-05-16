@@ -131,12 +131,13 @@
     "name": "织梦勋章套装奖励",
     "description": "领取勋章套装奖励。",
     "labels": "站点",
-    "version": "1.1",
+    "version": "1.2",
     "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/ZmedalRwd.png",
     "author": "KoWming",
     "level": 2,
     "v2": true,
     "history": {
+        "v1.2": "新增使用代理开关，新增使用站点Cookie开关。",
         "v1.1": "新增勋章系列开关，新增定时框根据版本动态切换(V2版本使用VCronField组件,V1版本使用VTextField组件)。",
         "v1.0": "初始版本。"
     }
