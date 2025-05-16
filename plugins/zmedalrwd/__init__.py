@@ -11,6 +11,7 @@ from app.log import logger
 from app.core.config import settings
 from app.plugins import _PluginBase
 from app.schemas import NotificationType
+from app.db.site_oper import SiteOper
 
 class ZmedalRwd(_PluginBase):
     # 插件名称
@@ -20,7 +21,7 @@ class ZmedalRwd(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/ZmedalRwd.png"
     # 插件版本
-    plugin_version = "1.1"
+    plugin_version = "1.2"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -36,6 +37,8 @@ class ZmedalRwd(_PluginBase):
     _enabled: bool = False
     _onlyonce: bool = False
     _notify: bool = True
+    _use_proxy: bool = True
+    _auto_cookie: bool = False
 
     # 勋章系列开关
     _anni_enabled: bool = False
@@ -51,12 +54,19 @@ class ZmedalRwd(_PluginBase):
     # 定时器
     _scheduler: Optional[BackgroundScheduler] = None
 
+    # 站点操作实例
+    _siteoper = None
+
     def init_plugin(self, config: Optional[dict] = None) -> None:
         """
         初始化插件
         """
         # 停止现有任务
         self.stop_service()
+
+        # 创建站点操作实例
+        self._siteoper = SiteOper()
+
         if config:
             self._enabled = config.get("enabled", False)
             self._cron_month = config.get("cron_month")
@@ -64,9 +74,17 @@ class ZmedalRwd(_PluginBase):
             self._cookie = config.get("cookie")
             self._notify = config.get("notify", True)
             self._onlyonce = config.get("onlyonce", False)
+            self._use_proxy = config.get("use_proxy", True)
             self._anni_enabled = config.get("anni_enabled", False)
             self._terms_enabled = config.get("terms_enabled", False)
             self._plum_enabled = config.get("plum_enabled", False)
+            self._auto_cookie = config.get("auto_cookie", False)
+
+            # 处理自动获取cookie
+            if self._auto_cookie:
+                self._cookie = self.get_site_cookie()
+            else:
+                self._cookie = config.get("cookie")
 
         if self._onlyonce:
             try:
@@ -91,9 +109,11 @@ class ZmedalRwd(_PluginBase):
                     "enabled": self._enabled,
                     "cookie": self._cookie,
                     "notify": self._notify,
+                    "use_proxy": self._use_proxy,
                     "anni_enabled": self._anni_enabled,
                     "terms_enabled": self._terms_enabled,
-                    "plum_enabled": self._plum_enabled
+                    "plum_enabled": self._plum_enabled,
+                    "auto_cookie": self._auto_cookie
                 })
 
                 # 启动任务
@@ -130,6 +150,8 @@ class ZmedalRwd(_PluginBase):
 
         results = []
         
+        # 获取代理设置
+        proxies = self._get_proxies()
         # 根据类型执行对应的奖励领取
         for mtype in ["anni", "terms", "plum"]:
             if medal_type in ["all", mtype]:
@@ -142,7 +164,7 @@ class ZmedalRwd(_PluginBase):
                     continue
                     
                 try:
-                    response = requests.get(medal_urls[mtype], headers=self.headers)
+                    response = requests.get(medal_urls[mtype], headers=self.headers, proxies=proxies)
                     response_data = response.json()
                     
                     if not response_data.get("success", False):
@@ -281,6 +303,63 @@ class ZmedalRwd(_PluginBase):
         except Exception as e:
             logger.error(f"生成报告时发生异常: {str(e)}")
             return "生成报告时发生错误，请检查日志以获取更多信息。"
+        
+    def _get_proxies(self):
+        """
+        获取代理设置
+        """
+        if not self._use_proxy:
+            logger.info("未启用代理")
+            return None
+            
+        try:
+            # 获取系统代理设置
+            if hasattr(settings, 'PROXY') and settings.PROXY:
+                logger.info(f"使用系统代理: {settings.PROXY}")
+                return settings.PROXY
+            else:
+                logger.warning("系统代理未配置")
+                return None
+        except Exception as e:
+            logger.error(f"获取代理设置出错: {str(e)}")
+            return None
+        
+    def get_site_cookie(self, domain: str = 'zmpt.cc') -> str:
+        """
+        获取站点cookie
+        
+        Args:
+            domain: 站点域名,默认为织梦站点
+            
+        Returns:
+            str: 有效的cookie字符串,如果获取失败则返回空字符串
+        """
+        try:
+            # 优先使用手动配置的cookie
+            if self._cookie:
+                if str(self._cookie).strip().lower() == "cookie":
+                    logger.warning("手动配置的cookie无效")
+                    return ""
+                return self._cookie
+                
+            # 如果手动配置的cookie无效,则从站点配置获取
+            site = self._siteoper.get_by_domain(domain)
+            if not site:
+                logger.warning(f"未找到站点: {domain}")
+                return ""
+                
+            cookie = site.cookie
+            if not cookie or str(cookie).strip().lower() == "cookie":
+                logger.warning(f"站点 {domain} 的cookie无效")
+                return ""
+                
+            # 将获取到的cookie保存到实例变量
+            self._cookie = cookie
+            return cookie
+            
+        except Exception as e:
+            logger.error(f"获取站点cookie失败: {str(e)}")
+            return ""
 
     def get_state(self) -> bool:
         """获取插件状态"""
@@ -384,7 +463,7 @@ class ZmedalRwd(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 4
+                                                    'sm': 3
                                                 },
                                                 'content': [
                                                     {
@@ -402,7 +481,25 @@ class ZmedalRwd(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 4
+                                                    'sm': 3
+                                                },
+                                                'content': [
+                                                    {
+                                                        'component': 'VSwitch',
+                                                        'props': {
+                                                            'model': 'use_proxy',
+                                                            'label': '使用代理',
+                                                            'color': 'primary',
+                                                            'hide-details': True
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VCol',
+                                                'props': {
+                                                    'cols': 12,
+                                                    'sm': 3
                                                 },
                                                 'content': [
                                                     {
@@ -420,7 +517,7 @@ class ZmedalRwd(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 4
+                                                    'sm': 3
                                                 },
                                                 'content': [
                                                     {
@@ -491,7 +588,25 @@ class ZmedalRwd(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 4
+                                                    'sm': 3
+                                                },
+                                                'content': [
+                                                    {
+                                                        'component': 'VSwitch',
+                                                        'props': {
+                                                            'model': 'auto_cookie',
+                                                            'label': '使用站点Cookie',
+                                                            'color': 'primary',
+                                                            'hide-details': True
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VCol',
+                                                'props': {
+                                                    'cols': 12,
+                                                    'sm': 3
                                                 },
                                                 'content': [
                                                     {
@@ -509,7 +624,7 @@ class ZmedalRwd(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 4
+                                                    'sm': 3
                                                 },
                                                 'content': [
                                                     {
@@ -527,14 +642,14 @@ class ZmedalRwd(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 4
+                                                    'sm': 3
                                                 },
                                                 'content': [
                                                     {
                                                         'component': 'VSwitch',
                                                         'props': {
                                                             'model': 'plum_enabled',
-                                                            'label': '梅兰竹系列',
+                                                            'label': '梅兰竹菊系列',
                                                             'color': 'primary',
                                                             'hide-details': True
                                                         }
@@ -561,7 +676,8 @@ class ZmedalRwd(_PluginBase):
                                                             'variant': 'outlined',
                                                             'color': 'primary',
                                                             'hide-details': True,
-                                                            'class': 'mt-2'
+                                                            'class': 'mt-2',
+                                                            'disabled': 'auto_cookie'
                                                         }
                                                     }
                                                 ]
@@ -673,6 +789,15 @@ class ZmedalRwd(_PluginBase):
                                                     {
                                                         'component': 'div',
                                                         'class': 'text-subtitle-1 font-weight-bold mb-2',
+                                                        'text': '⚙️ 启用【使用站点Cookie】功能后，插件会自动获取已配置站点的cookie，请确保cookie有效。'
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {'class': 'mb-4'}
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'class': 'text-subtitle-1 font-weight-bold mb-2',
                                                         'text': '🎉 周年庆系列领取规则：'
                                                     },
                                                     {
@@ -760,10 +885,12 @@ class ZmedalRwd(_PluginBase):
             "enabled": False,
             "onlyonce": False,
             "notify": True,
+            "use_proxy": False,
             "anni_enabled": False,
             "terms_enabled": False,
             "plum_enabled": False,
             "cookie": "",
+            "auto_cookie": False,
             "cron_month": "0 0 1 * *",
             "cron_week": "0 0 * * 1",
         }
