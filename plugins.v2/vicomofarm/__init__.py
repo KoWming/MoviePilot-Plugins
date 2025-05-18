@@ -16,6 +16,8 @@ from app.plugins import _PluginBase
 from app.schemas import NotificationType
 from app.db.site_oper import SiteOper
 
+_GLOBAL_SCHEDULER = None
+
 class VicomoFarm(_PluginBase):
     # 插件名称
     plugin_name = "Vue-象岛农场"
@@ -24,7 +26,7 @@ class VicomoFarm(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomofarm.png"
     # 插件版本
-    plugin_version = "1.0"
+    plugin_version = "1.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -59,9 +61,8 @@ class VicomoFarm(_PluginBase):
         """
         初始化插件
         """
-        # 停止现有任务
+        global _GLOBAL_SCHEDULER
         self.stop_service()
-        # 创建站点操作实例
         self._siteoper = SiteOper()
 
         # 更新配置
@@ -78,13 +79,25 @@ class VicomoFarm(_PluginBase):
             
         try:
             if self._enabled:
-                # 创建调度器
-                self._scheduler = BackgroundScheduler(timezone=settings.TZ)
+                # 创建全局调度器
+                _GLOBAL_SCHEDULER = BackgroundScheduler(timezone=settings.TZ)
+                self._scheduler = _GLOBAL_SCHEDULER
+                
+                # 注册所有service任务
+                services = self.get_service() or []
+                for service in services:
+                    _GLOBAL_SCHEDULER.add_job(
+                        func=service["func"],
+                        trigger=service["trigger"],
+                        kwargs=service.get("kwargs", {}),
+                        id=service.get("id", None),
+                        name=service.get("name", None)
+                    )
                 
                 if self._onlyonce:
                     # 立即运行一次
                     logger.info(f"象岛农场服务启动，立即运行一次")
-                    self._scheduler.add_job(func=self._battle_task, trigger='date',
+                    _GLOBAL_SCHEDULER.add_job(func=self._battle_task, trigger='date',
                                           run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
                                           name="象岛农场")
                     # 关闭一次性开关
@@ -102,9 +115,9 @@ class VicomoFarm(_PluginBase):
                     })
                 
                 # 启动调度器
-                if self._scheduler.get_jobs():
-                    self._scheduler.print_jobs()
-                    self._scheduler.start()
+                if _GLOBAL_SCHEDULER.get_jobs():
+                    _GLOBAL_SCHEDULER.print_jobs()
+                    _GLOBAL_SCHEDULER.start()
                     logger.info(f"象岛农场服务启动成功")
                 else:
                     logger.warning(f"象岛农场服务未添加任何任务")
@@ -117,7 +130,7 @@ class VicomoFarm(_PluginBase):
 
     @staticmethod
     def parse_farm_info(title, subtitle):
-        result = {"名称": "", "类型": "", "状态": "", "剩余配货量": "", "说明": ""}
+        result = {"名称": "", "类型": "", "状态": "", "剩余配货量": "", "说明": "", "价格": ""}
         # 从title提取名称和状态
         m = re.search(r'【([^】]+)】', title)
         if m:
@@ -136,26 +149,27 @@ class VicomoFarm(_PluginBase):
                 result["状态"] += f"（{m_time.group(0)}）"
             else:
                 result["状态"] = m_time.group(0)
-        # 剩余配货量
-        m = re.search(r'剩余配货量[：: ]*([\d,]+)kg', subtitle)
+        # 剩余配货量 - 修改正则表达式以匹配输入框提示文本中的格式
+        m = re.search(r'剩余配货量为(\d+)kg', subtitle)
         if m:
-            result["剩余配货量"] = m.group(1).replace(",", "")
+            result["剩余配货量"] = m.group(1)
         # 类型
         m = re.search(r'类型[：: ]*([\u4e00-\u9fa5A-Za-z0-9]+)', subtitle)
         if m:
             result["类型"] = m.group(1)
-        # 说明
-        # 只过滤掉包含"剩余配货量"、"类型"的行，其余全部拼接
-        lines = [line.strip() for line in subtitle.splitlines() if line.strip()]
-        desc_lines = []
-        for line in lines:
-            if not any(key in line for key in ["剩余配货量", "类型"]):
-                desc_lines.append(line)
-        # 如果desc_lines为空但subtitle有内容，直接用subtitle
-        if desc_lines:
-            result["说明"] = " ".join(desc_lines)
-        elif subtitle.strip():
-            result["说明"] = subtitle.strip()
+        # 价格
+        m = re.search(r'价格是([\d.]+)', subtitle)
+        if m:
+            result["价格"] = m.group(1)
+        # 说明 - 提取并拼接说明文本
+        # 第一行：只提取"农作物已成熟"
+        first_line = re.search(r'农作物已成熟', subtitle)
+        # 第二行：提取"保质期至下周六晚24:00，要马上进货吗？"
+        second_line = re.search(r'保质期至下周六晚24:00，要马上进货吗？', subtitle)
+        
+        if first_line and second_line:
+            # 拼接两行文本，避免重复
+            result["说明"] = f"{first_line.group(0)}，{second_line.group(0)}"
         else:
             result["说明"] = "无"
         return result
@@ -179,6 +193,15 @@ class VicomoFarm(_PluginBase):
             m4 = re.search(r'成本[：: ]*([\d.]+)', name_block)
             if m4:
                 result["成本"] = m4.group(1)
+        # 新结构兼容：直接从title整体文本提取库存和成本（如"香辣象青椒丝库存：1 成本：2087.0"）
+        if not result["库存"]:
+            m = re.search(r'库存[：: ]*([\d]+)', title)
+            if m:
+                result["库存"] = m.group(1)
+        if not result["成本"]:
+            m = re.search(r'成本[：: ]*([\d.]+)', title)
+            if m:
+                result["成本"] = m.group(1)
         # 开店累计盈利
         m = re.search(r'开店累计盈利[：: ]*([\-\d.]+)', full_text)
         if m:
@@ -236,24 +259,21 @@ class VicomoFarm(_PluginBase):
                 if farm_td:
                     farm_h1 = farm_td[0].xpath('.//h1')[0] if farm_td[0].xpath('.//h1') else None
                     farm_title = farm_h1.xpath('string(.)').strip() if farm_h1 is not None else ""
-                    # 优化subtitle提取逻辑：h1.tail为空则查找下一个兄弟节点的文本
+                    
+                    # 获取所有文本内容，包括输入框的提示文本
                     farm_subtitle = ""
                     if farm_h1 is not None:
-                        if farm_h1.tail and farm_h1.tail.strip():
-                            farm_subtitle = farm_h1.tail.strip()
-                        else:
-                            # 查找下一个兄弟节点的文本
-                            next_node = farm_h1.getnext()
-                            while next_node is not None:
-                                text = next_node.text or ''
-                                if text.strip():
-                                    farm_subtitle = text.strip()
-                                    break
-                                # 也查tail（如<br>标签的tail）
-                                if next_node.tail and next_node.tail.strip():
-                                    farm_subtitle = next_node.tail.strip()
-                                    break
-                                next_node = next_node.getnext()
+                        # 获取h1后的所有文本节点
+                        all_texts = []
+                        current = farm_h1
+                        while current is not None:
+                            if current.tail and current.tail.strip():
+                                all_texts.append(current.tail.strip())
+                            if current.text and current.text.strip():
+                                all_texts.append(current.text.strip())
+                            current = current.getnext()
+                        farm_subtitle = " ".join(all_texts)
+                    
                     result["farm"] = self.parse_section_info(farm_title, farm_subtitle)
                 else:
                     result["farm"] = {"名称": "", "类型": "", "状态": "", "剩余配货量": "", "说明": ""}
@@ -517,6 +537,7 @@ class VicomoFarm(_PluginBase):
             report += f"📝 名称：{farm.get('名称', '未知')}\n"
             report += f"📊 类型：{farm.get('类型', '未知')}\n"
             report += f"📈 状态：{farm.get('状态', '未知')}\n"
+            report += f"💰 价格：{farm.get('价格', '未知')}\n"
             report += f"📦 剩余配货量：{farm.get('剩余配货量', '未知')}kg\n"
             report += f"📄 说明：{farm.get('说明', '无')}\n\n"
             
@@ -633,20 +654,21 @@ class VicomoFarm(_PluginBase):
 
     def _get_status(self) -> Dict[str, Any]:
         """API接口: 返回当前插件状态和历史记录。"""
+        global _GLOBAL_SCHEDULER
+        scheduler = _GLOBAL_SCHEDULER or self._scheduler
         last_run = self.get_data('last_run_results') or []
         history = self.get_data('sign_dict') or []
         next_run_time = None
-        if self._scheduler and self._scheduler.running:
-            jobs = self._scheduler.get_jobs()
+        if scheduler and getattr(scheduler, 'running', False):
+            jobs = scheduler.get_jobs()
             if jobs:
                 next_run_time_dt = jobs[0].next_run_time
                 if next_run_time_dt:
-                     # 如果可能，明确指定时区
                      try:
                          tz = pytz.timezone(settings.TZ)
-                         localized_time = tz.localize(next_run_time_dt.replace(tzinfo=None)) # 假设为naive，使其aware
+                         localized_time = tz.localize(next_run_time_dt.replace(tzinfo=None))
                          next_run_time = localized_time.strftime('%Y-%m-%d %H:%M:%S %Z')
-                     except Exception: # 任何时区问题回退
+                     except Exception:
                          next_run_time = next_run_time_dt.strftime('%Y-%m-%d %H:%M:%S')
                 else:
                     next_run_time = "无计划运行"
@@ -763,12 +785,14 @@ class VicomoFarm(_PluginBase):
         """
         退出插件
         """
+        global _GLOBAL_SCHEDULER
         try:
-            if self._scheduler:
-                self._scheduler.remove_all_jobs()
-                if self._scheduler.running:
-                    self._scheduler.shutdown()
-                self._scheduler = None
+            if _GLOBAL_SCHEDULER:
+                _GLOBAL_SCHEDULER.remove_all_jobs()
+                if _GLOBAL_SCHEDULER.running:
+                    _GLOBAL_SCHEDULER.shutdown()
+                _GLOBAL_SCHEDULER = None
+            self._scheduler = None
         except Exception as e:
             logger.error("退出插件失败：%s" % str(e))
 
