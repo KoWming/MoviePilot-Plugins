@@ -1,9 +1,9 @@
 import { importShared } from './__federation_fn_import-054b33c3.js';
 import { _ as _export_sfc } from './_plugin-vue_export-helper-c4c0bc37.js';
 
-const Page_vue_vue_type_style_index_0_scoped_5bfbfe5d_lang = '';
+const Page_vue_vue_type_style_index_0_scoped_9391049e_lang = '';
 
-const {resolveComponent:_resolveComponent,createVNode:_createVNode,createElementVNode:_createElementVNode,createTextVNode:_createTextVNode,withCtx:_withCtx,toDisplayString:_toDisplayString,openBlock:_openBlock,createBlock:_createBlock,createCommentVNode:_createCommentVNode,Fragment:_Fragment,createElementBlock:_createElementBlock,mergeProps:_mergeProps,renderList:_renderList} = await importShared('vue');
+const {resolveComponent:_resolveComponent,createVNode:_createVNode,createElementVNode:_createElementVNode,createTextVNode:_createTextVNode,withCtx:_withCtx,toDisplayString:_toDisplayString,openBlock:_openBlock,createBlock:_createBlock,createCommentVNode:_createCommentVNode,Fragment:_Fragment,createElementBlock:_createElementBlock,mergeProps:_mergeProps,renderList:_renderList,normalizeClass:_normalizeClass} = await importShared('vue');
 
 
 const _hoisted_1 = { class: "plugin-page" };
@@ -28,19 +28,19 @@ const _hoisted_19 = { class: "text-subtitle-2" };
 const _hoisted_20 = { class: "text-subtitle-2" };
 const _hoisted_21 = { class: "text-subtitle-2" };
 const _hoisted_22 = { class: "text-subtitle-2" };
-const _hoisted_23 = { style: {"margin-bottom":"12px"} };
-const _hoisted_24 = { style: {"margin-bottom":"12px"} };
-const _hoisted_25 = { style: {"margin-bottom":"12px"} };
+const _hoisted_23 = { class: "font-weight-bold text-body-1" };
+const _hoisted_24 = { class: "font-weight-bold text-body-1" };
+const _hoisted_25 = { style: {"margin-bottom":"12px","display":"flex","align-items":"center"} };
 const _hoisted_26 = {
   key: 0,
   style: {"margin-bottom":"12px"}
 };
-const _hoisted_27 = { style: {"margin-bottom":"12px"} };
-const _hoisted_28 = { style: {"margin-bottom":"12px"} };
-const _hoisted_29 = { style: {"margin-bottom":"12px"} };
+const _hoisted_27 = { class: "font-weight-bold text-body-1" };
+const _hoisted_28 = { class: "font-weight-bold text-body-1" };
+const _hoisted_29 = { class: "font-weight-bold text-body-1" };
 const _hoisted_30 = {
-  key: 0,
-  style: {"margin-bottom":"12px"}
+  style: {"color":"#43a047"},
+  class: "font-weight-bold text-body-1"
 };
 
 const {ref,reactive,onMounted,computed} = await importShared('vue');
@@ -284,18 +284,46 @@ function calculateMaxPurchase() {
   return Math.floor(bonus / price);
 }
 
-// 计算最大可出售数量
-function calculateMaxSale() {
-  if (!latestFarmInfo.value.bonus || !latestFarmInfo.value.farm.价格) {
+// 添加新的计算函数用于出售
+function calculateMaxSaleAmount() {
+  if (!latestFarmInfo.value.vegetable_shop.可卖数量) {
     return 0;
   }
-  // 去除千分位逗号
-  const bonus = parseFloat(String(latestFarmInfo.value.bonus).replace(/,/g, ''));
-  const price = parseFloat(String(latestFarmInfo.value.farm.价格).replace(/,/g, ''));
-  if (isNaN(bonus) || isNaN(price) || price === 0) {
-    return 0;
+  return Number(latestFarmInfo.value.vegetable_shop.可卖数量);
+}
+
+// 计算出售可获得的象草
+function calculateSaleBonus() {
+  if (!saleAmount.value || !latestFarmInfo.value.vegetable_shop.市场单价) {
+    return '0';
   }
-  return Math.floor(bonus / price);
+  const maxAmount = calculateMaxSaleAmount();
+  let amount = Number(saleAmount.value);
+  if (isNaN(amount) || amount <= 0) return '0';
+  amount = Math.min(amount, maxAmount);
+  const price = Number(String(latestFarmInfo.value.vegetable_shop.市场单价).replace(/,/g, ''));
+  if (isNaN(price)) {
+    return '0';
+  }
+  return (amount * price).toLocaleString();
+}
+
+// 计算盈亏
+function calculateProfit() {
+  if (!saleAmount.value || !latestFarmInfo.value.vegetable_shop.市场单价 || !latestFarmInfo.value.vegetable_shop.成本) {
+    return '0';
+  }
+  const maxAmount = calculateMaxSaleAmount();
+  let amount = Number(saleAmount.value);
+  if (isNaN(amount) || amount <= 0) return '0';
+  amount = Math.min(amount, maxAmount);
+  const price = Number(String(latestFarmInfo.value.vegetable_shop.市场单价).replace(/,/g, ''));
+  const cost = Number(String(latestFarmInfo.value.vegetable_shop.成本).replace(/,/g, ''));
+  if (isNaN(price) || isNaN(cost)) {
+    return '0';
+  }
+  const profit = amount * (price - cost);
+  return profit.toLocaleString();
 }
 
 onMounted(() => {
@@ -1079,7 +1107,7 @@ return (_ctx, _cache) => {
         _cache[6] || (_cache[6] = $event => ((purchaseDialog).value = $event)),
         _cache[7] || (_cache[7] = val => { if (!val) { purchaseSuccess.value.value = ''; purchaseError.value.value = ''; purchaseAmount.value.value = ''; } })
       ],
-      "max-width": "340"
+      "max-width": "360"
     }, {
       default: _withCtx(() => [
         _createVNode(_component_v_card, null, {
@@ -1090,26 +1118,98 @@ return (_ctx, _cache) => {
               ])),
               _: 1
             }),
+            _createVNode(_component_v_divider),
             _createVNode(_component_v_card_text, null, {
               default: _withCtx(() => [
-                _createElementVNode("div", _hoisted_23, [
-                  _cache[50] || (_cache[50] = _createTextVNode(" 当前剩余配货量： ")),
-                  _createElementVNode("b", null, _toDisplayString(latestFarmInfo.value.farm.剩余配货量 || '未知'), 1),
-                  _cache[51] || (_cache[51] = _createTextVNode(" kg "))
-                ]),
-                _createElementVNode("div", _hoisted_24, [
-                  _cache[52] || (_cache[52] = _createTextVNode(" 当前象草余额： ")),
-                  _createElementVNode("b", null, _toDisplayString(latestFarmInfo.value.bonus || '未知'), 1)
-                ]),
+                _createVNode(_component_v_row, {
+                  class: "mb-2",
+                  dense: ""
+                }, {
+                  default: _withCtx(() => [
+                    _createVNode(_component_v_col, {
+                      cols: "12",
+                      sm: "6"
+                    }, {
+                      default: _withCtx(() => [
+                        _createVNode(_component_v_sheet, {
+                          class: "pa-2 text-center",
+                          color: "grey-lighten-4",
+                          rounded: ""
+                        }, {
+                          default: _withCtx(() => [
+                            _createVNode(_component_v_icon, {
+                              size: "18",
+                              color: "primary",
+                              class: "mb-1"
+                            }, {
+                              default: _withCtx(() => _cache[50] || (_cache[50] = [
+                                _createTextVNode("mdi-package-variant")
+                              ])),
+                              _: 1
+                            }),
+                            _cache[52] || (_cache[52] = _createElementVNode("div", { class: "caption" }, "剩余配货量", -1)),
+                            _createElementVNode("div", _hoisted_23, [
+                              _createTextVNode(_toDisplayString(latestFarmInfo.value.farm.剩余配货量 || '未知'), 1),
+                              _cache[51] || (_cache[51] = _createElementVNode("span", { class: "text-caption" }, " kg", -1))
+                            ])
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }),
+                    _createVNode(_component_v_col, {
+                      cols: "12",
+                      sm: "6"
+                    }, {
+                      default: _withCtx(() => [
+                        _createVNode(_component_v_sheet, {
+                          class: "pa-2 text-center",
+                          color: "grey-lighten-4",
+                          rounded: ""
+                        }, {
+                          default: _withCtx(() => [
+                            _createVNode(_component_v_icon, {
+                              size: "18",
+                              color: "success",
+                              class: "mb-1"
+                            }, {
+                              default: _withCtx(() => _cache[53] || (_cache[53] = [
+                                _createTextVNode("mdi-currency-cny")
+                              ])),
+                              _: 1
+                            }),
+                            _cache[54] || (_cache[54] = _createElementVNode("div", { class: "caption" }, "商品单价", -1)),
+                            _createElementVNode("div", _hoisted_24, _toDisplayString(latestFarmInfo.value.farm.价格 || '未知'), 1)
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    })
+                  ]),
+                  _: 1
+                }),
+                _createVNode(_component_v_divider, { class: "my-2" }),
                 _createElementVNode("div", _hoisted_25, [
-                  _cache[53] || (_cache[53] = _createTextVNode(" 商品单价： ")),
-                  _createElementVNode("b", null, _toDisplayString(latestFarmInfo.value.farm.价格 || '未知'), 1)
+                  _cache[56] || (_cache[56] = _createElementVNode("span", null, "当前象草余额：", -1)),
+                  _createVNode(_component_v_icon, {
+                    size: "18",
+                    color: "success",
+                    class: "mx-1"
+                  }, {
+                    default: _withCtx(() => _cache[55] || (_cache[55] = [
+                      _createTextVNode("mdi-grass")
+                    ])),
+                    _: 1
+                  }),
+                  _createElementVNode("b", null, _toDisplayString(latestFarmInfo.value.bonus || '未知'), 1)
                 ]),
                 (latestFarmInfo.value.bonus && latestFarmInfo.value.farm.价格)
                   ? (_openBlock(), _createElementBlock("div", _hoisted_26, [
-                      _cache[54] || (_cache[54] = _createTextVNode(" 目前最多可进货： ")),
+                      _cache[57] || (_cache[57] = _createTextVNode(" 目前最多可进货： ")),
                       _createElementVNode("b", null, _toDisplayString(calculateMaxPurchase()), 1),
-                      _cache[55] || (_cache[55] = _createTextVNode(" kg "))
+                      _cache[58] || (_cache[58] = _createTextVNode(" kg "))
                     ]))
                   : _createCommentVNode("", true),
                 _createVNode(_component_v_text_field, {
@@ -1128,7 +1228,7 @@ return (_ctx, _cache) => {
                   max: Math.min(Number(latestFarmInfo.value.farm.剩余配货量), calculateMaxPurchase()),
                   required: "",
                   "hide-details": "auto",
-                  style: {"margin-bottom":"0"}
+                  class: "mb-2"
                 }, null, 8, ["modelValue", "rules", "max"]),
                 (purchaseError.value)
                   ? (_openBlock(), _createBlock(_component_v_alert, {
@@ -1159,26 +1259,36 @@ return (_ctx, _cache) => {
               ]),
               _: 1
             }),
-            _createVNode(_component_v_card_actions, { class: "justify-end" }, {
+            _createVNode(_component_v_divider),
+            _createVNode(_component_v_card_actions, {
+              class: "d-flex justify-center align-center pt-4 pb-4",
+              style: {"margin-bottom":"3px"}
+            }, {
               default: _withCtx(() => [
                 _createVNode(_component_v_btn, {
-                  color: "primary",
+                  style: 'background:#d1b3ff!important;color:#fff!important;border:none;height:35px;min-height:35px;line-height:35px;',
+                  variant: "flat",
                   loading: purchaseLoading.value,
                   onClick: handlePurchase,
-                  class: "mr-2"
+                  class: "sale-btn mr-2",
+                  rounded: "lg",
+                  "min-width": "96"
                 }, {
-                  default: _withCtx(() => _cache[56] || (_cache[56] = [
-                    _createTextVNode("确定进货")
+                  default: _withCtx(() => _cache[59] || (_cache[59] = [
+                    _createTextVNode(" 确定进货 ")
                   ])),
                   _: 1
                 }, 8, ["loading"]),
                 _createVNode(_component_v_btn, {
-                  color: "grey",
-                  text: "",
-                  onClick: _cache[5] || (_cache[5] = $event => (purchaseDialog.value = false))
+                  style: 'background:#f5f5f5!important;color:#888!important;border:none;height:35px;min-height:35px;line-height:35px;',
+                  variant: "flat",
+                  onClick: _cache[5] || (_cache[5] = $event => (purchaseDialog.value = false)),
+                  class: "sale-btn",
+                  rounded: "lg",
+                  "min-width": "96"
                 }, {
-                  default: _withCtx(() => _cache[57] || (_cache[57] = [
-                    _createTextVNode("取消")
+                  default: _withCtx(() => _cache[60] || (_cache[60] = [
+                    _createTextVNode(" 取消 ")
                   ])),
                   _: 1
                 })
@@ -1197,39 +1307,122 @@ return (_ctx, _cache) => {
         _cache[10] || (_cache[10] = $event => ((saleDialog).value = $event)),
         _cache[11] || (_cache[11] = val => { if (!val) { saleSuccess.value.value = ''; saleError.value.value = ''; saleAmount.value.value = ''; } })
       ],
-      "max-width": "340"
+      "max-width": "360"
     }, {
       default: _withCtx(() => [
         _createVNode(_component_v_card, null, {
           default: _withCtx(() => [
             _createVNode(_component_v_card_title, { class: "text-subtitle-2" }, {
-              default: _withCtx(() => _cache[58] || (_cache[58] = [
+              default: _withCtx(() => _cache[61] || (_cache[61] = [
                 _createTextVNode("确认出售")
               ])),
               _: 1
             }),
+            _createVNode(_component_v_divider),
             _createVNode(_component_v_card_text, null, {
               default: _withCtx(() => [
-                _createElementVNode("div", _hoisted_27, [
-                  _cache[59] || (_cache[59] = _createTextVNode(" 当前剩余配货量： ")),
-                  _createElementVNode("b", null, _toDisplayString(latestFarmInfo.value.farm.剩余配货量 || '未知'), 1),
-                  _cache[60] || (_cache[60] = _createTextVNode(" kg "))
-                ]),
-                _createElementVNode("div", _hoisted_28, [
-                  _cache[61] || (_cache[61] = _createTextVNode(" 当前象草余额： ")),
-                  _createElementVNode("b", null, _toDisplayString(latestFarmInfo.value.bonus || '未知'), 1)
-                ]),
-                _createElementVNode("div", _hoisted_29, [
-                  _cache[62] || (_cache[62] = _createTextVNode(" 商品单价： ")),
-                  _createElementVNode("b", null, _toDisplayString(latestFarmInfo.value.farm.价格 || '未知'), 1)
-                ]),
-                (latestFarmInfo.value.bonus && latestFarmInfo.value.farm.价格)
-                  ? (_openBlock(), _createElementBlock("div", _hoisted_30, [
-                      _cache[63] || (_cache[63] = _createTextVNode(" 目前最多可出售： ")),
-                      _createElementVNode("b", null, _toDisplayString(calculateMaxSale()), 1),
-                      _cache[64] || (_cache[64] = _createTextVNode(" kg "))
-                    ]))
-                  : _createCommentVNode("", true),
+                _createVNode(_component_v_row, {
+                  class: "mb-2",
+                  dense: ""
+                }, {
+                  default: _withCtx(() => [
+                    _createVNode(_component_v_col, {
+                      cols: "12",
+                      sm: "4"
+                    }, {
+                      default: _withCtx(() => [
+                        _createVNode(_component_v_sheet, {
+                          class: "pa-2 text-center",
+                          color: "grey-lighten-4",
+                          rounded: ""
+                        }, {
+                          default: _withCtx(() => [
+                            _createVNode(_component_v_icon, {
+                              size: "18",
+                              color: "success",
+                              class: "mb-1"
+                            }, {
+                              default: _withCtx(() => _cache[62] || (_cache[62] = [
+                                _createTextVNode("mdi-warehouse")
+                              ])),
+                              _: 1
+                            }),
+                            _cache[64] || (_cache[64] = _createElementVNode("div", { class: "caption" }, "当前库存", -1)),
+                            _createElementVNode("div", _hoisted_27, [
+                              _createTextVNode(_toDisplayString(latestFarmInfo.value.vegetable_shop.库存 || '未知'), 1),
+                              _cache[63] || (_cache[63] = _createElementVNode("span", { class: "text-caption" }, " kg", -1))
+                            ])
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }),
+                    _createVNode(_component_v_col, {
+                      cols: "12",
+                      sm: "4"
+                    }, {
+                      default: _withCtx(() => [
+                        _createVNode(_component_v_sheet, {
+                          class: "pa-2 text-center",
+                          color: "grey-lighten-4",
+                          rounded: ""
+                        }, {
+                          default: _withCtx(() => [
+                            _createVNode(_component_v_icon, {
+                              size: "18",
+                              color: "info",
+                              class: "mb-1"
+                            }, {
+                              default: _withCtx(() => _cache[65] || (_cache[65] = [
+                                _createTextVNode("mdi-currency-cny")
+                              ])),
+                              _: 1
+                            }),
+                            _cache[66] || (_cache[66] = _createElementVNode("div", { class: "caption" }, "市场单价", -1)),
+                            _createElementVNode("div", _hoisted_28, _toDisplayString(latestFarmInfo.value.vegetable_shop.市场单价 || '未知'), 1)
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }),
+                    _createVNode(_component_v_col, {
+                      cols: "12",
+                      sm: "4"
+                    }, {
+                      default: _withCtx(() => [
+                        _createVNode(_component_v_sheet, {
+                          class: "pa-2 text-center",
+                          color: "grey-lighten-4",
+                          rounded: ""
+                        }, {
+                          default: _withCtx(() => [
+                            _createVNode(_component_v_icon, {
+                              size: "18",
+                              color: "primary",
+                              class: "mb-1"
+                            }, {
+                              default: _withCtx(() => _cache[67] || (_cache[67] = [
+                                _createTextVNode("mdi-numeric")
+                              ])),
+                              _: 1
+                            }),
+                            _cache[69] || (_cache[69] = _createElementVNode("div", { class: "caption" }, "最多可出售", -1)),
+                            _createElementVNode("div", _hoisted_29, [
+                              _createTextVNode(_toDisplayString(calculateMaxSaleAmount()), 1),
+                              _cache[68] || (_cache[68] = _createElementVNode("span", { class: "text-caption" }, " kg", -1))
+                            ])
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    })
+                  ]),
+                  _: 1
+                }),
+                _createVNode(_component_v_divider, { class: "my-2" }),
                 _createVNode(_component_v_text_field, {
                   modelValue: saleAmount.value,
                   "onUpdate:modelValue": _cache[8] || (_cache[8] = $event => ((saleAmount).value = $event)),
@@ -1239,18 +1432,89 @@ return (_ctx, _cache) => {
                   rules: [
               v => !!v || '请输入出售数量',
               v => Number(v) > 0 || '数量需大于0',
-              v => Number(v) <= Number(latestFarmInfo.value.farm.剩余配货量) || '不能超过剩余配货量',
-              v => Number(v) <= calculateMaxSale() || '不能超过可出售数量'
+              v => Number(v) <= Number(latestFarmInfo.value.vegetable_shop.可卖数量) || '不能超过可卖数量',
+              v => Number(v) <= calculateMaxSaleAmount() || '不能超过可出售数量'
             ],
                   min: "1",
-                  max: Math.min(Number(latestFarmInfo.value.farm.剩余配货量), calculateMaxSale()),
+                  max: Math.min(Number(latestFarmInfo.value.vegetable_shop.可卖数量), calculateMaxSaleAmount()),
                   required: "",
                   "hide-details": "auto",
-                  style: {"margin-bottom":"0"}
+                  class: "mb-2"
                 }, null, 8, ["modelValue", "rules", "max"]),
+                _createVNode(_component_v_row, { dense: "" }, {
+                  default: _withCtx(() => [
+                    _createVNode(_component_v_col, {
+                      cols: "12",
+                      sm: "6"
+                    }, {
+                      default: _withCtx(() => [
+                        (saleAmount.value && Number(saleAmount.value) > 0)
+                          ? (_openBlock(), _createBlock(_component_v_sheet, {
+                              key: 0,
+                              class: "pa-2 text-center",
+                              color: "blue-lighten-5",
+                              rounded: ""
+                            }, {
+                              default: _withCtx(() => [
+                                _createVNode(_component_v_icon, {
+                                  size: "22",
+                                  color: "success",
+                                  class: "mb-1"
+                                }, {
+                                  default: _withCtx(() => _cache[70] || (_cache[70] = [
+                                    _createTextVNode("mdi-grass")
+                                  ])),
+                                  _: 1
+                                }),
+                                _cache[71] || (_cache[71] = _createElementVNode("div", { class: "caption mb-1" }, "可获得象草", -1)),
+                                _createElementVNode("div", _hoisted_30, _toDisplayString(calculateSaleBonus()), 1)
+                              ]),
+                              _: 1
+                            }))
+                          : _createCommentVNode("", true)
+                      ]),
+                      _: 1
+                    }),
+                    _createVNode(_component_v_col, {
+                      cols: "12",
+                      sm: "6"
+                    }, {
+                      default: _withCtx(() => [
+                        (saleAmount.value && Number(saleAmount.value) > 0)
+                          ? (_openBlock(), _createBlock(_component_v_sheet, {
+                              key: 0,
+                              class: "pa-2 text-center",
+                              color: calculateProfit() >= 0 ? 'green-lighten-5' : 'red-lighten-5',
+                              rounded: ""
+                            }, {
+                              default: _withCtx(() => [
+                                _createVNode(_component_v_icon, {
+                                  size: "22",
+                                  color: calculateProfit() >= 0 ? 'success' : 'error',
+                                  class: "mb-1"
+                                }, {
+                                  default: _withCtx(() => _cache[72] || (_cache[72] = [
+                                    _createTextVNode("mdi-chart-line-variant")
+                                  ])),
+                                  _: 1
+                                }, 8, ["color"]),
+                                _cache[73] || (_cache[73] = _createElementVNode("div", { class: "caption mb-1" }, "预计盈亏", -1)),
+                                _createElementVNode("div", {
+                                  class: _normalizeClass([calculateProfit() >= 0 ? 'text-success' : 'text-error', "font-weight-bold text-body-1"])
+                                }, _toDisplayString(calculateProfit()), 3)
+                              ]),
+                              _: 1
+                            }, 8, ["color"]))
+                          : _createCommentVNode("", true)
+                      ]),
+                      _: 1
+                    })
+                  ]),
+                  _: 1
+                }),
                 (saleError.value)
                   ? (_openBlock(), _createBlock(_component_v_alert, {
-                      key: 1,
+                      key: 0,
                       type: "error",
                       class: "mt-2",
                       density: "compact"
@@ -1263,7 +1527,7 @@ return (_ctx, _cache) => {
                   : _createCommentVNode("", true),
                 (saleSuccess.value)
                   ? (_openBlock(), _createBlock(_component_v_alert, {
-                      key: 2,
+                      key: 1,
                       type: "success",
                       class: "mt-2",
                       density: "compact"
@@ -1277,26 +1541,36 @@ return (_ctx, _cache) => {
               ]),
               _: 1
             }),
-            _createVNode(_component_v_card_actions, { class: "justify-end" }, {
+            _createVNode(_component_v_divider),
+            _createVNode(_component_v_card_actions, {
+              class: "d-flex justify-center align-center pt-4 pb-4",
+              style: {"margin-bottom":"3px"}
+            }, {
               default: _withCtx(() => [
                 _createVNode(_component_v_btn, {
-                  color: "primary",
+                  style: 'background:#d1b3ff!important;color:#fff!important;border:none;height:35px;min-height:35px;line-height:35px;',
+                  variant: "flat",
                   loading: saleLoading.value,
                   onClick: handleSale,
-                  class: "mr-2"
+                  class: "sale-btn mr-2",
+                  rounded: "lg",
+                  "min-width": "96"
                 }, {
-                  default: _withCtx(() => _cache[65] || (_cache[65] = [
-                    _createTextVNode("确定出售")
+                  default: _withCtx(() => _cache[74] || (_cache[74] = [
+                    _createTextVNode(" 确定出售 ")
                   ])),
                   _: 1
                 }, 8, ["loading"]),
                 _createVNode(_component_v_btn, {
-                  color: "grey",
-                  text: "",
-                  onClick: _cache[9] || (_cache[9] = $event => (saleDialog.value = false))
+                  style: 'background:#f5f5f5!important;color:#888!important;border:none;height:35px;min-height:35px;line-height:35px;',
+                  variant: "flat",
+                  onClick: _cache[9] || (_cache[9] = $event => (saleDialog.value = false)),
+                  class: "sale-btn",
+                  rounded: "lg",
+                  "min-width": "96"
                 }, {
-                  default: _withCtx(() => _cache[66] || (_cache[66] = [
-                    _createTextVNode("取消")
+                  default: _withCtx(() => _cache[75] || (_cache[75] = [
+                    _createTextVNode(" 取消 ")
                   ])),
                   _: 1
                 })
@@ -1314,6 +1588,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const PageComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-5bfbfe5d"]]);
+const PageComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-9391049e"]]);
 
 export { PageComponent as default };
