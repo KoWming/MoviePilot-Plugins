@@ -26,7 +26,7 @@ class VicomoFarm(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomofarm.png"
     # 插件版本
-    plugin_version = "1.1"
+    plugin_version = "1.2"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -171,7 +171,12 @@ class VicomoFarm(_PluginBase):
             # 拼接两行文本，避免重复
             result["说明"] = f"{first_line.group(0)}，{second_line.group(0)}"
         else:
-            result["说明"] = "无"
+            # 尝试提取新的说明格式
+            new_desc = re.search(r'每周日新的流行农作物成熟后，小象蔬菜店可以来这里批发进货，记得在下一波农作物成熟前卖出哦', subtitle)
+            if new_desc:
+                result["说明"] = new_desc.group(0)
+            else:
+                result["说明"] = "无"
         return result
 
     @staticmethod
