@@ -18,7 +18,7 @@ class MsgNotify(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/MsgNotify.png"
     # 插件版本
-    plugin_version = "1.3.2"
+    plugin_version = "1.3.3"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -34,12 +34,14 @@ class MsgNotify(_PluginBase):
     _enabled = False
     _notify = False
     _msgtype = None
+    _notify_style = None
 
     def init_plugin(self, config: dict = None):
         if config:
             self._enabled = config.get("enabled")
             self._notify = config.get("notify")
             self._msgtype = config.get("msgtype")
+            self._notify_style = config.get("notify_style")
 
     def msg_notify_json(self, apikey: str, request: NotifyRequest) -> schemas.Response:
         """
@@ -55,9 +57,19 @@ class MsgNotify(_PluginBase):
             mtype = NotificationType.Manual
             if self._msgtype:
                 mtype = NotificationType.__getitem__(str(self._msgtype)) or NotificationType.Manual
-            self.post_message(mtype=mtype,
-                            title=title,
-                            text=text)
+            
+            if self._notify_style == "card":
+                # 使用卡片样式发送通知，正文合并标题和内容
+                card_text = f"{text}\n"
+                self.post_message(mtype=mtype,
+                                title=title,
+                                text=card_text,
+                                image=self.plugin_icon)
+            else:
+                # 使用默认样式发送通知
+                self.post_message(mtype=mtype,
+                                title=title,
+                                text=text)
 
         return schemas.Response(
             success=True,
@@ -77,9 +89,19 @@ class MsgNotify(_PluginBase):
             mtype = NotificationType.Manual
             if self._msgtype:
                 mtype = NotificationType.__getitem__(str(self._msgtype)) or NotificationType.Manual
-            self.post_message(mtype=mtype,
-                            title=title,
-                            text=text)
+            
+            if self._notify_style == "card":
+                # 使用卡片样式发送通知，正文合并标题和内容
+                card_text = f"{text}\n"
+                self.post_message(mtype=mtype,
+                                title=title,
+                                text=card_text,
+                                image=self.plugin_icon)
+            else:
+                # 使用默认样式发送通知
+                self.post_message(mtype=mtype,
+                                title=title,
+                                text=text)
 
         return schemas.Response(
             success=True,
@@ -122,7 +144,6 @@ class MsgNotify(_PluginBase):
         """
         拼装插件配置页面，需要返回两块数据：1、页面配置；2、数据结构
         """
-        # 编历 NotificationType 枚举，生成消息类型选项
         MsgTypeOptions = []
         for item in NotificationType:
             MsgTypeOptions.append({
@@ -134,96 +155,140 @@ class MsgNotify(_PluginBase):
                 'component': 'VForm',
                 'content': [
                     {
-                        'component': 'VRow',
+                        'component': 'VCard',
+                        'props': {
+                            'variant': 'flat',
+                            'class': 'mb-6',
+                            'color': 'surface'
+                        },
                         'content': [
                             {
-                                'component': 'VCol',
+                                'component': 'VCardItem',
                                 'props': {
-                                    'cols': 12,
-                                    'md': 6
+                                    'class': 'px-6 pb-0'
                                 },
                                 'content': [
                                     {
-                                        'component': 'VSwitch',
+                                        'component': 'VCardTitle',
                                         'props': {
-                                            'model': 'enabled',
-                                            'label': '启用插件',
-                                        }
-                                    }
-                                ]
-                            },
-                            {
-                                'component': 'VCol',
-                                'props': {
-                                    'cols': 12,
-                                    'md': 6
-                                },
-                                'content': [
-                                    {
-                                        'component': 'VSwitch',
-                                        'props': {
-                                            'model': 'notify',
-                                            'label': '开启通知',
-                                        }
-                                    }
-                                ]
-                            },
-                        ]
-                    },
-                    {
-                        'component': 'VRow',
-                        'content': [
-                            {
-                                'component': 'VCol',
-                                'props': {
-                                    'cols': 12
-                                },
-                                'content': [
-                                    {
-                                        'component': 'VSelect',
-                                        'props': {
-                                            'multiple': False,
-                                            'chips': True,
-                                            'model': 'msgtype',
-                                            'label': '消息类型',
-                                            'items': MsgTypeOptions,
-                                            'hint': '如不选择，消息类型默认为[手动处理]。',
-                                            'persistent-hint': True
-                                        }
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        'component': 'VRow',
-                        'content': [
-                            {
-                                'component': 'VCol',
-                                'props': {
-                                    'cols': 12,
-                                },
-                                'content': [
-                                    {
-                                        'component': 'VAlert',
-                                        'props': {
-                                            'type': 'success',
-                                            'variant': 'tonal'
+                                            'class': 'd-flex align-center text-h6'
                                         },
                                         'content': [
                                             {
-                                                'component': 'div',
+                                                'component': 'VIcon',
+                                                'props': {
+                                                    'style': 'color: #16b1ff;',
+                                                    'class': 'mr-3',
+                                                    'size': 'default'
+                                                },
+                                                'text': 'mdi-cog'
+                                            },
+                                            {
+                                                'component': 'span',
+                                                'text': '基本设置'
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                'component': 'VDivider',
+                                'props': {
+                                    'class': 'mx-4 my-2'
+                                }
+                            },
+                            {
+                                'component': 'VCardText',
+                                'props': {
+                                    'class': 'px-6 pb-6'
+                                },
+                                'content': [
+                                    {
+                                        'component': 'VRow',
+                                        'content': [
+                                            {
+                                                'component': 'VCol',
+                                                'props': {
+                                                    'cols': 12,
+                                                    'sm': 3
+                                                },
                                                 'content': [
                                                     {
-                                                        'component': 'span',
-                                                        'text': 'GET_API接口地址：http://moviepilot_ip:port/api/v1/plugin/MsgNotify/send_form?apikey=api_token'
-                                                    },
+                                                        'component': 'VSwitch',
+                                                        'props': {
+                                                            'model': 'enabled',
+                                                            'label': '启用插件',
+                                                            'color': 'primary',
+                                                            'hide-details': True
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VCol',
+                                                'props': {
+                                                    'cols': 12,
+                                                    'sm': 3
+                                                },
+                                                'content': [
                                                     {
-                                                        'component': 'br'
-                                                    },
+                                                        'component': 'VSwitch',
+                                                        'props': {
+                                                            'model': 'notify',
+                                                            'label': '开启通知',
+                                                            'color': 'primary',
+                                                            'hide-details': True
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VCol',
+                                                'props': {
+                                                    'cols': 12,
+                                                    'sm': 3
+                                                },
+                                                'content': [
                                                     {
-                                                        'component': 'span',
-                                                        'text': 'POST_API接口地址：http://moviepilot_ip:port/api/v1/plugin/MsgNotify/send_json?apikey=api_token'
+                                                        'component': 'VSelect',
+                                                        'props': {
+                                                            'multiple': False,
+                                                            'chips': True,
+                                                            'model': 'notify_style',
+                                                            'label': '通知样式',
+                                                            'items': [
+                                                                {
+                                                                    'title': '默认样式',
+                                                                    'value': 'default'
+                                                                },
+                                                                {
+                                                                    'title': '卡片样式',
+                                                                    'value': 'card'
+                                                                }
+                                                            ],
+                                                            'hide-details': True
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VCol',
+                                                'props': {
+                                                    'cols': 12,
+                                                    'sm': 3
+                                                },
+                                                'content': [
+                                                    {
+                                                        'component': 'VSelect',
+                                                        'props': {
+                                                            'multiple': False,
+                                                            'chips': True,
+                                                            'model': 'msgtype',
+                                                            'label': '消息类型',
+                                                            'items': MsgTypeOptions,
+                                                            'hint': '如不选择，消息类型默认为[手动处理]。',
+                                                            'hide-details': True
+                                                        }
                                                     }
                                                 ]
                                             }
@@ -234,137 +299,344 @@ class MsgNotify(_PluginBase):
                         ]
                     },
                     {
-                        'component': 'VRow',
+                        'component': 'VCard',
+                        'props': {
+                            'variant': 'flat',
+                            'class': 'mb-6',
+                            'color': 'surface'
+                        },
                         'content': [
                             {
-                                'component': 'VCol',
+                                'component': 'VCardItem',
                                 'props': {
-                                    'cols': 12,
+                                    'class': 'px-6 pb-0'
                                 },
                                 'content': [
                                     {
-                                        'component': 'VAlert',
+                                        'component': 'VCardTitle',
                                         'props': {
-                                            'type': 'info',
-                                            'variant': 'tonal'
+                                            'class': 'd-flex align-center text-h6 mb-0'
                                         },
                                         'content': [
                                             {
-                                                'component': 'div',
+                                                'component': 'VIcon',
+                                                'props': {
+                                                    'style': 'color: #16b1ff;',
+                                                    'class': 'mr-3',
+                                                    'size': 'default'
+                                                },
+                                                'text': 'mdi-information'
+                                            },
+                                            {
+                                                'component': 'span',
+                                                'text': '插件使用说明'
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                'component': 'VDivider',
+                                'props': {
+                                    'class': 'mx-4 my-2'
+                                }
+                            },
+                            {
+                                'component': 'VCardText',
+                                'props': {
+                                    'class': 'px-6 pb-6'
+                                },
+                                'content': [
+                                    {
+                                        'component': 'VList',
+                                        'props': {
+                                            'lines': 'two',
+                                            'density': 'comfortable'
+                                        },
+                                        'content': [
+                                            {
+                                                'component': 'VListItem',
+                                                'props': {
+                                                    'title': 'API接口说明'
+                                                },
+                                                'slots': {
+                                                    'prepend': [
+                                                        {
+                                                            'component': 'VIcon',
+                                                            'props': {
+                                                                'color': 'primary'
+                                                            },
+                                                            'text': 'mdi-api'
+                                                        }
+                                                    ]
+                                                },
                                                 'content': [
                                                     {
-                                                        'component': 'span',
-                                                        'text': '此插件安装完后API未生效需要重启生效API。'
-                                                    },
-                                                    {
-                                                        'component': 'br'
-                                                    },
-                                                    {
-                                                        'component': 'span',
-                                                        'text': '其中moviepilot_ip:port为MoviePilot的IP地址和端口号，api_token为MoviePilot的API令牌。'
-                                                    },
-                                                    {
-                                                        'component': 'br'
-                                                    },
-                                                    {
-                                                        'component': 'span',
-                                                        'text': '请求方法：GET；必要参数：apikey={API_TOKEN}；title=消息标题；text=消息内容'
-                                                    },
-                                                    {
-                                                        'component': 'br'
-                                                    },
-                                                    {
-                                                        'component': 'span',
-                                                        'text': '请求方法：POST；请求类型：application/json；请求体：{"title": "{title}", "text": "{content}"}'
-                                                    },
-                                                    {
-                                                        'component': 'br'
-                                                    },
-                                                    {
-                                                        'component': 'span',
-                                                        'text': '必要参数或请求体可用变量请根据你使用的第三方应用要求填写！'
-                                                    },
-                                                    {
-                                                        'component': 'span',
-                                                        'text': '使用示列：'
-                                                    },
-                                                    {
-                                                        'component': 'a',
+                                                        'component': 'div',
                                                         'props': {
-                                                            'href': 'https://github.com/KoWming/MoviePilot-Plugins/blob/main/plugins/README.md',
-                                                            'target': '_blank',
-                                                            'style': 'text-decoration: underline;'
+                                                            'class': 'text-body-2'
+                                                        },
+                                                        'text': 'GET接口地址：http://moviepilot_ip:port/api/v1/plugin/MsgNotify/send_form?apikey=api_token'
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'text-body-2'
+                                                        },
+                                                        'text': 'POST接口地址：http://moviepilot_ip:port/api/v1/plugin/MsgNotify/send_json?apikey=api_token'
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VListItem',
+                                                'props': {
+                                                    'title': '请求参数说明'
+                                                },
+                                                'slots': {
+                                                    'prepend': [
+                                                        {
+                                                            'component': 'VIcon',
+                                                            'props': {
+                                                                'color': 'success'
+                                                            },
+                                                            'text': 'mdi-format-list-bulleted'
+                                                        }
+                                                    ]
+                                                },
+                                                'content': [
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'text-body-2',
+                                                            'style': 'line-height: 1.2; padding: 0; margin: 0;'
                                                         },
                                                         'content': [
                                                             {
-                                                                'component': 'u',
-                                                                'text': 'README.md'
+                                                                'component': 'span',
+                                                                'text': 'GET请求：必要参数'
+                                                            },
+                                                            {
+                                                                'component': 'VChip',
+                                                                'props': {
+                                                                    'color': 'error',
+                                                                    'size': 'default',
+                                                                    'class': 'mx-1',
+                                                                    'variant': 'text',
+                                                                    'style': 'padding: 0 4px; height: 20px; min-height: 0; line-height: 20px;'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'style': 'text-decoration: underline;'
+                                                                        },
+                                                                        'text': 'apikey={API_TOKEN}；title=消息标题；text=消息内容'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'br'
+                                                            },
+                                                            {
+                                                                'component': 'span',
+                                                                'text': 'POST请求：请求类型'
+                                                            },
+                                                            {
+                                                                'component': 'VChip',
+                                                                'props': {
+                                                                    'color': 'error',
+                                                                    'size': 'default',
+                                                                    'class': 'mx-1',
+                                                                    'variant': 'text',
+                                                                    'style': 'padding: 0 4px; height: 20px; min-height: 0; line-height: 20px;'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'style': 'text-decoration: underline;'
+                                                                        },
+                                                                        'text': 'application/json'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'span',
+                                                                'text': '，请求体'
+                                                            },
+                                                            {
+                                                                'component': 'VChip',
+                                                                'props': {
+                                                                    'color': 'error',
+                                                                    'size': 'default',
+                                                                    'class': 'mx-1',
+                                                                    'variant': 'text',
+                                                                    'style': 'padding: 0 4px; height: 20px; min-height: 0; line-height: 20px;'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'style': 'text-decoration: underline;'
+                                                                        },
+                                                                        'text': '{"title": "{title}", "text": "{content}"}'
+                                                                    }
+                                                                ]
                                                             }
                                                         ]
                                                     }
                                                 ]
-                                            }
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        'component': 'VRow',
-                        'content': [
-                            {
-                                'component': 'VCol',
-                                'props': {
-                                    'cols': 12,
-                                },
-                                'content': [
-                                    {
-                                        'component': 'VAlert',
-                                        'props': {
-                                            'type': 'info',
-                                            'variant': 'tonal'
-                                        },
-                                        'content': [
-                                            {
-                                                'component': 'span',
-                                                'text': '参考了 '
                                             },
                                             {
-                                                'component': 'a',
+                                                'component': 'VListItem',
                                                 'props': {
-                                                    'href': 'https://github.com/thsrite/MoviePilot-Plugins/',
-                                                    'target': '_blank',
-                                                    'style': 'text-decoration: underline;'
+                                                    'title': '特别说明'
+                                                },
+                                                'slots': {
+                                                    'prepend': [
+                                                        {
+                                                            'component': 'VIcon',
+                                                            'props': {
+                                                                'color': 'warning'
+                                                            },
+                                                            'text': 'mdi-alert'
+                                                        }
+                                                    ]
                                                 },
                                                 'content': [
                                                     {
-                                                        'component': 'u',
-                                                        'text': 'thsrite/MoviePilot-Plugins'
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'text-body-2'
+                                                        },
+                                                        'text': '启用插件后如果API未生效需要重启MoviePilot使生API效。'
+                                                    },
+                                                    {
+                                                        'component': 'div'
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'text-body-2'
+                                                        },
+                                                        'text': '其中moviepilot_ip:port为MoviePilot的IP地址和端口号，api_token为MoviePilot的API令牌。'
                                                     }
                                                 ]
                                             },
                                             {
-                                                'component': 'span',
-                                                'text': ' 项目，实现了插件的相关功能。特此感谢 '
-                                            },
-                                            {
-                                                'component': 'a',
+                                                'component': 'VListItem',
                                                 'props': {
-                                                    'href': 'https://github.com/thsrite',
-                                                    'target': '_blank',
-                                                    'style': 'text-decoration: underline;'
+                                                    'title': '使用示列'
+                                                },
+                                                'slots': {
+                                                    'prepend': [
+                                                        {
+                                                            'component': 'VIcon',
+                                                            'props': {
+                                                                'color': 'info'
+                                                            },
+                                                            'text': 'mdi-information'
+                                                        }
+                                                    ]
                                                 },
                                                 'content': [
                                                     {
-                                                        'component': 'u',
-                                                        'text': 'thsrite'
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'text-body-2'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'span',
+                                                                'text': '必要参数或请求体可用变量请根据你使用的第三方应用要求填写！使用示列：'
+                                                            },
+                                                            {
+                                                                'component': 'a',
+                                                                'props': {
+                                                                    'href': 'https://github.com/KoWming/MoviePilot-Plugins/blob/main/plugins/README.md',
+                                                                    'target': '_blank',
+                                                                    'style': 'text-decoration: underline;'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'u',
+                                                                        'props': {
+                                                                            'style': 'color: #16b1ff;'
+                                                                        },
+                                                                        'text': 'README.md'
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
                                                     }
                                                 ]
                                             },
                                             {
-                                                'component': 'span',
-                                                'text': ' 大佬！ '
+                                                'component': 'VListItem',
+                                                'props': {
+                                                    'title': '致谢'
+                                                },
+                                                'slots': {
+                                                    'prepend': [
+                                                        {
+                                                            'component': 'VIcon',
+                                                            'props': {
+                                                                'color': 'error'
+                                                            },
+                                                            'text': 'mdi-heart'
+                                                        }
+                                                    ]
+                                                },
+                                                'content': [
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'text-body-2'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'span',
+                                                                'text': '参考了 '
+                                                            },
+                                                            {
+                                                                'component': 'a',
+                                                                'props': {
+                                                                    'href': 'https://github.com/thsrite/MoviePilot-Plugins/',
+                                                                    'target': '_blank',
+                                                                    'style': 'text-decoration: underline;'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'u',
+                                                                        'text': 'thsrite/MoviePilot-Plugins'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'span',
+                                                                'text': ' 项目，实现了插件的相关功能。特此感谢 '
+                                                            },
+                                                            {
+                                                                'component': 'a',
+                                                                'props': {
+                                                                    'href': 'https://github.com/thsrite',
+                                                                    'target': '_blank',
+                                                                    'style': 'text-decoration: underline;'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'u',
+                                                                        'text': 'thsrite'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'span',
+                                                                'text': ' 大佬！'
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
                                             }
                                         ]
                                     }
@@ -377,7 +649,8 @@ class MsgNotify(_PluginBase):
         ], {
             "enabled": False,
             "notify": False,
-            "msgtype": ""
+            "notify_style": "default",
+            "msgtype": "Manual"
         }
 
     def get_page(self) -> List[dict]:
