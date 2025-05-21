@@ -419,10 +419,10 @@ class MsgNotify(_PluginBase):
                                                                 'component': 'VChip',
                                                                 'props': {
                                                                     'color': 'error',
-                                                                    'size': 'default',
+                                                                    'size': 'default', 
                                                                     'class': 'mx-1',
                                                                     'variant': 'text',
-                                                                    'style': 'padding: 0 4px; height: 20px; min-height: 0; line-height: 20px;'
+                                                                    'style': 'padding: 0 4px; height: auto; min-height: 0; line-height: 20px; white-space: normal; word-break: break-all;'
                                                                 },
                                                                 'content': [
                                                                     {
@@ -471,7 +471,7 @@ class MsgNotify(_PluginBase):
                                                                     'size': 'default',
                                                                     'class': 'mx-1',
                                                                     'variant': 'text',
-                                                                    'style': 'padding: 0 4px; height: 20px; min-height: 0; line-height: 20px;'
+                                                                    'style': 'padding: 0 4px; height: auto; min-height: 0; line-height: 20px; white-space: normal; word-break: break-all;'
                                                                 },
                                                                 'content': [
                                                                     {
@@ -509,7 +509,7 @@ class MsgNotify(_PluginBase):
                                                         'props': {
                                                             'class': 'text-body-2'
                                                         },
-                                                        'text': '启用插件后如果API未生效需要重启MoviePilot使生API效。'
+                                                        'text': '启用插件后如果API未生效需要重启MoviePilot或重新保存插件配置使API生效。'
                                                     },
                                                     {
                                                         'component': 'div'
