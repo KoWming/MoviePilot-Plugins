@@ -5,6 +5,7 @@ from app.schemas import NotificationType
 from app.core.config import settings
 from app import schemas
 from pydantic import BaseModel
+import json
 
 class NotifyRequest(BaseModel):
     title: str
@@ -18,7 +19,7 @@ class MsgNotify(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/MsgNotify.png"
     # 插件版本
-    plugin_version = "1.3.3"
+    plugin_version = "1.3.4"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -35,6 +36,7 @@ class MsgNotify(_PluginBase):
     _notify = False
     _msgtype = None
     _notify_style = None
+    _image_mappings = None
 
     def init_plugin(self, config: dict = None):
         if config:
@@ -42,6 +44,29 @@ class MsgNotify(_PluginBase):
             self._notify = config.get("notify")
             self._msgtype = config.get("msgtype")
             self._notify_style = config.get("notify_style")
+            try:
+                self._image_mappings = json.loads(config.get("image_mappings", "[]"))
+            except:
+                self._image_mappings = []
+
+    def _get_matched_image(self, title: str, text: str) -> str:
+        """
+        根据消息标题和内容匹配对应的图片URL
+        """
+        if not self._image_mappings:
+            return self.plugin_icon
+            
+        for mapping in self._image_mappings:
+            keyword = mapping.get("keyword", "")
+            image_url = mapping.get("image_url", "")
+            if not keyword or not image_url:
+                continue
+                
+            # 检查标题和内容是否包含关键词
+            if keyword.lower() in title.lower() or keyword.lower() in text.lower():
+                return image_url
+                
+        return self.plugin_icon
 
     def msg_notify_json(self, apikey: str, request: NotifyRequest) -> schemas.Response:
         """
@@ -61,10 +86,12 @@ class MsgNotify(_PluginBase):
             if self._notify_style == "card":
                 # 使用卡片样式发送通知，正文合并标题和内容
                 card_text = f"{text}\n"
+                # 获取匹配的图片URL
+                image_url = self._get_matched_image(title, text)
                 self.post_message(mtype=mtype,
                                 title=title,
                                 text=card_text,
-                                image=self.plugin_icon)
+                                image=image_url)
             else:
                 # 使用默认样式发送通知
                 self.post_message(mtype=mtype,
@@ -93,10 +120,12 @@ class MsgNotify(_PluginBase):
             if self._notify_style == "card":
                 # 使用卡片样式发送通知，正文合并标题和内容
                 card_text = f"{text}\n"
+                # 获取匹配的图片URL
+                image_url = self._get_matched_image(title, text)
                 self.post_message(mtype=mtype,
                                 title=title,
                                 text=card_text,
-                                image=self.plugin_icon)
+                                image=image_url)
             else:
                 # 使用默认样式发送通知
                 self.post_message(mtype=mtype,
@@ -144,6 +173,7 @@ class MsgNotify(_PluginBase):
         """
         拼装插件配置页面，需要返回两块数据：1、页面配置；2、数据结构
         """
+        
         MsgTypeOptions = []
         for item in NotificationType:
             MsgTypeOptions.append({
@@ -295,6 +325,85 @@ class MsgNotify(_PluginBase):
                                         ]
                                     }
                                 ]
+                            },
+                            {
+                                'component': 'VCard',
+                                'props': {
+                                    'variant': 'flat',
+                                    'class': 'mb-6',
+                                    'color': 'surface'
+                                },
+                                'content': [
+                                    {
+                                        'component': 'VCardItem',
+                                        'props': {
+                                            'class': 'px-6 pb-0'
+                                        },
+                                        'content': [
+                                            {
+                                                'component': 'VCardTitle',
+                                                'props': {
+                                                    'class': 'd-flex align-center text-h6'
+                                                },
+                                                'content': [
+                                                    {
+                                                        'component': 'VIcon',
+                                                        'props': {
+                                                            'style': 'color: #16b1ff;',
+                                                            'class': 'mr-3',
+                                                            'size': 'default'
+                                                        },
+                                                        'text': 'mdi-image'
+                                                    },
+                                                    {
+                                                        'component': 'span',
+                                                        'text': '自定义图片'
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        'component': 'VDivider',
+                                        'props': {
+                                            'class': 'mx-4 my-2'
+                                        }
+                                    },
+                                    {
+                                        'component': 'VCardText',
+                                        'props': {
+                                            'class': 'px-6 pb-0'
+                                        },
+                                        'content': [
+                                            {
+                                                'component': 'VRow',
+                                                'content': [
+                                                    {
+                                                        'component': 'VCol',
+                                                        'props': {
+                                                            'cols': 12
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'VTextarea',
+                                                                'props': {
+                                                                    'model': 'image_mappings',
+                                                                    'label': '自定义图片',
+                                                                    'hint': 'JSON格式配置,例如: [{"keyword": "群辉", "image_url": "https://example.com/synology.jpg"}]',
+                                                                    'height': 350,
+                                                                    'auto-grow': False,
+                                                                    'hide-details': False,
+                                                                    'persistent-hint': True,
+                                                                    'placeholder': '[\n  {\n    "keyword": "群辉",\n    "image_url": "https://example.com/synology.jpg"\n  },\n  {\n    "keyword": "Lucky",\n    "image_url": "https://example.com/Lucky.jpg"\n  }\n]'
+                                                                }
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
                             }
                         ]
                     },
@@ -419,7 +528,7 @@ class MsgNotify(_PluginBase):
                                                                 'component': 'VChip',
                                                                 'props': {
                                                                     'color': 'error',
-                                                                    'size': 'default', 
+                                                                    'size': 'default',
                                                                     'class': 'mx-1',
                                                                     'variant': 'text',
                                                                     'style': 'padding: 0 4px; height: auto; min-height: 0; line-height: 20px; white-space: normal; word-break: break-all;'
@@ -520,6 +629,93 @@ class MsgNotify(_PluginBase):
                                                             'class': 'text-body-2'
                                                         },
                                                         'text': '其中moviepilot_ip:port为MoviePilot的IP地址和端口号，api_token为MoviePilot的API令牌。'
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VListItem',
+                                                'props': {
+                                                    'title': '自定义图片说明'
+                                                },
+                                                'slots': {
+                                                    'prepend': [
+                                                        {
+                                                            'component': 'VIcon',
+                                                            'props': {
+                                                                'color': 'info'
+                                                            },
+                                                            'text': 'mdi-image'
+                                                        }
+                                                    ]
+                                                },
+                                                'content': [
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'text-body-2'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'span',
+                                                                'text': '当通知类型为'
+                                                            },
+                                                            {
+                                                                'component': 'VChip',
+                                                                'props': {
+                                                                    'color': 'primary',
+                                                                    'size': 'default',
+                                                                    'class': 'mx-1',
+                                                                    'variant': 'text',
+                                                                    'style': 'padding: 0 4px; height: 20px; min-height: 0; line-height: 20px;'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'style': 'text-decoration: underline;'
+                                                                        },
+                                                                        'text': '卡片样式'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'span',
+                                                                'text': '时在自定义图片配置中，可以设置关键词和对应的图片URL。当消息标题或内容包含关键词时，将使用对应的图片作为通知封面'
+                                                            },
+                                                            {
+                                                                'component': 'VChip',
+                                                                'props': {
+                                                                    'color': 'primary',
+                                                                    'size': 'default',
+                                                                    'class': 'mx-1',
+                                                                    'variant': 'text',
+                                                                    'style': 'padding: 0 4px; height: 20px; min-height: 0; line-height: 20px;'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'style': 'text-decoration: underline;'
+                                                                        },
+                                                                        'text': '(封面尺寸建议1068*455)'
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'text-body-2'
+                                                        },
+                                                        'text': '配置格式为JSON数组，每个元素包含keyword(关键词)和image_url(图片URL)。关键词匹配不区分大小写。'
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'text-body-2'
+                                                        },
+                                                        'text': '示例：当消息包含"群辉"关键词时，将使用配置的群辉图片作为通知封面。'
                                                     }
                                                 ]
                                             },
@@ -650,7 +846,8 @@ class MsgNotify(_PluginBase):
             "enabled": False,
             "notify": False,
             "notify_style": "default",
-            "msgtype": "Manual"
+            "msgtype": "Manual",
+            "image_mappings": ""
         }
 
     def get_page(self) -> List[dict]:
