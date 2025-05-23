@@ -38,7 +38,7 @@ class MedalWall(_PluginBase):
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
-    author_url = "https://github.com/KoWming/MoviePilot-Plugins"
+    author_url = "https://github.com/KoWming"
     # 插件配置项ID前缀
     plugin_config_prefix = "medalwall_"
     # 加载顺序
