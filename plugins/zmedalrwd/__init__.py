@@ -21,7 +21,7 @@ class ZmedalRwd(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/ZmedalRwd.png"
     # 插件版本
-    plugin_version = "1.2"
+    plugin_version = "1.2.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -388,14 +388,16 @@ class ZmedalRwd(_PluginBase):
                 "id": "ZmedalRwdMonth",
                 "name": "织梦勋章套装奖励 - 每月执行",
                 "trigger": CronTrigger.from_crontab(self._cron_month),
-                "func": self._medal_bonus_month_task
+                "func": self._medal_bonus_month_task,
+                "kwargs": {}
             })
         if self._cron_week:
             service.append({
                 "id": "ZmedalRwdWeek",
                 "name": "织梦勋章套装奖励 - 每周执行",
                 "trigger": CronTrigger.from_crontab(self._cron_week),
-                "func": self._medal_bonus_week_task
+                "func": self._medal_bonus_week_task,
+                "kwargs": {}
             })
 
         if service:
