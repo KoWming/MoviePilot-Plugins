@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urljoin
-import re
-import time
 from lxml import etree
+import time
+import re
 
 from app.log import logger
 from app.utils.string import StringUtils
@@ -18,7 +18,6 @@ class ZmHandler(ISiteHandler):
         super().__init__(site_info)
         self.shoutbox_url = urljoin(self.site_url, "/shoutbox.php")
         self.messages_url = urljoin(self.site_url, "/messages.php")
-        self.medal_url = urljoin(self.site_url, "/javaapi/user/drawMedalGroupReward?medalGroupId=3")
         self.siteoper = SiteOper()
         self._feedback_timeout = site_info.get("feedback_timeout", 5)  # 从配置中获取反馈超时时间，默认5秒
         self._last_message_result = None  # 初始化最后一次消息发送结果
@@ -54,33 +53,14 @@ class ZmHandler(ISiteHandler):
                 # 等待消息发送完成
                 time.sleep(self._feedback_timeout)
                 
-                # 强制刷新页面
-                refresh_response = self._send_get_request(self.site_url + "/index.php")
-                if not refresh_response:
-                    logger.error("刷新页面失败！")
-                    continue
-                    
-                # 从刷新后的页面获取最新数据
-                current_stats = self.get_user_stats()
-                if not current_stats:
-                    continue
-                    
-                # 处理不同类型的请求
-                request_types = {
-                    "求上传": "upload",
-                    "求下载": "download",
-                    "求电力": "bonus"
-                }
-                
-                for request_text, request_type in request_types.items():
-                    if request_text in message:
-                        feedback = self._process_request(message, current_stats, zm_stats, request_type)
-                        if feedback:
-                            result_list.append(feedback)
+                # 获取群聊区反馈
+                feedback = self._get_messagebox_feedback(message)
+                if feedback:
+                    result_list.append(feedback)
                     
             # 保存结果
-            self._last_message_result = "\n".join(result_list) if result_list else "消息发送成功"
-            return True, self._last_message_result
+            self._last_message_result = "\n".join(result_list) if result_list else None
+            return True, self._last_message_result if self._last_message_result else "消息发送成功"
             
         except Exception as e:
             logger.error(f"发送消息失败: {str(e)}")
@@ -119,48 +99,6 @@ class ZmHandler(ISiteHandler):
             }]
         }
     
-    def _process_request(self, message: str, current_stats: Dict, zm_stats: Dict, request_type: str) -> Optional[str]:
-        """
-        处理单个请求并生成反馈消息
-        :param message: 消息内容
-        :param current_stats: 当前统计数据
-        :param zm_stats: 历史统计数据
-        :param request_type: 请求类型(upload/download/bonus)
-        :return: 反馈消息或None
-        """
-        if not current_stats or not current_stats.get(request_type):
-            return None
-            
-        if not zm_stats or not zm_stats.get(request_type):
-            return None
-            
-        # 转换当前值和历史值
-        def convert_value(value_str: str) -> float:
-            match = re.match(r'([\d,.]+)\s*([TGM]B)?', value_str.strip())
-            if not match:
-                return 0.0
-            value = float(match.group(1).replace(',', ''))
-            unit = match.group(2)
-            if unit == 'TB':
-                return value * 1024
-            elif unit == 'MB':
-                return value / 1024
-            return value
-            
-        current_value = convert_value(current_stats[request_type])
-        history_value = convert_value(zm_stats[request_type])
-        
-        # 计算差值
-        diff = current_value - history_value
-        
-        # 生成反馈消息
-        if diff > 0:
-            return f"皮总响应了你的请求，赠送你【{diff:.2f}{'GB' if request_type != 'bonus' else ''}{'上传量' if request_type == 'upload' else '下载量' if request_type == 'download' else '电力'}】"
-        elif diff < 0:
-            return f"皮总响应了你的请求，扣减你【{abs(diff):.2f}{'GB' if request_type != 'bonus' else ''}{'上传量' if request_type == 'upload' else '下载量' if request_type == 'download' else '电力'}】"
-        else:
-            return "皮总没有理你，明天再来吧"
-
     def get_latest_message_time(self) -> Optional[str]:
         """
         获取最新电力赠送邮件的完整时间值,优先获取未读邮件,如果没有则获取已读邮件
@@ -222,6 +160,133 @@ class ZmHandler(ISiteHandler):
             logger.error(f"获取最新电力赠送邮件时间失败: {str(e)}")
             return None
 
+    def _get_messagebox_feedback(self, message: str) -> Optional[str]:
+        """
+        从群聊区获取反馈消息
+        :param message: 发送的消息
+        :return: 反馈消息或None
+        """
+        try:
+            # 获取用户名
+            username = self.get_username()
+            if not username:
+                logger.error("获取用户名失败")
+                return None
+
+            # 先刷新页面
+            refresh_response = self._send_get_request(self.shoutbox_url)
+            if not refresh_response:
+                logger.error("刷新群聊区页面失败")
+                return None
+
+            # 等待页面刷新完成
+            time.sleep(5)
+
+            # 获取群聊区页面内容
+            response = self._send_get_request(self.shoutbox_url)
+            if not response:
+                logger.error("获取群聊区页面失败")
+                return None
+
+            # 解析HTML
+            html = etree.HTML(response.text)
+            if not html:
+                logger.error("解析群聊区HTML失败")
+                return None
+
+            # 获取所有消息行
+            message_rows = html.xpath("//td[@class='shoutrow']")
+            if not message_rows:
+                logger.warning("未找到任何消息")
+                return None
+
+            # 确定消息类型
+            message_type = None
+            if "求上传" in message:
+                message_type = ("上传量", "没有理你")
+                logger.debug(f"识别到上传量请求消息,将匹配'上传量'或'没有理你'")
+            elif "求电力" in message:
+                message_type = ("电力", "没有理你")
+                logger.debug(f"识别到电力请求消息,将匹配'电力'或'没有理你'")
+
+            if not message_type:
+                logger.debug("未识别到有效的消息类型")
+                return None
+
+            # 存储匹配的消息及其时间
+            matched_messages = []
+
+            # 遍历消息行查找反馈
+            for row in message_rows:
+                try:
+                    # 提取时间前缀
+                    time_span = row.xpath(".//span[@class='date']/text()")
+                    if not time_span:
+                        continue
+                    time_prefix = time_span[0].strip()
+                    
+                    # 提取消息内容
+                    content = row.xpath("string(.)").strip()
+                    if not content:
+                        continue
+
+                    # 检查是否包含@用户名
+                    if f"@{username}：" not in content:
+                        continue
+
+                    # 检查是否包含皮总
+                    if "皮总" not in content:
+                        continue
+
+                    # 检查消息类型是否匹配
+                    if not (message_type[0] in content or message_type[1] in content):
+                        logger.debug(f"消息类型不匹配: 期望匹配'{message_type[0]}'或'{message_type[1]}', 实际内容={content}")
+                        continue
+
+                    # 提取反馈内容
+                    feedback = content.split(f"@{username}：")[-1].strip()
+                    
+                    # 验证反馈消息格式
+                    if any(keyword in feedback for keyword in ["赠送", "扣减", "没有理你"]):
+                        # 根据时间前缀确定优先级
+                        priority = 0
+                        
+                        # 处理时间前缀
+                        if "< 1分钟前" in time_prefix:
+                            # 小于1分钟的情况，给予最高优先级
+                            priority = 100
+                        else:
+                            # 提取数字部分
+                            time_match = re.search(r'\[(\d+)分钟前\]', time_prefix)
+                            if time_match:
+                                minutes = int(time_match.group(1))
+                                # 数字越小优先级越高，使用100减去分钟数
+                                priority = 100 - minutes
+                        
+                        if priority > 0:
+                            matched_messages.append((priority, feedback, time_prefix))
+                            logger.debug(f"找到匹配消息: 时间={time_prefix}, 优先级={priority}, 内容={feedback}")
+
+                except Exception as e:
+                    logger.error(f"解析消息行失败: {str(e)}")
+                    continue
+
+            if not matched_messages:
+                logger.debug("未找到符合条件的反馈消息")
+                return None
+
+            # 按优先级排序，取最新的消息
+            matched_messages.sort(key=lambda x: x[0], reverse=True)
+            latest_feedback = matched_messages[0][1]
+            latest_time = matched_messages[0][2]
+            
+            logger.debug(f"找到最新反馈消息: {latest_time} - {latest_feedback}")
+            return latest_feedback
+
+        except Exception as e:
+            logger.error(f"获取群聊区反馈失败: {str(e)}")
+            return None
+
     def get_username(self) -> Optional[str]:
         """
         获取用户名
@@ -242,81 +307,3 @@ class ZmHandler(ISiteHandler):
         except Exception as e:
             logger.error(f"获取站点 {site_name} 的用户信息失败: {str(e)}")
             return None
-
-    def get_user_stats(self) -> Dict[str, Optional[str]]:
-        """
-        获取用户数据统计信息(上传量、下载量、电力值)
-        :return: 包含用户统计数据的字典,格式如:
-        {
-            "upload": "2.608 TB",
-            "download": "801.65 GB", 
-            "bonus": "261,865.1"
-        }
-        """
-        try:
-            # 获取首页内容
-            response = self._send_get_request(self.site_url + "/index.php")
-            if not response:
-                logger.error("获取首页内容失败")
-                return {}
-            
-            # 解析HTML
-            html = etree.HTML(response.text)
-            
-            # 初始化结果字典
-            stats = {
-                "upload": None,
-                "download": None,
-                "bonus": None
-            }
-            
-            try:
-                # 提取上传量
-                # 使用更精确的xpath表达式
-                upload_info = html.xpath("//font[contains(text(), '上传量')]/following-sibling::text()[1]")
-                if upload_info:
-                    # 清理数据
-                    upload_value = upload_info[0].strip()
-                    if upload_value:
-                        stats["upload"] = upload_value
-                    else:
-                        logger.warning("上传量数据为空")
-                
-                # 提取下载量
-                download_info = html.xpath("//font[contains(text(), '下载量')]/following-sibling::text()[1]")
-                if download_info:
-                    # 清理数据
-                    download_value = download_info[0].strip()
-                    if download_value:
-                        stats["download"] = download_value
-                    else:
-                        logger.warning("下载量数据为空")
-                
-                # 提取电力值
-                bonus_info = html.xpath("//a[@id='self_bonus']/text()[last()]")
-                if bonus_info:
-                    # 清理数据
-                    bonus = bonus_info[0].strip().replace(",", "")
-                    if bonus:
-                        stats["bonus"] = bonus
-                    else:
-                        logger.warning("电力值数据为空")
-                
-            except Exception as parse_error:
-                logger.error(f"解析数据时出错: {str(parse_error)}")
-                return {}
-            
-            # 验证数据完整性
-            if all(stats.values()):
-                logger.info(f"成功获取用户统计数据: 上传={stats['upload']}, "
-                           f"下载={stats['download']}, 电力值={stats['bonus']}")
-            else:
-                missing = [k for k, v in stats.items() if not v]
-                if missing:
-                    logger.warning(f"部分数据未获取到: {', '.join(missing)}")
-            
-            return stats
-            
-        except Exception as e:
-            logger.error(f"获取用户统计数据失败: {str(e)}")
-            return {}
