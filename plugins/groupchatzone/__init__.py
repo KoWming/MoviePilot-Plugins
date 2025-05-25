@@ -32,7 +32,7 @@ class GroupChatZone(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png"
     # 插件版本
-    plugin_version = "2.1.1"
+    plugin_version = "2.1.2"
     # 插件作者
     plugin_author = "KoWming,madrays"
     # 作者主页
@@ -60,7 +60,7 @@ class GroupChatZone(_PluginBase):
     _enabled: bool = False          # 是否启用插件
     _cron: str = ""                 # 定时任务表达式  
     _onlyonce: bool = False         # 是否仅运行一次
-    _notify: bool = False           # 是否发送通知
+    _notify: bool = True           # 是否发送通知
     _interval_cnt: int = 2          # 执行间隔时间(秒)
     _chat_sites: List[str] = []     # 选择的站点列表
     _sites_messages: str = ""       # 自定义站点消息
@@ -69,9 +69,10 @@ class GroupChatZone(_PluginBase):
     _lock: Optional[threading.Lock] = None    # 其他站点任务锁
     _zm_lock: Optional[threading.Lock] = None    # 织梦站点任务锁
     _running: bool = False          # 是否正在运行
-    _get_feedback: bool = False     # 是否获取反馈
+    _get_feedback: bool = True     # 是否获取反馈
     _feedback_timeout: int = 5      # 获取反馈的超时时间(秒)
     _use_proxy: bool = True        # 是否使用代理
+    _zm_independent: bool = True  # 是否织梦独立运行
 
     def init_plugin(self, config: Optional[dict] = None):
         self._lock = threading.Lock()
@@ -89,13 +90,15 @@ class GroupChatZone(_PluginBase):
             self._enabled = config.get("enabled", False)
             self._cron = str(config.get("cron", ""))
             self._onlyonce = bool(config.get("onlyonce", False))
-            self._notify = bool(config.get("notify", False))
+            self._notify = bool(config.get("notify", True))
             self._interval_cnt = int(config.get("interval_cnt", 2))
             self._chat_sites = config.get("chat_sites", [])
             self._sites_messages = str(config.get("sites_messages", ""))
-            self._get_feedback = bool(config.get("get_feedback", False))
+            self._get_feedback = bool(config.get("get_feedback", True))
             self._feedback_timeout = int(config.get("feedback_timeout", 5))
             self._use_proxy = bool(config.get("use_proxy", True))
+            self._zm_independent = bool(config.get("zm_independent", True))
+            self._zm_mail_time = config.get("zm_mail_time")
 
             # 过滤掉已删除的站点
             all_sites = [site.id for site in self.siteoper.list_order_by_pri()] + [site.get("id") for site in self.__custom_sites()]
@@ -116,14 +119,17 @@ class GroupChatZone(_PluginBase):
                     logger.info("群聊区服务启动，立即运行一次")
 
                     # 先启动织梦站点任务
-                    self._scheduler.add_job(func=self.send_zm_site_messages, trigger='date',
-                                        run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
-                                        name="群聊区织梦服务")
+                    if self._zm_independent:
+                        self._scheduler.add_job(func=self.send_zm_site_messages, trigger='date',
+                                            run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
+                                            name="群聊区织梦服务")
+                        logger.info("已添加织梦站点任务")
 
                     # 再启动其他站点任务
                     self._scheduler.add_job(func=self.send_site_messages, trigger='date',
                                             run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=30),
                                             name="群聊区服务")
+                    logger.info("已添加普通站点任务")
 
                     # 关闭一次性开关
                     self._onlyonce = False
@@ -173,7 +179,9 @@ class GroupChatZone(_PluginBase):
                 "notify": self._notify,
                 "onlyonce": self._onlyonce,
                 "sites_messages": self._sites_messages,
-                "use_proxy": self._use_proxy
+                "use_proxy": self._use_proxy,
+                "zm_independent": self._zm_independent,
+                "zm_mail_time": self._zm_mail_time
             }
         )
 
@@ -273,7 +281,7 @@ class GroupChatZone(_PluginBase):
             # 使用随机调度
             services.extend(self.__get_random_schedule())
 
-        if self._enabled:
+        if self._enabled and self._zm_independent:
             # 添加织梦定时任务
             if self._zm_mail_time:
                 try:
@@ -299,17 +307,20 @@ class GroupChatZone(_PluginBase):
                         logger.info(f"距离下次执行还有 {hours}小时 {minutes}分钟 {seconds}秒")
                 except Exception as e:
                     logger.error(f"计算织梦定时任务时间参数失败: {str(e)}")
-                    # 使用默认值
-                    hours = 1
-                    minutes = 0
-                    seconds = 0
+                    # 立即获取邮件时间
+                    logger.info("计算时间参数失败，将立即获取邮件时间")
+                    if self.get_zm_mail_time():
+                        # 重新计算时间参数
+                        return self.get_service()
+                    return services
             else:
-                # 如果没有邮件时间,使用默认值
-                hours = 1
-                minutes = 0
-                seconds = 0
-                logger.info("未找到上次邮件时间,使用默认时间间隔: 1小时")
-            
+                # 如果没有邮件时间,立即获取邮件时间
+                logger.info("未找到上次邮件时间，将立即获取邮件时间")
+                if self.get_zm_mail_time():
+                    # 重新计算时间参数
+                    return self.get_service()
+                return services
+
             # 检查是否有织梦站点被选中
             has_zm_site = False
             for site_id in self._chat_sites:
@@ -318,8 +329,8 @@ class GroupChatZone(_PluginBase):
                     has_zm_site = True
                     break
             
-            # 只有在有织梦站点被选中时才添加定时任务
-            if has_zm_site:
+            # 只有在有织梦站点被选中且开启独立织梦喊话开关时才添加定时任务
+            if has_zm_site and self._zm_independent:
                 # 添加定时任务
                 services.append({
                     "id": "GroupChatZoneZm",
@@ -332,8 +343,12 @@ class GroupChatZone(_PluginBase):
                         "seconds": seconds
                     }
                 })
+                logger.info("已添加织梦定时任务")
             else:
-                logger.info("没有选中织梦站点，不添加织梦定时任务")
+                if has_zm_site:
+                    logger.info("有织梦站点但未开启独立织梦喊话开关，不添加织梦定时任务")
+                else:
+                    logger.info("没有选中织梦站点，不添加织梦定时任务")
 
         if services:
             return services
@@ -435,8 +450,8 @@ class GroupChatZone(_PluginBase):
             # 获取站点信息
             try:
                 all_sites = [site for site in self.sites.get_indexers() if not site.get("public")] + self.__custom_sites()
-                # 过滤掉没有选中的站点
-                do_sites = [site for site in all_sites if site.get("id") in self._chat_sites and not site.get("name", "").startswith("织梦")]
+                # 根据独立织梦喊话开关决定是否过滤织梦站点
+                do_sites = [site for site in all_sites if site.get("id") in self._chat_sites and (not site.get("name", "").startswith("织梦") or not self._zm_independent)]
                 
                 if not do_sites:
                     logger.info("没有找到有效的站点")
@@ -978,6 +993,8 @@ class GroupChatZone(_PluginBase):
                                 datetime.strptime(latest_time, "%Y-%m-%d %H:%M:%S")
                                 handler._latest_message_time = latest_time
                                 self._zm_mail_time = latest_time
+                                # 更新配置以持久化存储
+                                self.__update_config()
                                 logger.info(f"成功保存 {site_name} 站点最新邮件时间: {latest_time}")
                             except ValueError:
                                 logger.error(f"{site_name} 站点最新邮件时间格式错误: {latest_time}")
@@ -1016,6 +1033,53 @@ class GroupChatZone(_PluginBase):
                 except RuntimeError:
                     pass
             logger.debug("织梦站点喊话任务执行完成")
+
+    def get_zm_mail_time(self) -> bool:
+        """
+        获取织梦站点的最新邮件时间
+        :return: 是否成功获取
+        """
+        try:
+            # 获取所有站点
+            all_sites = [site for site in self.sites.get_indexers() if not site.get("public")] + self.__custom_sites()
+            
+            # 过滤出织梦站点
+            zm_sites = [site for site in all_sites if "织梦" in site.get("name", "").lower() and site.get("id") in self._chat_sites]
+            
+            if not zm_sites:
+                logger.info("没有找到选中的织梦站点")
+                return False
+                
+            # 遍历织梦站点获取邮件时间
+            for site in zm_sites:
+                try:
+                    handler = self.get_site_handler(site)
+                    if handler and hasattr(handler, 'get_latest_message_time'):
+                        latest_time = handler.get_latest_message_time()
+                        if latest_time:
+                            try:
+                                # 将时间字符串转换为datetime对象以验证格式
+                                datetime.strptime(latest_time, "%Y-%m-%d %H:%M:%S")
+                                self._zm_mail_time = latest_time
+                                # 更新配置以持久化存储
+                                self.__update_config()
+                                logger.info(f"成功获取 {site.get('name')} 站点最新邮件时间: {latest_time}")
+                                return True
+                            except ValueError:
+                                logger.error(f"{site.get('name')} 站点最新邮件时间格式错误: {latest_time}")
+                        else:
+                            logger.warning(f"未能获取 {site.get('name')} 站点的最新邮件时间")
+                    else:
+                        logger.error(f"{site.get('name')} 站点的处理器没有get_latest_message_time方法")
+                except Exception as e:
+                    logger.error(f"获取 {site.get('name')} 站点的最新邮件时间时出错: {str(e)}")
+                    continue
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"获取织梦站点邮件时间时发生异常: {str(e)}")
+            return False
 
 class NotificationIcons:
     """
