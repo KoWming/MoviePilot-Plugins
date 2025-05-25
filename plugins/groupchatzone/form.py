@@ -2,6 +2,11 @@ def form(site_options) -> list:
     """
     拼装插件配置页面，需要返回两块数据：1、页面配置；2、数据结构
     """
+    # 动态判断MoviePilot版本，决定定时任务输入框组件类型
+    from app.core.config import settings
+    version = getattr(settings, "VERSION_FLAG", "v1")
+    cron_field_component = "VCronField" if version == "v2" else "VTextField"
+
     return [
         {
             'component': 'VForm',
@@ -138,7 +143,7 @@ def form(site_options) -> list:
                                             },
                                             'content': [
                                                 {
-                                                    'component': 'VCronField',
+                                                    'component': cron_field_component,
                                                     'props': {
                                                         'model': 'cron',
                                                         'label': '执行周期',
@@ -262,6 +267,22 @@ def form(site_options) -> list:
                                                     }
                                                 }
                                             ]
+                                        },
+                                        {
+                                            'component': 'VCol',
+                                            'props': {
+                                                'cols': 12,
+                                                'md': 4
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'VSwitch',
+                                                    'props': {
+                                                        'model': 'zm_independent',
+                                                        'label': '独立织梦喊话',
+                                                    }
+                                                }
+                                            ]
                                         }
                                     ]
                                 },
@@ -362,7 +383,7 @@ def form(site_options) -> list:
                                     },
                                     'content': [
                                         {'component': 'div', 'style': 'display: flex; align-items: center; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px; color: #6E7B8B;', 'content': [
-                                            {'component': 'VIcon', 'props': {'style': 'margin-right: 8px; color: #6E7B8B; font-size: 22px;'}, 'text': 'mdi-calendar-clock'},
+                                            {'component': 'VIcon', 'props': {'style': 'margin-right: 8px; color: #2196F3; font-size: 22px;'}, 'text': 'mdi-calendar-clock'},
                                             {'component': 'span', 'text': '执行周期支持以下三种方式：'}
                                         ]},
                                         {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '📅 5位cron表达式'},
@@ -373,12 +394,34 @@ def form(site_options) -> list:
                                 {
                                     'component': 'div',
                                     'props': {
+                                        'class': 'mb-5',
+                                        'style': 'color: #444;'
+                                    },
+                                    'content': [
+                                        {'component': 'div', 'style': 'display: flex; align-items: center; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px; color: #6E7B8B;', 'content': [
+                                            {'component': 'VIcon', 'props': {'style': 'margin-right: 8px; color: #FF5722; font-size: 20px;'}, 'text': 'mdi-application-settings'},
+                                            {'component': 'span', 'text': '独立织梦喊话功能说明：'}
+                                        ]},
+                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '🎯 开启后织梦站点将独立执行喊话任务，与其他站点分开处理'},
+                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '⏰ 开启后获取织梦最新电力奖励邮件的时间，用于计算下次执行时间'},
+                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '🔄 关闭时织梦站点将与其他站点一起执行喊话任务，使用统一的执行周期'},
+                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '💡 建议开启此功能，可以更精确的执行喊话任务'},
+                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '📅 织梦定时器说明：'},
+                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '  • 首次运行时会自动获织梦最新电力奖励邮件的时间，用于计算下次执行时间注册"群聊区 - 织梦定时任务"'},
+                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '  • 每次执行完喊话任务后会更新获取的邮件时间，确保定时准确'},
+                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '  • 如果获取的邮件时间对比上次获取的邮件已超过24小时,将立即执行织梦喊话任务'},
+                                        {'component': 'div', 'props': {'class': 'text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '  • 重启或重载插件时会从持久化配置中获取邮件时间，确保定时任务正常运行'}
+                                    ]
+                                },
+                                {
+                                    'component': 'div',
+                                    'props': {
                                         'class': 'mb-2',
                                         'style': 'color: #444;'
                                     },
                                     'content': [
                                         {'component': 'div', 'style': 'display: flex; align-items: center; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px; color: #6E7B8B;', 'content': [
-                                            {'component': 'VIcon', 'props': {'style': 'margin-right: 8px; color: #6E7B8B; font-size: 22px;'}, 'text': 'mdi-message-reply-text'},
+                                            {'component': 'VIcon', 'props': {'style': 'margin-right: 8px; color: #4CAF50; font-size: 22px;'}, 'text': 'mdi-message-reply-text'},
                                             {'component': 'span', 'text': '获取反馈功能说明：'}
                                         ]},
                                         {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '📊 获取喊话后的站点反馈(奖励信息)，有助于了解站点对喊话的响应情况'},
@@ -393,14 +436,14 @@ def form(site_options) -> list:
         }
     ], {
         "enabled": False,
-        "notify": False,
+        "notify": True,
         "cron": "",
         "onlyonce": False,
         "interval_cnt": 2,
         "chat_sites": [],
         "sites_messages": "",
-        "get_feedback": False,
+        "get_feedback": True,
         "feedback_timeout": 5,
         "use_proxy": True,
-        "medal_bonus": False
+        "zm_independent": True
     }
