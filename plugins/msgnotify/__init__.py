@@ -1,5 +1,4 @@
 # 标准库导入
-import json
 import random
 from typing import Any, Dict, List, Tuple
 
@@ -28,7 +27,7 @@ class MsgNotify(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/MsgNotify.png"
     # 插件版本
-    plugin_version = "1.3.6"
+    plugin_version = "1.3.7"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -248,6 +247,7 @@ class MsgNotify(_PluginBase):
         """
         try:
             channel = getattr(message, "channel", None)
+            mtype = getattr(message, "mtype", NotificationType.Manual)  # 获取消息类型
             # 统一用_get_matched_image获取图片和样式
             picurl, style = self._get_matched_image(getattr(message, 'title', ''), getattr(message, 'text', ''))
             
@@ -266,7 +266,7 @@ class MsgNotify(_PluginBase):
                 if wechat_service:
                     if style == "card":
                         try:
-                            self._send_wecom_textcard(message.title, message.text, picurl=picurl)
+                            self._send_wecom_card(message.title, message.text, picurl=picurl)
                         except Exception as e:
                             import traceback
                             logger.error(f"发送企业微信卡片消息失败: {str(e)}\n{traceback.format_exc()}")
@@ -274,7 +274,7 @@ class MsgNotify(_PluginBase):
             try:
                 # 使用自己的消息处理逻辑
                 if hasattr(self, 'messagehelper'):
-                    self.messagehelper.put(message, role="user", title=message.title)
+                    self.messagehelper.put(message, role="user", title=message.title, mtype=mtype)  # 传入消息类型
                 
                 # 使用wechat_service发送消息
                 if channel == MessageChannel.Wechat:
@@ -291,8 +291,8 @@ class MsgNotify(_PluginBase):
                     if wechat_service:
                         wechat_instance = wechat_service.instance
                         if wechat_instance:
-                            # 构建消息内容
-                            msg_content = f"{message.title}\n{message.text}"
+                            # 构建消息内容,添加消息类型标识
+                            msg_content = f"[{mtype.value}]\n{message.title}\n{message.text}"
                             if message.image:
                                 msg_content = f"{msg_content}\n[图片]"
                             # 发送消息
@@ -306,7 +306,7 @@ class MsgNotify(_PluginBase):
             logger.error(f"消息发送异常: {str(e)}\n{traceback.format_exc()}")
             raise
 
-    def _send_wecom_textcard(self, title: str, text: str, picurl: str = None, link: str = "") -> bool:
+    def _send_wecom_card(self, title: str, text: str, picurl: str = None, link: str = "") -> bool:
         """
         发送企业微信卡片消息
         """
