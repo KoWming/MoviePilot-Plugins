@@ -52,7 +52,7 @@ class VicomoVS(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomovs.png"
     # 插件版本
-    plugin_version = "1.2.3"
+    plugin_version = "1.2.4"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -69,12 +69,14 @@ class VicomoVS(_PluginBase):
     _onlyonce: bool = False  # 是否仅运行一次
     _notify: bool = False  # 是否开启通知
     _use_proxy: bool = True  # 是否使用代理，默认启用
-    _retry_count: int = 2  # 失败重试次数
+    _retry_count: int = 1  # 失败重试次数
+    _retry_interval: int = 2  # 重试间隔(小时)
     _cron: Optional[str] = None  # 定时任务表达式
     _cookie: Optional[str] = None  # 手动配置的cookie
     _auto_cookie: bool = False  # 是否使用站点cookie
     _history_count: Optional[int] = None  # 历史记录数量
     _retry_jobs: Dict[str, Any] = {}  # 存储重试任务信息
+    _proxies: Optional[Dict[str, str]] = None  # 代理设置
 
     # 对战参数
     _vs_boss_count: int = 3  # 对战次数
@@ -107,8 +109,12 @@ class VicomoVS(_PluginBase):
             self._vs_boss_count = int(config.get("vs_boss_count", 3))
             self._vs_boss_interval = int(config.get("vs_boss_interval", 15))
             self._use_proxy = config.get("use_proxy", True)
-            self._retry_count = int(config.get("retry_count", 2))
+            self._retry_count = int(config.get("retry_count", 1))
+            self._retry_interval = int(config.get("retry_interval", 2))
             self._auto_cookie = config.get("auto_cookie", False)
+
+            # 初始化代理设置
+            self._proxies = self._get_proxies()
 
             # 处理自动获取cookie
             if self._auto_cookie:
@@ -136,6 +142,7 @@ class VicomoVS(_PluginBase):
                     "vs_boss_interval": self._vs_boss_interval,
                     "use_proxy": self._use_proxy,
                     "retry_count": self._retry_count,
+                    "retry_interval": self._retry_interval,
                     "auto_cookie": self._auto_cookie
                 })
 
@@ -146,6 +153,26 @@ class VicomoVS(_PluginBase):
             except Exception as e:
                 logger.error(f"象岛传说竞技场服务启动失败: {str(e)}")
 
+    def get_member_ids(self, n=None):
+        """获取前n个（或全部）角色编号，拼成逗号字符串"""
+        try:
+            url = f"{self._vs_site_url}/customgame.php"
+            response = requests.get(url, headers={
+                "cookie": self._cookie,
+                "referer": self._vs_site_url,
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0"
+            }, proxies=self._proxies)
+            html = etree.HTML(response.text)
+            values = html.xpath('//input[contains(@class, "memberSelected")]/@value')
+            if n is not None:
+                values = values[:n]
+            vs_member_name = ','.join(values)
+            logger.info(f"自动获取{('全部' if n is None else f'前{n}个')}角色vs_member_name: {vs_member_name}")
+            return vs_member_name
+        except Exception as e:
+            logger.error(f"获取角色vs_member_name失败: {str(e)}")
+            return ""
+
     def vs_boss(self):
         """对战boss"""
         self.vs_boss_url = self._vs_site_url + "/customgame.php?action=exchange"
@@ -155,16 +182,20 @@ class VicomoVS(_PluginBase):
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0"
         }
         
-        # 获取代理设置
-        proxies = self._get_proxies()
+        # 使用已保存的代理设置
+        proxies = self._proxies
         
         # 根据星期几选择对战模式
         if datetime.today().weekday() in [0, 2]:
             vs_boss_data = "option=1&vs_member_name=0&submit=%E9%94%8B%E8%8A%92%E4%BA%A4%E9%94%99+-+1v1"  # Monday Wednesday
         elif datetime.today().weekday() in [1, 3]:
-            vs_boss_data = "option=1&vs_member_name=0%2C1%2C2%2C3%2C4&submit=%E9%BE%99%E4%B8%8E%E5%87%A4%E7%9A%84%E6%8A%97%E8%A1%A1+-+%E5%9B%A2%E6%88%98+5v5"  # Thuesday Thursday
+            # 5v5，自动选择5个角色
+            vs_member_name = self.get_member_ids(5)
+            vs_boss_data = f"option=1&vs_member_name={vs_member_name}&submit=%E9%BE%99%E4%B8%8E%E5%87%A4%E7%9A%84%E6%8A%97%E8%A1%A1+-+%E5%9B%A2%E6%88%98+5v5"
         elif datetime.today().weekday() in [4, 5, 6]:
-            vs_boss_data = "option=1&vs_member_name=0%2C1%2C2%2C3%2C4%2C5%2C6%2C7%2C8%2C9%2C10%2C11%2C12%2C13%2C14%2C15%2C16&submit=%E4%B8%96%E7%95%8Cboss+-+%E5%AF%B9%E6%8A%97Sysrous"
+            # 世界boss，自动全选角色
+            vs_member_name = self.get_member_ids()
+            vs_boss_data = f"option=1&vs_member_name={vs_member_name}&submit=%E4%B8%96%E7%95%8Cboss+-+%E5%AF%B9%E6%8A%97Sysrous"
         self.headers.update({
             "content-type": "application/x-www-form-urlencoded",
             "pragma": "no-cache",
@@ -265,24 +296,15 @@ class VicomoVS(_PluginBase):
                 
                 # 执行对战
                 battle_result = None
-                for attempt in range(self._retry_count + 1):
-                    try:
-                        battle_result = self.vs_boss()
-                        if battle_result:
-                            break
-                        else:
-                            raise Exception("对战结果为空")
-                    except Exception as e:
-                        logger.error(f"第{current_battle}次对战第{attempt+1}次尝试失败: {e}")
-                        if attempt < self._retry_count:
-                            time.sleep(2)  # 每次重试间隔2秒
-                        else:
-                            logger.error(f"第{current_battle}次对战重试已达上限({self._retry_count})，放弃本次对战")
-                            # 记录失败的对战信息
-                            failed_battles.append({
-                                "battle_number": current_battle,
-                                "battle_date": datetime.now().strftime('%Y-%m-%d')
-                            })
+                try:
+                    battle_result = self.vs_boss()
+                except Exception as e:
+                    logger.error(f"第{current_battle}次对战失败: {e}")
+                    # 记录失败的对战信息
+                    failed_battles.append({
+                        "battle_number": current_battle,
+                        "battle_date": datetime.now().strftime('%Y-%m-%d')
+                    })
                 
                 if battle_result:
                     battle_results.append(battle_result)
@@ -322,8 +344,8 @@ class VicomoVS(_PluginBase):
                     text=f"{rich_text_report}")
 
             # 处理失败的对战
-            if failed_battles:
-                logger.info(f"有 {len(failed_battles)} 场对战失败，将在2小时后重试")
+            if failed_battles and self._retry_count > 0:
+                logger.info(f"有 {len(failed_battles)} 场对战失败，将创建重试任务")
                 if self._notify:
                     self.post_message(
                         mtype=NotificationType.SiteMessage,
@@ -331,41 +353,32 @@ class VicomoVS(_PluginBase):
                         text=f"━━━━━━━━━━━━━━\n"
                              f"⚠️ 失败信息：\n"
                              f"共有 {len(failed_battles)} 场对战失败\n"
-                             f"将在2小时后自动重试\n\n"
+                             f"将创建重试任务\n\n"
                              f"━━━━━━━━━━━━━━\n"
                              f"📊 失败场次：\n"
                              + "\n".join([f"第 {battle['battle_number']} 场" for battle in failed_battles]) + "\n\n"
                              f"━━━━━━━━━━━━━━\n"
                              f"⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-                # 为每个失败的对战创建2小时后的重试任务
+                # 为每个失败的对战创建重试任务
                 for failed_battle in failed_battles:
-                    # 生成唯一的任务ID
-                    job_id = f"retry_battle_{failed_battle['battle_number']}_{int(time.time())}"
-                    
-                    # 创建重试任务
-                    if self._scheduler:
-                        self._scheduler.add_job(
-                            func=self._retry_battle_task,
-                            trigger='date',
-                            run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(hours=2),
-                            args=[{
-                                "battle_number": failed_battle["battle_number"],
-                                "battle_date": failed_battle["battle_date"],
-                                "job_id": job_id
-                            }],
-                            id=job_id,
-                            name=f"象岛传说竞技场-重试第{failed_battle['battle_number']}场对战"
-                        )
+                    # 创建多次重试任务
+                    for retry_index in range(self._retry_count):
+                        # 计算重试时间
+                        retry_time = datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(hours=self._retry_interval * (retry_index + 1))
+                        
+                        # 生成唯一的任务ID
+                        job_id = f"retry_battle_{failed_battle['battle_number']}_{retry_index}_{int(time.time())}"
                         
                         # 保存重试任务信息
                         self._retry_jobs[job_id] = {
                             "battle_number": failed_battle["battle_number"],
                             "battle_date": failed_battle["battle_date"],
-                            "create_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            "create_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            "retry_index": retry_index + 1
                         }
                         
-                        logger.info(f"已创建第 {failed_battle['battle_number']} 场对战的重试任务，将在2小时后执行")
+                        logger.info(f"已创建第 {failed_battle['battle_number']} 场对战的第 {retry_index + 1} 次重试任务，将在 {retry_time.strftime('%Y-%m-%d %H:%M:%S')} 执行")
 
         except Exception as e:
             logger.error(f"执行对战任务时发生异常: {e}")
@@ -577,6 +590,32 @@ class VicomoVS(_PluginBase):
                 "kwargs": {}
             })
 
+        # 注册重试任务
+        if self._retry_jobs:
+            for job_id, job_info in self._retry_jobs.items():
+                # 计算重试时间
+                create_time = datetime.strptime(job_info['create_time'], '%Y-%m-%d %H:%M:%S')
+                retry_time = create_time + timedelta(hours=self._retry_interval * job_info['retry_index'])
+                
+                if retry_time < datetime.now():
+                    continue
+                    
+                service.append({
+                    "id": job_id,
+                    "name": f"象岛传说竞技场-第{job_info['retry_index']}次重试第{job_info['battle_number']}场对战",
+                    "trigger": "date",
+                    "run_date": retry_time,
+                    "func": self._retry_battle_task,
+                    "kwargs": {
+                        "battle_info": {
+                            "battle_number": job_info["battle_number"],
+                            "battle_date": job_info["battle_date"],
+                            "job_id": job_id,
+                            "retry_index": job_info["retry_index"]
+                        }
+                    }
+                })
+
         if service:
             return service
 
@@ -604,7 +643,7 @@ class VicomoVS(_PluginBase):
                             {
                                 'component': 'VCardItem',
                                 'props': {
-                                    'class': 'pa-6'
+                                    'class': 'px-6 pb-0'
                                 },
                                 'content': [
                                     {
@@ -629,6 +668,12 @@ class VicomoVS(_PluginBase):
                                         ]
                                     }
                                 ]
+                            },
+                            {
+                                'component': 'VDivider',
+                                'props': {
+                                    'class': 'mx-4 my-2'
+                                }
                             },
                             {
                                 'component': 'VCardText',
@@ -711,7 +756,7 @@ class VicomoVS(_PluginBase):
                             {
                                 'component': 'VCardItem',
                                 'props': {
-                                    'class': 'pa-6'
+                                    'class': 'px-6 pb-0'
                                 },
                                 'content': [
                                     {
@@ -736,6 +781,12 @@ class VicomoVS(_PluginBase):
                                         ]
                                     }
                                 ]
+                            },
+                            {
+                                'component': 'VDivider',
+                                'props': {
+                                    'class': 'mx-4 my-2'
+                                }
                             },
                             {
                                 'component': 'VCardText',
@@ -813,19 +864,54 @@ class VicomoVS(_PluginBase):
                                                 'component': 'VCol',
                                                 'props': {
                                                     'cols': 12,
-                                                    'sm': 6
+                                                    'sm': 3
                                                 },
                                                 'content': [
                                                     {
-                                                        'component': cron_field_component,
+                                                        'component': 'VSelect',
                                                         'props': {
-                                                            'model': 'cron',
-                                                            'label': '执行周期(cron)',
+                                                            'model': 'retry_count',
+                                                            'label': '重试任务次数',
+                                                            'type': 'number',
                                                             'variant': 'outlined',
                                                             'color': 'primary',
                                                             'hide-details': True,
-                                                            'placeholder': '5位cron表达式，默认每天9点执行',
-                                                            'class': 'mt-2'
+                                                            'hint': '为0时，不创建重试任务',
+                                                            'class': 'mt-2',
+                                                            'items': [
+                                                                {'title': '关闭', 'value': 0},
+                                                                {'title': '1次', 'value': 1},
+                                                                {'title': '2次', 'value': 2},
+                                                                {'title': '3次', 'value': 3}
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VCol',
+                                                'props': {
+                                                    'cols': 12,
+                                                    'sm': 3
+                                                },
+                                                'content': [
+                                                    {
+                                                        'component': 'VSelect',
+                                                        'props': {
+                                                            'model': 'retry_interval',
+                                                            'label': '重试间隔(小时)',
+                                                            'type': 'number',
+                                                            'variant': 'outlined',
+                                                            'color': 'primary',
+                                                            'hide-details': True,
+                                                            'hint': '重试任务间隔时间',
+                                                            'class': 'mt-2',
+                                                            'items': [
+                                                                {'title': '1小时', 'value': 1},
+                                                                {'title': '2小时', 'value': 2},
+                                                                {'title': '3小时', 'value': 3},
+                                                                {'title': '4小时', 'value': 4}
+                                                            ]
                                                         }
                                                     }
                                                 ]
@@ -896,22 +982,15 @@ class VicomoVS(_PluginBase):
                                                 },
                                                 'content': [
                                                     {
-                                                        'component': 'VSelect',
+                                                        'component': cron_field_component,
                                                         'props': {
-                                                            'model': 'retry_count',
-                                                            'label': '失败重试次数',
-                                                            'type': 'number',
+                                                            'model': 'cron',
+                                                            'label': '执行周期(cron)',
                                                             'variant': 'outlined',
                                                             'color': 'primary',
                                                             'hide-details': True,
-                                                            'hint': '为0时，不重试',
-                                                            'class': 'mt-2',
-                                                            'items': [
-                                                                {'title': '关闭', 'value': 0},
-                                                                {'title': '1次', 'value': 1},
-                                                                {'title': '2次', 'value': 2},
-                                                                {'title': '3次', 'value': 3}
-                                                            ]
+                                                            'placeholder': '5位cron表达式，默认每天9点执行',
+                                                            'class': 'mt-2'
                                                         }
                                                     }
                                                 ]
@@ -954,7 +1033,7 @@ class VicomoVS(_PluginBase):
                             {
                                 'component': 'VCardItem',
                                 'props': {
-                                    'class': 'pa-6'
+                                    'class': 'px-6 pb-0'
                                 },
                                 'content': [
                                     {
@@ -981,6 +1060,12 @@ class VicomoVS(_PluginBase):
                                 ]
                             },
                             {
+                                'component': 'VDivider',
+                                'props': {
+                                    'class': 'mx-4 my-2'
+                                }
+                            },
+                            {
                                 'component': 'VCardText',
                                 'props': {
                                     'class': 'px-6 pb-6'
@@ -997,32 +1082,360 @@ class VicomoVS(_PluginBase):
                                                 'props': {
                                                     'class': 'mb-4'
                                                 },
-                                                'text': '⚙️ 启用【使用站点Cookie】功能后，插件会自动获取已配置站点的cookie，请确保cookie有效。'
+                                                'content': [
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'd-flex align-center mb-2'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'VIcon',
+                                                                'props': {
+                                                                    'style': 'color: #16b1ff;',
+                                                                    'class': 'mr-2',
+                                                                    'size': 'small'
+                                                                },
+                                                                'text': 'mdi-cog'
+                                                            },
+                                                            {
+                                                                'component': 'span',
+                                                                'props': {
+                                                                    'class': 'text-subtitle-1 font-weight-bold'
+                                                                },
+                                                                'text': '基本设置'
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'pl-4'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {
+                                                                    'class': 'mb-2 d-flex align-center'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'class': 'mr-2',
+                                                                            'style': 'width: 24px; text-align: center; margin-left: 8px;'
+                                                                        },
+                                                                        'text': '⚙️'
+                                                                    },
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'text': '启用【使用站点Cookie】功能后，插件会自动获取已配置站点的cookie，请确保cookie有效。'
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
                                             },
                                             {
                                                 'component': 'div',
                                                 'props': {
                                                     'class': 'mb-4'
                                                 },
-                                                'text': '🎮 每人每天拥有三次参战机会，每场战斗最长持续30回合，击溃敌方全体角色获得胜利。'
+                                                'content': [
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'd-flex align-center mb-2'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'VIcon',
+                                                                'props': {
+                                                                    'style': 'color: #16b1ff;',
+                                                                    'class': 'mr-2',
+                                                                    'size': 'small'
+                                                                },
+                                                                'text': 'mdi-refresh'
+                                                            },
+                                                            {
+                                                                'component': 'span',
+                                                                'props': {
+                                                                    'class': 'text-subtitle-1 font-weight-bold'
+                                                                },
+                                                                'text': '重试机制'
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'pl-4'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {
+                                                                    'class': 'mb-2 d-flex align-center'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'class': 'mr-2',
+                                                                            'style': 'width: 24px; text-align: center; margin-left: 8px;'
+                                                                        },
+                                                                        'text': '🔄'
+                                                                    },
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'text': '当对战失败时，系统会自动创建重试任务'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {
+                                                                    'class': 'mb-2 d-flex align-center'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'class': 'mr-2',
+                                                                            'style': 'width: 24px; text-align: center; margin-left: 8px;'
+                                                                        },
+                                                                        'text': '📊'
+                                                                    },
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'text': '重试任务次数：设置每个失败对战最多重试几次'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {
+                                                                    'class': 'mb-2 d-flex align-center'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'class': 'mr-2',
+                                                                            'style': 'width: 24px; text-align: center; margin-left: 8px;'
+                                                                        },
+                                                                        'text': '⏱'
+                                                                    },
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'text': '重试间隔：设置每次重试之间的时间间隔'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {
+                                                                    'class': 'mb-2 d-flex align-center'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'class': 'mr-2',
+                                                                            'style': 'width: 24px; text-align: center; margin-left: 8px;'
+                                                                        },
+                                                                        'text': '🤖'
+                                                                    },
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'text': '重试任务会在指定时间自动执行，无需手动干预'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {
+                                                                    'class': 'd-flex align-center'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'class': 'mr-2',
+                                                                            'style': 'width: 24px; text-align: center; margin-left: 8px;'
+                                                                        },
+                                                                        'text': '📢'
+                                                                    },
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'text': '重试结果会通过通知发送，请确保开启通知功能'
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
                                             },
                                             {
                                                 'component': 'div',
                                                 'props': {
                                                     'class': 'mb-4'
                                                 },
-                                                'text': '⚔️ 周一和周三是锋芒交错的时刻，1v1的激烈对决等着您。'
+                                                'content': [
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'd-flex align-center mb-2'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'VIcon',
+                                                                'props': {
+                                                                    'style': 'color: #16b1ff;',
+                                                                    'class': 'mr-2',
+                                                                    'size': 'small'
+                                                                },
+                                                                'text': 'mdi-sword-cross'
+                                                            },
+                                                            {
+                                                                'component': 'span',
+                                                                'props': {
+                                                                    'class': 'text-subtitle-1 font-weight-bold'
+                                                                },
+                                                                'text': '战斗规则'
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'pl-4'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {
+                                                                    'class': 'mb-2 d-flex align-center'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'class': 'mr-2',
+                                                                            'style': 'width: 24px; text-align: center; margin-left: 8px;'
+                                                                        },
+                                                                        'text': '🎮'
+                                                                    },
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'text': '每人每天拥有三次参战机会，每场战斗最长持续30回合，击溃敌方全体角色获得胜利。'
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
                                             },
                                             {
                                                 'component': 'div',
                                                 'props': {
                                                     'class': 'mb-4'
                                                 },
-                                                'text': '🐉 周二周四上演龙与凤的抗衡，5v5的团战战场精彩纷呈。'
-                                            },
-                                            {
-                                                'component': 'div',
-                                                'text': '👑 周五、周六和周日，世界boss【Sysrous】将会降临，勇士们齐心协力，挑战最强BOSS，获得奖励Sysrous魔力/200000+总伤害/4的象草。'
+                                                'content': [
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'd-flex align-center mb-2'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'VIcon',
+                                                                'props': {
+                                                                    'style': 'color: #16b1ff;',
+                                                                    'class': 'mr-2',
+                                                                    'size': 'small'
+                                                                },
+                                                                'text': 'mdi-calendar'
+                                                            },
+                                                            {
+                                                                'component': 'span',
+                                                                'props': {
+                                                                    'class': 'text-subtitle-1 font-weight-bold'
+                                                                },
+                                                                'text': '对战模式'
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'pl-4'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {
+                                                                    'class': 'mb-2 d-flex align-center'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'class': 'mr-2',
+                                                                            'style': 'width: 24px; text-align: center; margin-left: 8px;'
+                                                                        },
+                                                                        'text': '⚔️'
+                                                                    },
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'text': '周一和周三是锋芒交错的时刻，1v1的激烈对决等着您。'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {
+                                                                    'class': 'mb-2 d-flex align-center'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'class': 'mr-2',
+                                                                            'style': 'width: 24px; text-align: center; margin-left: 8px;'
+                                                                        },
+                                                                        'text': '🐉'
+                                                                    },
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'text': '周二周四上演龙与凤的抗衡，5v5的团战战场精彩纷呈。'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {
+                                                                    'class': 'd-flex align-center'
+                                                                },
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'props': {
+                                                                            'class': 'mr-2',
+                                                                            'style': 'width: 24px; text-align: center; margin-left: 8px;'
+                                                                        },
+                                                                        'text': '👑'
+                                                                    },
+                                                                    {
+                                                                        'component': 'span',
+                                                                        'text': '周五、周六和周日，世界boss【Sysrous】将会降临，勇士们齐心协力，挑战最强BOSS，获得奖励Sysrous魔力/200000+总伤害/4的象草。'
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
                                             }
                                         ]
                                     }
@@ -1042,7 +1455,8 @@ class VicomoVS(_PluginBase):
             "cron": "0 9 * * *",
             "vs_boss_count": 3,
             "vs_boss_interval": 15,
-            "retry_count": 2,
+            "retry_count": 1,
+            "retry_interval": 2,
             "auto_cookie": False
         }
 
@@ -1377,9 +1791,10 @@ class VicomoVS(_PluginBase):
                 - battle_number: 对战场次
                 - battle_date: 对战日期
                 - job_id: 任务ID
+                - retry_index: 重试次数
         """
         try:
-            logger.info(f"开始执行第 {battle_info['battle_number']} 场对战的重试任务")
+            logger.info(f"开始执行第 {battle_info['battle_number']} 场对战的第 {battle_info['retry_index']} 次重试任务")
             
             # 执行对战
             battle_result = self.vs_boss()
@@ -1407,7 +1822,7 @@ class VicomoVS(_PluginBase):
                         title="【象岛传说竞技场】重试任务完成",
                         text=f"━━━━━━━━━━━━━━\n"
                              f"🎯 重试信息：\n"
-                             f"⚔️ 第 {battle_info['battle_number']} 场对战重试成功\n"
+                             f"⚔️ 第 {battle_info['battle_number']} 场对战第 {battle_info['retry_index']} 次重试成功\n"
                              f"📅 对战日期：{battle_info['battle_date']}\n\n"
                              f"━━━━━━━━━━━━━━\n"
                              f"📊 对战结果：\n"
@@ -1415,14 +1830,14 @@ class VicomoVS(_PluginBase):
                              f"━━━━━━━━━━━━━━\n"
                              f"⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             else:
-                logger.error(f"第 {battle_info['battle_number']} 场对战重试失败")
+                logger.error(f"第 {battle_info['battle_number']} 场对战第 {battle_info['retry_index']} 次重试失败")
                 if self._notify:
                     self.post_message(
                         mtype=NotificationType.SiteMessage,
                         title="【象岛传说竞技场】重试任务失败",
                         text=f"━━━━━━━━━━━━━━\n"
                              f"⚠️ 错误提示：\n"
-                             f"第 {battle_info['battle_number']} 场对战重试失败\n"
+                             f"第 {battle_info['battle_number']} 场对战第 {battle_info['retry_index']} 次重试失败\n"
                              f"📅 对战日期：{battle_info['battle_date']}\n\n"
                              f"━━━━━━━━━━━━━━\n"
                              f"⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -1442,6 +1857,7 @@ class VicomoVS(_PluginBase):
                          f"执行重试对战任务时发生异常\n"
                          f"📅 对战日期：{battle_info['battle_date']}\n"
                          f"⚔️ 对战场次：{battle_info['battle_number']}\n"
+                         f"🔄 重试次数：{battle_info['retry_index']}\n"
                          f"❌ 异常信息：{str(e)}\n\n"
                          f"━━━━━━━━━━━━━━\n"
                          f"⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
