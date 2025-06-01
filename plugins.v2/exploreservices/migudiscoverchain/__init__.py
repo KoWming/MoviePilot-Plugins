@@ -20,7 +20,7 @@ class MiGuDiscoverChain(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/DDS-Derek/MoviePilot-Plugins/main/icons/migu_A.png"
     # 插件版本
-    plugin_version = "1.0.3"
+    plugin_version = "1.0.4"
     # 插件作者
     plugin_author = "DDSRem"
     # 作者主页
@@ -39,8 +39,8 @@ class MiGuDiscoverChain(_PluginBase):
     def init_plugin(self, config: dict = None):
         if config:
             self._enabled = config.get("enabled")
-        if "http://wapx.cmvideo.cn:8080" not in settings.SECURITY_IMAGE_DOMAINS:
-            settings.SECURITY_IMAGE_DOMAINS.append("http://wapx.cmvideo.cn:8080")
+        if "https://wapx.cmvideo.cn" not in settings.SECURITY_IMAGE_DOMAINS:
+            settings.SECURITY_IMAGE_DOMAINS.append("https://wapx.cmvideo.cn")
 
     def get_state(self) -> bool:
         return self._enabled
@@ -153,7 +153,7 @@ class MiGuDiscoverChain(_PluginBase):
                 title_year=f"{movie_info.get('name')} ({movie_info.get('year')})",
                 mediaid_prefix="migu",
                 media_id=str(movie_info.get("pID")),
-                poster_path=movie_info.get("h5pics").get("highResolutionV"),
+                poster_path=movie_info.get("h5pics").get("highResolutionV").replace("http://wapx.cmvideo.cn:8080", "https://wapx.cmvideo.cn"),
                 vote_average=movie_info.get("score"),
                 first_air_date=first_air_date,
             )
@@ -173,7 +173,7 @@ class MiGuDiscoverChain(_PluginBase):
                 mediaid_prefix="migu",
                 media_id=str(series_info.get("pID")),
                 release_date=series_info.get("publishTime"),
-                poster_path=series_info.get("h5pics").get("highResolutionV"),
+                poster_path=series_info.get("h5pics").get("highResolutionV").replace("http://wapx.cmvideo.cn:8080", "https://wapx.cmvideo.cn"),
                 vote_average=series_info.get("score"),
                 first_air_date=first_air_date,
             )
