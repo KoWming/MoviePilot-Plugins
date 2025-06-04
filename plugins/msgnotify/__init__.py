@@ -27,7 +27,7 @@ class MsgNotify(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/MsgNotify.png"
     # 插件版本
-    plugin_version = "1.3.8"
+    plugin_version = "1.3.9"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -45,12 +45,12 @@ class MsgNotify(_PluginBase):
     _msgtype = None
     _image_mappings = None
     _image_history = {}  # 用于记录每个关键词的图片使用历史
-    _match_cache = {}  # 用于缓存匹配结果
+    _last_match = None  # 用于存储最后一次匹配结果
 
     def __init__(self):
         super().__init__()
         self._image_history = {}  # 用于记录每个关键词的图片使用历史
-        self._match_cache = {}  # 用于缓存匹配结果
+        self._last_match = None  # 用于存储最后一次匹配结果
         self.notification_helper = NotificationHelper()  # 初始化通知帮助类
         self.messagehelper = MessageHelper()  # 初始化消息帮助类
 
@@ -59,8 +59,6 @@ class MsgNotify(_PluginBase):
             self._enabled = config.get("enabled")
             self._notify = config.get("notify")
             self._msgtype = config.get("msgtype")
-            # 清空缓存
-            self._match_cache = {}
             try:
                 # 解析文本配置，支持多图片URL和样式，样式以第一行为准
                 image_mapping_dict = {}
@@ -115,16 +113,38 @@ class MsgNotify(_PluginBase):
                 logger.error(f"解析图片映射配置失败: {str(e)}")
                 self._image_mappings = []
 
+    def _select_random_image(self, keyword: str, image_urls: List[str]) -> str:
+        """
+        为关键词随机选择一张图片，避免重复使用
+        返回: 选中的图片URL
+        """
+        # 获取该关键词的历史记录
+        history = self._image_history.get(keyword, [])
+        
+        # 过滤掉最近使用过的图片
+        available_urls = [url for url in image_urls if url not in history]
+        
+        # 如果所有图片都使用过了,清空历史记录
+        if not available_urls:
+            available_urls = image_urls
+            history = []
+        
+        # 随机选择一张图片
+        selected_url = random.choice(available_urls)
+        
+        # 更新历史记录,保持最近3次的记录
+        history.append(selected_url)
+        if len(history) > 3:
+            history.pop(0)
+        self._image_history[keyword] = history
+        
+        return selected_url
+
     def _get_matched_image(self, title: str, text: str) -> Tuple[str, str]:
         """
         根据消息标题和内容匹配对应的图片URL和通知样式
         返回: (图片URL, 通知样式)
         """
-        # 生成缓存key,使用原始text(去掉可能的换行符)
-        cache_key = f"{title}|{text.rstrip()}"
-        if cache_key in self._match_cache:
-            return self._match_cache[cache_key]
-
         if not self._image_mappings:
             return None, "default"
             
@@ -151,41 +171,34 @@ class MsgNotify(_PluginBase):
                 
                 # 如果找到图片URL,使用历史记录避免重复
                 if image_urls:
-                    # 获取该关键词的历史记录
-                    history = self._image_history.get(keyword, [])
-                    
-                    # 过滤掉最近使用过的图片
-                    available_urls = [url for url in image_urls if url not in history]
-                    
-                    # 如果所有图片都使用过了,清空历史记录
-                    if not available_urls:
-                        available_urls = image_urls
-                        history = []
-                    
-                    # 随机选择一张图片
-                    selected_url = random.choice(available_urls)
-                    
-                    # 更新历史记录,保持最近3次的记录
-                    history.append(selected_url)
-                    if len(history) > 3:
-                        history.pop(0)
-                    self._image_history[keyword] = history
-                    
+                    selected_url = self._select_random_image(keyword, image_urls)
                     logger.info(f"为关键词 '{keyword}' 选择图片: {selected_url}, 使用样式: {style}")
-                    result = (selected_url, style)
-                    # 缓存结果
-                    self._match_cache[cache_key] = result
-                    return result
+                    return selected_url, style
                 else:
-                    result = (None, style)
-                    # 缓存结果
-                    self._match_cache[cache_key] = result
-                    return result
+                    return None, style
                     
-        result = (None, "default")
-        # 缓存结果
-        self._match_cache[cache_key] = result
-        return result
+        return None, "default"
+
+    def _create_notification(self, title: str, text: str, image_url: str = None, style: str = "default") -> Notification:
+        """
+        创建通知对象
+        """
+        # 获取消息类型
+        mtype = NotificationType.Manual  # 默认手动处理
+        if self._msgtype:
+            try:
+                # 直接使用枚举名称获取枚举值
+                mtype = NotificationType[self._msgtype]
+            except (KeyError, ValueError):
+                logger.warning(f"无效的消息类型: {self._msgtype}, 使用默认类型: Manual")
+        
+        return Notification(
+            mtype=mtype,
+            title=title,
+            text=text,
+            image=image_url if style == "card" else None,
+            channel=MessageChannel.Wechat
+        )
 
     def msg_notify_json(self, apikey: str, request: NotifyRequest) -> schemas.Response:
         """
@@ -198,29 +211,13 @@ class MsgNotify(_PluginBase):
         text = request.text
         logger.info(f"收到以下消息:\n{title}\n{text}")
         if self._enabled and self._notify:
-            # 获取消息类型
-            mtype = NotificationType.Manual  # 默认手动处理
-            if self._msgtype:
-                try:
-                    # 直接使用枚举名称获取枚举值
-                    mtype = NotificationType[self._msgtype]
-                except (KeyError, ValueError):
-                    logger.warning(f"无效的消息类型: {self._msgtype}, 使用默认类型: Manual")
-            
             # 获取匹配的图片URL和通知样式
             image_url, style = self._get_matched_image(title, text)
+            # 保存匹配结果
+            self._last_match = (image_url, style)
 
             # 创建通知对象
-            notification = Notification(
-                mtype=mtype,
-                title=title,
-                text=text,
-                image=image_url if style == "card" else None,
-                channel=MessageChannel.Wechat
-            )
-            # 使用缓存保存样式信息
-            cache_key = f"{title}|{text.rstrip()}"
-            self._match_cache[cache_key] = (image_url, style)
+            notification = self._create_notification(title, text, image_url, style)
             self.post_message(notification)
 
         return schemas.Response(
@@ -237,29 +234,13 @@ class MsgNotify(_PluginBase):
 
         logger.info(f"收到以下消息:\n{title}\n{text}")
         if self._enabled and self._notify:
-            # 获取消息类型
-            mtype = NotificationType.Manual  # 默认手动处理
-            if self._msgtype:
-                try:
-                    # 直接使用枚举名称获取枚举值
-                    mtype = NotificationType[self._msgtype]
-                except (KeyError, ValueError):
-                    logger.warning(f"无效的消息类型: {self._msgtype}, 使用默认类型: Manual")
-            
             # 获取匹配的图片URL和通知样式
             image_url, style = self._get_matched_image(title, text)
+            # 保存匹配结果
+            self._last_match = (image_url, style)
 
             # 创建通知对象
-            notification = Notification(
-                mtype=mtype,
-                title=title,
-                text=text,
-                image=image_url if style == "card" else None,
-                channel=MessageChannel.Wechat
-            )
-            # 使用缓存保存样式信息
-            cache_key = f"{title}|{text.rstrip()}"
-            self._match_cache[cache_key] = (image_url, style)
+            notification = self._create_notification(title, text, image_url, style)
             self.post_message(notification)
 
         return schemas.Response(
@@ -278,76 +259,35 @@ class MsgNotify(_PluginBase):
             "post_message": self.post_message
         }
 
-    def post_message(self, message: Notification):
+    def _get_wechat_instance(self) -> Any:
         """
-        兼容主程序类型分发逻辑，支持企业微信card推送。
+        获取可用的企业微信实例
+        返回: 企业微信实例或None
         """
-        try:
-            mtype = getattr(message, "mtype", None)
-            mtype_value = mtype.value if mtype else None
-            channel = getattr(message, "channel", None)
-            title = getattr(message, "title", "")
-            text = getattr(message, "text", "")
-            
-            # 从缓存获取样式信息
-            cache_key = f"{title}|{text.rstrip()}"
-            cached_result = self._match_cache.get(cache_key)
-            if cached_result:
-                picurl, style = cached_result
-            else:
-                # 如果缓存中没有,使用默认值
-                picurl = getattr(message, "image", None)
-                style = "card" if picurl else "default"
-            
-            # 获取所有通知服务名称
-            service_names = self.notification_helper.get_services()
-            for service_name in service_names:
-                service = self.notification_helper.get_service(name=service_name)
-                if not service or not service.config.enabled:
-                    continue
-                switchs = getattr(service.config, 'switchs', []) or []
-                if mtype_value and mtype_value not in switchs:
-                    continue
-                if channel == MessageChannel.Wechat:
-                    wechat_instance = getattr(service, 'instance', None)
-                    if style == "card":
-                        try:
-                            # 只对当前服务推送card
-                            self._send_wecom_card(title, text, picurl=picurl, wechat_instance=wechat_instance)
-                        except Exception as e:
-                            logger.error(f"发送企业微信卡片消息失败: {str(e)}")
-                        continue
-                    if wechat_instance:
-                        msg_content = f"{title}\n{text}"
-                        if message.image:
-                            msg_content = f"{msg_content}\n[图片]"
-                        wechat_instance.send_msg(msg_content)
-        except Exception as e:
-            logger.error(f"插件post_message分发异常: {str(e)}")
-            raise
+        service_names = self.notification_helper.get_services()
+        for service_name in service_names:
+            service = self.notification_helper.get_service(name=service_name)
+            if service and service.config.enabled:
+                return service.instance
+        return None
 
-    def _send_wecom_card(self, title: str, text: str, picurl: str = None, link: str = "", wechat_instance=None) -> bool:
+    def _send_wecom_card(self, title: str, text: str, picurl: str = None, wechat_instance=None) -> bool:
         """
         发送企业微信卡片消息（支持指定实例）
         """
         try:
             # 允许外部传入实例，优先用传入的
             if wechat_instance is None:
-                # 获取所有通知服务名称
-                service_names = self.notification_helper.get_services()
-                wechat_instance = None
-                for service_name in service_names:
-                    service = self.notification_helper.get_service(name=service_name)
-                    if service and service.config.enabled:
-                        wechat_instance = service.instance
-                        break
+                wechat_instance = self._get_wechat_instance()
             if not wechat_instance:
                 logger.error("未找到企业微信服务实例")
                 return False
+
             # 获取access_token
             if not wechat_instance._WeChat__get_access_token():
                 logger.error("获取微信access_token失败，请检查参数配置")
                 return False
+
             # 构建卡片消息（news类型，支持图片）
             article = {
                 "title": title,
@@ -355,6 +295,7 @@ class MsgNotify(_PluginBase):
             }
             if picurl:
                 article["picurl"] = picurl
+
             req_json = {
                 "touser": "@all",
                 "msgtype": "news",
@@ -366,11 +307,13 @@ class MsgNotify(_PluginBase):
                 "enable_id_trans": 0,
                 "enable_duplicate_check": 0
             }
+
             # 拼接代理地址
             base_url = "https://qyapi.weixin.qq.com"
             if getattr(wechat_instance, '_proxy', None):
                 base_url = wechat_instance._proxy
             message_url = f"{base_url}/cgi-bin/message/send?access_token={wechat_instance._access_token}"
+
             res = RequestUtils().post(message_url, json=req_json)
             if res is None:
                 logger.error("发送请求失败，未获取到返回信息")
@@ -378,6 +321,7 @@ class MsgNotify(_PluginBase):
             if res.status_code != 200:
                 logger.error(f"发送请求失败，错误码：{res.status_code}，错误原因：{res.reason}")
                 return False
+
             ret_json = res.json()
             if ret_json.get("errcode") == 0:
                 return True
@@ -387,6 +331,62 @@ class MsgNotify(_PluginBase):
         except Exception as e:
             logger.error(f"企业微信文本卡片消息发送异常: {str(e)}")
             return False
+
+    def post_message(self, message: Notification):
+        """
+        兼容主程序类型分发逻辑，支持企业微信card推送。
+        """
+        try:
+            mtype = getattr(message, "mtype", None)
+            mtype_value = mtype.value if mtype else None
+            channel = getattr(message, "channel", None)
+            title = getattr(message, "title", "")
+            text = getattr(message, "text", "")
+            
+            # 使用保存的匹配结果
+            if self._last_match:
+                image_url, style = self._last_match
+                picurl = image_url if style == "card" else None
+            else:
+                # 如果没有保存的结果，使用默认值
+                picurl = getattr(message, "image", None)
+                style = "card" if picurl else "default"
+            
+            # 获取所有通知服务名称
+            service_names = self.notification_helper.get_services()
+            for service_name in service_names:
+                service = self.notification_helper.get_service(name=service_name)
+                if not service or not service.config.enabled:
+                    continue
+
+                # 检查消息类型开关
+                switchs = getattr(service.config, 'switchs', []) or []
+                if mtype_value and mtype_value not in switchs:
+                    continue
+
+                # 处理企业微信消息
+                if channel == MessageChannel.Wechat:
+                    wechat_instance = getattr(service, 'instance', None)
+                    if not wechat_instance:
+                        continue
+
+                    if style == "card":
+                        try:
+                            # 只对当前服务推送card
+                            self._send_wecom_card(title, text, picurl=picurl, wechat_instance=wechat_instance)
+                        except Exception as e:
+                            logger.error(f"发送企业微信卡片消息失败: {str(e)}")
+                        continue
+
+                    # 发送普通消息
+                    msg_content = f"{title}\n{text}"
+                    if message.image:
+                        msg_content = f"{msg_content}\n[图片]"
+                    wechat_instance.send_msg(msg_content)
+
+        except Exception as e:
+            logger.error(f"插件post_message分发异常: {str(e)}")
+            raise
 
     @staticmethod
     def get_command() -> List[Dict[str, Any]]:
@@ -1070,7 +1070,19 @@ class MsgNotify(_PluginBase):
                                                         'content': [
                                                             {
                                                                 'component': 'span',
-                                                                'text': '• 没有图片URL时只推送文字卡片'
+                                                                'text': '• 如不配置图片URL，则只推送文字卡片'
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'text-body-2 ml-8'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'span',
+                                                                'text': '• 没有进行配置的消息将使用default（默认样式）'
                                                             }
                                                         ]
                                                     },
