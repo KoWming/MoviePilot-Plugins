@@ -26,7 +26,7 @@ class VicomoFarm(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomofarm.png"
     # 插件版本
-    plugin_version = "1.2"
+    plugin_version = "1.2.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -47,6 +47,14 @@ class VicomoFarm(_PluginBase):
     _cron: Optional[str] = None  # 定时任务表达式
     _cookie: Optional[str] = None  # 站点Cookie
     _history_count: Optional[int] = None  # 历史记录数量
+
+    # 自动交易配置
+    _auto_purchase_enabled: bool = False  # 是否启用自动进货
+    _purchase_price_threshold: float = 0  # 进货价格阈值
+    _purchase_quantity_ratio: float = 0.5  # 进货数量比例
+    _auto_sale_enabled: bool = False  # 是否启用自动出售
+    _sale_price_threshold: float = 0  # 出售价格阈值
+    _sale_quantity_ratio: float = 1  # 出售数量比例,默认全部出售
 
     # 操作参数
     _farm_interval: int = 15  # 重试间隔
@@ -77,6 +85,14 @@ class VicomoFarm(_PluginBase):
             self._use_proxy = config.get("use_proxy", True)
             self._retry_count = int(config.get("retry_count", 2))
             
+            # 自动交易配置
+            self._auto_purchase_enabled = config.get("auto_purchase_enabled", False)
+            self._purchase_price_threshold = float(config.get("purchase_price_threshold", 0))
+            self._purchase_quantity_ratio = float(config.get("purchase_quantity_ratio", 0.5))
+            self._auto_sale_enabled = config.get("auto_sale_enabled", False)
+            self._sale_price_threshold = float(config.get("sale_price_threshold", 0))
+            self._sale_quantity_ratio = float(config.get("sale_quantity_ratio", 1))  # 默认全部出售
+        
         try:
             if self._enabled:
                 # 创建全局调度器
@@ -111,7 +127,13 @@ class VicomoFarm(_PluginBase):
                         "history_count": self._history_count,
                         "farm_interval": self._farm_interval,
                         "use_proxy": self._use_proxy,
-                        "retry_count": self._retry_count
+                        "retry_count": self._retry_count,
+                        "auto_purchase_enabled": self._auto_purchase_enabled,
+                        "purchase_price_threshold": self._purchase_price_threshold,
+                        "purchase_quantity_ratio": self._purchase_quantity_ratio,
+                        "auto_sale_enabled": self._auto_sale_enabled,
+                        "sale_price_threshold": self._sale_price_threshold,
+                        "sale_quantity_ratio": self._sale_quantity_ratio
                     })
                 
                 # 启动调度器
@@ -466,6 +488,68 @@ class VicomoFarm(_PluginBase):
             logger.error(f"出售任务异常: {e}")
             return {"success": False, "msg": str(e)}
 
+    def _calculate_purchase_quantity(self, farm_info: dict) -> int:
+        """
+        计算进货数量
+        """
+        try:
+            # 如果阈值为0或负数，不进行自动进货
+            if self._purchase_price_threshold <= 0:
+                logger.info("进货价格阈值未设置或无效，不执行自动进货")
+                return 0
+                
+            # 获取农场价格和象草余额
+            farm_price = float(farm_info.get("farm", {}).get("价格", 0))
+            bonus = float(farm_info.get("bonus", "0").replace("象草", "").strip())
+            
+            # 如果价格高于阈值或余额不足,返回0
+            if farm_price > self._purchase_price_threshold or bonus <= 0:
+                return 0
+                
+            # 计算可购买数量
+            max_quantity = int(bonus / farm_price)
+            if max_quantity <= 0:
+                return 0
+                
+            # 根据比例计算实际购买数量
+            purchase_quantity = int(max_quantity * self._purchase_quantity_ratio)
+            
+            # 确保不超过最大可购买数量
+            return min(purchase_quantity, max_quantity)
+            
+        except Exception as e:
+            logger.error(f"计算进货数量时发生错误: {e}")
+            return 0
+
+    def _calculate_sale_quantity(self, farm_info: dict) -> int:
+        """
+        计算出售数量
+        """
+        try:
+            # 如果阈值为0或负数，不进行自动出售
+            if self._sale_price_threshold <= 0:
+                logger.info("出售价格阈值未设置或无效，不执行自动出售")
+                return 0
+                
+            # 获取蔬菜店信息
+            shop = farm_info.get("vegetable_shop", {})
+            market_price = float(shop.get("市场单价", 0))
+            stock = int(shop.get("库存", 0))
+            
+            # 如果价格低于阈值或库存为0,返回0
+            if market_price < self._sale_price_threshold or stock <= 0:
+                return 0
+                
+            # 根据比例计算实际出售数量
+            sale_quantity = int(stock * self._sale_quantity_ratio)
+            
+            # 确保不超过库存
+            return min(sale_quantity, stock)
+            
+        except Exception as e:
+            logger.error(f"计算出售数量时发生错误: {e}")
+            return 0
+
     def _battle_task(self):
         """
         执行农场任务
@@ -489,17 +573,50 @@ class VicomoFarm(_PluginBase):
                              f"━━━━━━━━━━━━━━\n"
                              f"📊 状态信息：\n"
                              f"🌿 当前象草余额：{farm_info.get('bonus', '未知')}")
-                # 失败时也要返回结构化响应
                 return {"success": False, "msg": "获取农场信息失败"}
+
+            # 自动交易处理
+            auto_trade_results = []
+            
+            # 自动进货
+            if self._auto_purchase_enabled:
+                purchase_quantity = self._calculate_purchase_quantity(farm_info)
+                if purchase_quantity > 0:
+                    logger.info(f"开始自动进货,数量: {purchase_quantity}")
+                    purchase_result = self.__purchase_task(purchase_quantity)
+                    if purchase_result.get("success"):
+                        auto_trade_results.append(f"✅ 自动进货成功: {purchase_result.get('msg')}")
+                    else:
+                        auto_trade_results.append(f"❌ 自动进货失败: {purchase_result.get('msg')}")
+                        
+            # 自动出售
+            if self._auto_sale_enabled:
+                sale_quantity = self._calculate_sale_quantity(farm_info)
+                if sale_quantity > 0:
+                    logger.info(f"开始自动出售,数量: {sale_quantity}")
+                    sale_result = self.__sale_task(sale_quantity)
+                    if sale_result.get("success"):
+                        auto_trade_results.append(f"✅ 自动出售成功: {sale_result.get('msg')}")
+                    else:
+                        auto_trade_results.append(f"❌ 自动出售失败: {sale_result.get('msg')}")
+
             # 生成报告
             logger.info("开始生成报告...")
             rich_text_report = self.generate_farm_report(farm_info)
+            
+            # 如果有自动交易结果,添加到报告末尾
+            if auto_trade_results:
+                rich_text_report += "\n\n━━━━━━━━━━━━━━\n"
+                rich_text_report += "🤖 自动交易结果：\n"
+                rich_text_report += "\n".join(auto_trade_results)
+                
             logger.info(f"报告生成完成：\n{rich_text_report}")
 
             # 保存历史记录
             farm_dict = {
                 "date": datetime.today().strftime('%Y-%m-%d %H:%M:%S'),
-                "farm_info": farm_info
+                "farm_info": farm_info,
+                "auto_trade_results": auto_trade_results if auto_trade_results else None
             }
 
             # 读取历史记录
@@ -518,8 +635,14 @@ class VicomoFarm(_PluginBase):
                     mtype=NotificationType.SiteMessage,
                     title="【🐘象岛农场】任务完成",
                     text=rich_text_report)
+                    
             # 成功时返回结构化响应
-            return {"success": True, "msg": "任务已执行"}
+            return {
+                "success": True, 
+                "msg": "任务已执行",
+                "auto_trade_results": auto_trade_results if auto_trade_results else None
+            }
+            
         except Exception as e:
             logger.error(f"执行农场任务时发生异常: {e}")
             return {"success": False, "msg": f"执行农场任务异常: {e}"}
@@ -604,7 +727,14 @@ class VicomoFarm(_PluginBase):
             "farm_interval": self._farm_interval,
             "use_proxy": self._use_proxy,
             "retry_count": self._retry_count,
-            "onlyonce": False  # 始终返回False
+            "onlyonce": False,  # 始终返回False
+            # 自动交易配置
+            "auto_purchase_enabled": self._auto_purchase_enabled,
+            "purchase_price_threshold": self._purchase_price_threshold,
+            "purchase_quantity_ratio": self._purchase_quantity_ratio,
+            "auto_sale_enabled": self._auto_sale_enabled,
+            "sale_price_threshold": self._sale_price_threshold,
+            "sale_quantity_ratio": self._sale_quantity_ratio
         }
 
     def _save_config(self, config_payload: dict) -> Dict[str, Any]:
@@ -626,7 +756,14 @@ class VicomoFarm(_PluginBase):
             self._cron = config_payload.get('cron', self._cron)
             self._farm_interval = int(config_payload.get('farm_interval', self._farm_interval))
             self._retry_count = int(config_payload.get('retry_count', self._retry_count))
-            # 忽略onlyonce参数
+            
+            # 自动交易配置
+            self._auto_purchase_enabled = to_bool(config_payload.get('auto_purchase_enabled', self._auto_purchase_enabled))
+            self._purchase_price_threshold = float(config_payload.get('purchase_price_threshold', self._purchase_price_threshold))
+            self._purchase_quantity_ratio = float(config_payload.get('purchase_quantity_ratio', self._purchase_quantity_ratio))
+            self._auto_sale_enabled = to_bool(config_payload.get('auto_sale_enabled', self._auto_sale_enabled))
+            self._sale_price_threshold = float(config_payload.get('sale_price_threshold', self._sale_price_threshold))
+            self._sale_quantity_ratio = float(config_payload.get('sale_quantity_ratio', self._sale_quantity_ratio))
 
             # 准备保存的配置
             config_to_save = {
@@ -637,13 +774,20 @@ class VicomoFarm(_PluginBase):
                 "farm_interval": self._farm_interval,
                 "use_proxy": self._use_proxy,
                 "retry_count": self._retry_count,
-                "onlyonce": False  # 始终设为False
+                "onlyonce": False,  # 始终设为False
+                # 自动交易配置
+                "auto_purchase_enabled": self._auto_purchase_enabled,
+                "purchase_price_threshold": self._purchase_price_threshold,
+                "purchase_quantity_ratio": self._purchase_quantity_ratio,
+                "auto_sale_enabled": self._auto_sale_enabled,
+                "sale_price_threshold": self._sale_price_threshold,
+                "sale_quantity_ratio": self._sale_quantity_ratio
             }
             
             # 保存配置
             self.update_config(config_to_save)
             
-            # 重新初始化插件，直接使用 config_to_save 而不是 get_config()
+            # 重新初始化插件
             self.stop_service()
             self.init_plugin(config_to_save)
             
