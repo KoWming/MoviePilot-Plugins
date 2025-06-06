@@ -1,0 +1,280 @@
+
+.switch[data-v-68d07641] {
+  /* switch */
+  --switch-width: 46px;
+  --switch-height: 24px;
+  --switch-bg: rgb(131, 131, 131);
+  --switch-checked-bg: rgb(0, 218, 80);
+  --switch-offset: calc((var(--switch-height) - var(--circle-diameter)) / 2);
+  --switch-transition: all .2s cubic-bezier(0.27, 0.2, 0.25, 1.51);
+  /* circle */
+  --circle-diameter: 18px;
+  --circle-bg: #fff;
+  --circle-shadow: 1px 1px 2px rgba(146, 146, 146, 0.45);
+  --circle-checked-shadow: -1px 1px 2px rgba(163, 163, 163, 0.45);
+  --circle-transition: var(--switch-transition);
+  /* icon */
+  --icon-transition: all .2s cubic-bezier(0.27, 0.2, 0.25, 1.51);
+  --icon-cross-color: var(--switch-bg);
+  --icon-cross-size: 6px;
+  --icon-checkmark-color: var(--switch-checked-bg);
+  --icon-checkmark-size: 10px;
+  /* effect line */
+  --effect-width: calc(var(--circle-diameter) / 2);
+  --effect-height: calc(var(--effect-width) / 2 - 1px);
+  --effect-bg: var(--circle-bg);
+  --effect-border-radius: 1px;
+  --effect-transition: all .2s ease-in-out;
+}
+.switch input[data-v-68d07641] {
+  display: none;
+}
+.switch[data-v-68d07641] {
+  display: inline-block;
+}
+.switch svg[data-v-68d07641] {
+  -webkit-transition: var(--icon-transition);
+  -o-transition: var(--icon-transition);
+  transition: var(--icon-transition);
+  position: absolute;
+  height: auto;
+}
+.switch .checkmark[data-v-68d07641] {
+  width: var(--icon-checkmark-size);
+  color: var(--icon-checkmark-color);
+  -webkit-transform: scale(0);
+  -ms-transform: scale(0);
+  transform: scale(0);
+}
+.switch .cross[data-v-68d07641] {
+  width: var(--icon-cross-size);
+  color: var(--icon-cross-color);
+}
+.slider[data-v-68d07641] {
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+  width: var(--switch-width);
+  height: var(--switch-height);
+  background: var(--switch-bg);
+  border-radius: 999px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  align-items: center;
+  position: relative;
+  -webkit-transition: var(--switch-transition);
+  -o-transition: var(--switch-transition);
+  transition: var(--switch-transition);
+  cursor: pointer;
+}
+.circle[data-v-68d07641] {
+  width: var(--circle-diameter);
+  height: var(--circle-diameter);
+  background: var(--circle-bg);
+  border-radius: inherit;
+  -webkit-box-shadow: var(--circle-shadow);
+  box-shadow: var(--circle-shadow);
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  align-items: center;
+  -webkit-box-pack: center;
+  -ms-flex-pack: center;
+  justify-content: center;
+  -webkit-transition: var(--circle-transition);
+  -o-transition: var(--circle-transition);
+  transition: var(--circle-transition);
+  z-index: 1;
+  position: absolute;
+  left: var(--switch-offset);
+}
+.slider[data-v-68d07641]::before {
+  content: "";
+  position: absolute;
+  width: var(--effect-width);
+  height: var(--effect-height);
+  left: calc(var(--switch-offset) + (var(--effect-width) / 2));
+  background: var(--effect-bg);
+  border-radius: var(--effect-border-radius);
+  -webkit-transition: var(--effect-transition);
+  -o-transition: var(--effect-transition);
+  transition: var(--effect-transition);
+}
+
+/* actions */
+.switch input:checked+.slider[data-v-68d07641] {
+  background: var(--switch-checked-bg);
+}
+.switch input:checked+.slider .checkmark[data-v-68d07641] {
+  -webkit-transform: scale(1);
+  -ms-transform: scale(1);
+  transform: scale(1);
+}
+.switch input:checked+.slider .cross[data-v-68d07641] {
+  -webkit-transform: scale(0);
+  -ms-transform: scale(0);
+  transform: scale(0);
+}
+.switch input:checked+.slider[data-v-68d07641]::before {
+  left: calc(100% - var(--effect-width) - (var(--effect-width) / 2) - var(--switch-offset));
+}
+.switch input:checked+.slider .circle[data-v-68d07641] {
+  left: calc(100% - var(--circle-diameter) - var(--switch-offset));
+  -webkit-box-shadow: var(--circle-checked-shadow);
+  box-shadow: var(--circle-checked-shadow);
+}
+
+/* disabled state */
+.switch input:disabled+.slider[data-v-68d07641] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.plugin-config[data-v-6b3bda00] {
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+.bg-primary-lighten-5[data-v-6b3bda00] {
+  background: linear-gradient(0deg, rgb(255, 255, 255) 0%, rgb(244, 247, 251) 100%);
+}
+.border[data-v-6b3bda00] {
+  border: 5px solid rgb(255, 255, 255);
+  border-radius: 40px;
+  box-shadow: rgba(133, 189, 215, 0.8784313725) 0px 30px 30px -20px;
+}
+.config-card[data-v-6b3bda00] {
+  background: linear-gradient(0deg, rgb(255, 255, 255) 0%, rgb(244, 247, 251) 100%);
+  border-radius: 30px;
+  padding: 20px;
+  border: 3px solid rgb(255, 255, 255);
+  box-shadow: rgba(133, 189, 215, 0.8784313725) 0px 20px 20px -15px;
+  transition: all 0.3s ease;
+}
+.config-card[data-v-6b3bda00]:hover {
+  transform: translateY(-2px);
+  box-shadow: rgba(133, 189, 215, 0.8784313725) 0px 25px 25px -15px;
+}
+.setting-item[data-v-6b3bda00] {
+  min-height: 48px;
+  background: white;
+  border-radius: 20px;
+  padding: 15px 20px;
+  margin: 10px 0;
+  box-shadow: #cff0ff 0px 10px 10px -5px;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+.setting-item[data-v-6b3bda00]:hover {
+  border-color: #12B1D1;
+  transform: translateY(-1px);
+}
+.setting-content[data-v-6b3bda00] {
+  width: 100%;
+}
+.text-subtitle-2[data-v-6b3bda00] {
+  color: rgb(16, 137, 211);
+  font-weight: 600;
+}
+.text-caption.text-grey[data-v-6b3bda00] {
+  color: rgb(170, 170, 170);
+}
+
+/* 按钮样式 */
+
+/* 输入框样式 */
+
+/* 提示信息样式 */
+
+/* 帮助信息样式 */
+.bg-info-lighten-5[data-v-6b3bda00] {
+  padding: 15px 20px !important;
+  border-radius: 20px !important;
+  box-shadow: rgba(133, 189, 215, 0.8784313725) 0px 20px 20px -15px !important;
+  background-color: #e3f2fd;
+  color: #0d47a1;
+  position: relative;
+  overflow: hidden;
+  border-left: 4px solid #9155fd;
+  padding-left: calc(20px + 4px) !important;
+}
+.bg-info-lighten-5 .text-caption[data-v-6b3bda00] {
+  flex-grow: 1;
+}
+
+/* 图标样式 */
+
+/* 分割线样式 */
+
+/* 卡片标题样式 */
+
+/* 卡片内容样式 */
+
+/* 卡片操作区样式 */
+
+/* Custom Tooltip Styles - Pure CSS */
+.tooltip-container[data-v-6b3bda00] {
+  position: relative;
+  display: inline-block; /* Ensure the container wraps the button tightly */
+}
+.tooltip-btn .tooltip-icon[data-v-6b3bda00] {
+  transition: transform 0.3s ease;
+}
+.tooltip-container:hover .tooltip-btn .tooltip-icon[data-v-6b3bda00] {
+  transform: scale(1.1);
+}
+.custom-tooltip[data-v-6b3bda00] {
+  position: absolute;
+  bottom: calc(100% + 12px); /* Position further above the button to avoid overlap */
+  left: 50%;
+  transform: translateX(-50%) translateY(5px); /* Initial position slightly below final + horizontal center */
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease; /* Increased transition duration */
+  pointer-events: none; /* Do not block mouse events on the button */
+  z-index: 1000; /* Ensure tooltip is above other content */
+  white-space: nowrap; /* Prevent text wrapping */
+}
+.tooltip-container:hover .custom-tooltip[data-v-6b3bda00] {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0); /* Final position */
+  pointer-events: auto; /* Allow interaction with tooltip if needed (though not in this case) */
+}
+.custom-tooltip-content[data-v-6b3bda00] {
+  padding: 3px 8px; /* Reduced vertical padding to decrease height */
+  background: #212121; /* Changed to opaque background */
+  border-radius: 6px; /* Increased border radius */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Softer shadow */
+  text-align: center;
+}
+.custom-tooltip-content[data-v-6b3bda00]::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg); /* Arrow pointing down */
+  width: 12px;
+  height: 12px;
+  background: #212121; /* Changed to opaque background */
+  border-radius: 2px;
+  margin-top: -6px; /* Adjust to position the arrow correctly below the content */
+}
+.tooltip-text[data-v-6b3bda00] {
+  color: white;
+  font-size: 0.8rem; /* Slightly reduced font size */
+  font-weight: 400;
+}
+
+/* Optional: Add a slight scale transform to the button on hover */
+.tooltip-btn[data-v-6b3bda00] {
+  transition: transform 0.3s ease;
+}
+.tooltip-container:hover .tooltip-btn[data-v-6b3bda00] {
+  transform: translateY(-2px); /* Match the button lift from previous version */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important; /* Match the shadow from previous version */
+}

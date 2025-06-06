@@ -1,0 +1,267 @@
+
+.plugin-page[data-v-a1273f13] {
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+.bg-primary-lighten-5[data-v-a1273f13] {
+  background: linear-gradient(0deg, rgb(255, 255, 255) 0%, rgb(244, 247, 251) 100%);
+}
+.border[data-v-a1273f13] {
+  border: 5px solid rgba(255, 255, 255, 0.9);
+  border-radius: 40px;
+  box-shadow: 
+    0 10px 30px -15px rgba(133, 189, 215, 0.3),
+    0 0 0 1px rgba(133, 189, 215, 0.1);
+  backdrop-filter: blur(10px);
+}
+.config-card[data-v-a1273f13] {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-radius: 30px;
+  padding: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 
+    0 15px 25px -10px rgba(133, 189, 215, 0.2),
+    0 0 0 1px rgba(133, 189, 215, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+.config-card[data-v-a1273f13]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #12B1D1, #43a047);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.config-card[data-v-a1273f13]:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 20px 30px -15px rgba(133, 189, 215, 0.3),
+    0 0 0 1px rgba(133, 189, 215, 0.15);
+}
+.config-card[data-v-a1273f13]:hover::before {
+  opacity: 1;
+}
+@keyframes ripple-a1273f13 {
+0% {
+    transform: scale(0, 0);
+    opacity: 0.5;
+}
+100% {
+    transform: scale(20, 20);
+    opacity: 0;
+}
+}
+.dialog-card[data-v-a1273f13] {
+  border-radius: 16px !important;
+  box-shadow: 
+    0 20px 30px -15px rgba(133, 189, 215, 0.3),
+    0 0 0 1px rgba(133, 189, 215, 0.1) !important;
+  border: 3px solid rgba(255, 255, 255, 0.9) !important;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
+  padding: 20px 10px 10px 10px !important;
+  backdrop-filter: blur(10px);
+}
+.dialog-btn[data-v-a1273f13] {
+  border-radius: 20px !important;
+  font-weight: 600 !important;
+  min-width: 96px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative;
+  overflow: hidden;
+}
+.dialog-btn[data-v-a1273f13]::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  border-radius: 100%;
+  transform: scale(1, 1) translate(-50%);
+  transform-origin: 50% 50%;
+}
+.dialog-btn[data-v-a1273f13]:hover {
+  transform: scale(1.03);
+  box-shadow: 0 8px 20px -10px rgba(133, 189, 215, 0.4) !important;
+}
+.dialog-btn[data-v-a1273f13]:hover::after {
+  animation: ripple-a1273f13 1s ease-out;
+}
+.dialog-btn[data-v-a1273f13]:active {
+  transform: scale(0.98);
+}
+.sale-info-row[data-v-a1273f13] {
+  margin-bottom: 18px;
+  display: flex;
+  gap: 12px;
+}
+.sale-info-card[data-v-a1273f13] {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  box-shadow: 
+    0 8px 15px -5px rgba(133, 189, 215, 0.15),
+    0 0 0 1px rgba(133, 189, 215, 0.1);
+  padding: 16px 0 10px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(5px);
+}
+.sale-info-card[data-v-a1273f13]:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 12px 20px -8px rgba(133, 189, 215, 0.2),
+    0 0 0 1px rgba(133, 189, 215, 0.15);
+}
+.sale-info-title[data-v-a1273f13] {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+.sale-info-card:hover .sale-info-title[data-v-a1273f13] {
+  color: #333;
+}
+.sale-info-main[data-v-a1273f13] {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  line-height: 1.1;
+  display: flex;
+  align-items: flex-end;
+  transition: all 0.3s ease;
+}
+.sale-info-card:hover .sale-info-main[data-v-a1273f13] {
+  transform: scale(1.05);
+}
+.sale-info-main .unit[data-v-a1273f13] {
+  font-size: 15px;
+  color: #888;
+  font-weight: 400;
+  margin-left: 2px;
+  margin-bottom: 1px;
+  transition: color 0.3s ease;
+}
+.sale-info-card:hover .sale-info-main .unit[data-v-a1273f13] {
+  color: #666;
+}
+.history-container[data-v-a1273f13] {
+  background: transparent !important;
+  transition: all 0.3s ease;
+}
+.purchase-btn[data-v-a1273f13],
+.sale-btn[data-v-a1273f13] {
+  font-size: 12px !important;
+  padding: 0 10px !important;
+  min-width: 48px !important;
+  height: 28px !important;
+  position: relative;
+  overflow: hidden;
+}
+.purchase-btn[data-v-a1273f13]::after,
+.sale-btn[data-v-a1273f13]::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  border-radius: 100%;
+  transform: scale(1, 1) translate(-50%);
+  transform-origin: 50% 50%;
+}
+.purchase-btn[data-v-a1273f13]:hover {
+  background: linear-gradient(90deg, #43a047 0%, #12B1D1 100%) !important;
+  box-shadow: 0 8px 20px -10px rgba(18,177,209,0.3) !important;
+  transform: scale(1.03);
+}
+.purchase-btn[data-v-a1273f13]:hover::after,
+.sale-btn[data-v-a1273f13]:hover::after {
+  animation: ripple-a1273f13 1s ease-out;
+}
+.sale-btn[data-v-a1273f13] {
+  padding: 0 14px !important;
+  border-radius: 14px !important;
+  background: linear-gradient(90deg, #43a047 0%, #12B1D1 100%) !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 8px 15px -5px rgba(67,160,71,0.2) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  min-width: 60px;
+  margin-left: 14px !important;
+}
+.sale-btn[data-v-a1273f13]:hover {
+  background: linear-gradient(90deg, #12B1D1 0%, #43a047 100%) !important;
+  box-shadow: 0 12px 25px -10px rgba(67,160,71,0.3) !important;
+  transform: scale(1.03);
+}
+.sale-btn[data-v-a1273f13]::after,
+.purchase-btn[data-v-a1273f13]::after {
+  content: "";
+  display: inline-block;
+  width: 40px;
+  height: 1px;
+}
+.btn-spacer[data-v-a1273f13] {
+  display: inline-block;
+  width: 40px;
+}
+
+/* 添加列表项hover效果 */
+
+/* 优化图表容器 */
+.history-container[data-v-a1273f13] {
+  position: relative;
+  padding: 10px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(5px);
+  transition: all 0.3s ease;
+}
+.history-container[data-v-a1273f13]:hover {
+  background: rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 
+    0 12px 20px -8px rgba(133, 189, 215, 0.2),
+    0 0 0 1px rgba(133, 189, 215, 0.15);
+}
+
+/* 添加页面背景动画 */
+.plugin-page[data-v-a1273f13]::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 0% 0%, rgba(18,177,209,0.05) 0%, transparent 50%),
+    radial-gradient(circle at 100% 100%, rgba(67,160,71,0.05) 0%, transparent 50%);
+  z-index: -1;
+  animation: gradientShift-a1273f13 15s ease infinite;
+}
+@keyframes gradientShift-a1273f13 {
+0% {
+    background-position: 0% 0%;
+}
+50% {
+    background-position: 100% 100%;
+}
+100% {
+    background-position: 0% 0%;
+}
+}

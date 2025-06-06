@@ -1,9 +1,103 @@
 import { importShared } from './__federation_fn_import-054b33c3.js';
 import { _ as _export_sfc } from './_plugin-vue_export-helper-c4c0bc37.js';
 
-const Config_vue_vue_type_style_index_0_scoped_139e71ce_lang = '';
+const CustomSwitch_vue_vue_type_style_index_0_scoped_68d07641_lang = '';
 
-const {resolveComponent:_resolveComponent,createVNode:_createVNode,createElementVNode:_createElementVNode,withCtx:_withCtx,toDisplayString:_toDisplayString,createTextVNode:_createTextVNode,openBlock:_openBlock,createBlock:_createBlock,createCommentVNode:_createCommentVNode,mergeProps:_mergeProps,withModifiers:_withModifiers,createElementBlock:_createElementBlock} = await importShared('vue');
+const {createElementVNode:_createElementVNode$1,openBlock:_openBlock$1,createElementBlock:_createElementBlock$1} = await importShared('vue');
+
+
+const _hoisted_1$1 = { class: "switch" };
+const _hoisted_2$1 = ["checked", "disabled"];
+const _hoisted_3$1 = { class: "slider" };
+const _hoisted_4$1 = { class: "circle" };
+const _hoisted_5$1 = {
+  class: "cross",
+  "xml:space": "preserve",
+  style: {"enable-background":"new 0 0 512 512"},
+  viewBox: "0 0 365.696 365.696",
+  y: "0",
+  x: "0",
+  height: "6",
+  width: "6",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  version: "1.1",
+  xmlns: "http://www.w3.org/2000/svg"
+};
+const _hoisted_6$1 = {
+  class: "checkmark",
+  "xml:space": "preserve",
+  style: {"enable-background":"new 0 0 512 512"},
+  viewBox: "0 0 24 24",
+  y: "0",
+  x: "0",
+  height: "10",
+  width: "10",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  version: "1.1",
+  xmlns: "http://www.w3.org/2000/svg"
+};
+
+
+const _sfc_main$1 = {
+  __name: 'CustomSwitch',
+  props: {
+  modelValue: {
+    type: Boolean,
+    required: true
+  },
+  disabled: {
+    type: Boolean,
+    default: false
+  }
+},
+  emits: ['update:modelValue'],
+  setup(__props) {
+
+
+
+
+
+return (_ctx, _cache) => {
+  return (_openBlock$1(), _createElementBlock$1("label", _hoisted_1$1, [
+    _createElementVNode$1("input", {
+      checked: __props.modelValue,
+      type: "checkbox",
+      onChange: _cache[0] || (_cache[0] = $event => (_ctx.$emit('update:modelValue', $event.target.checked))),
+      disabled: __props.disabled
+    }, null, 40, _hoisted_2$1),
+    _createElementVNode$1("div", _hoisted_3$1, [
+      _createElementVNode$1("div", _hoisted_4$1, [
+        (_openBlock$1(), _createElementBlock$1("svg", _hoisted_5$1, _cache[1] || (_cache[1] = [
+          _createElementVNode$1("g", null, [
+            _createElementVNode$1("path", {
+              "data-original": "#000000",
+              fill: "currentColor",
+              d: "M243.188 182.86 356.32 69.726c12.5-12.5 12.5-32.766 0-45.247L341.238 9.398c-12.504-12.503-32.77-12.503-45.25 0L182.86 122.528 69.727 9.374c-12.5-12.5-32.766-12.5-45.247 0L9.375 24.457c-12.5 12.504-12.5 32.77 0 45.25l113.152 113.152L9.398 295.99c-12.503 12.503-12.503 32.769 0 45.25L24.48 356.32c12.5 12.5 32.766 12.5 45.247 0l113.132-113.132L295.99 356.32c12.503 12.5 32.769 12.5 45.25 0l15.081-15.082c12.5-12.504 12.5-32.77 0-45.25zm0 0"
+            })
+          ], -1)
+        ]))),
+        (_openBlock$1(), _createElementBlock$1("svg", _hoisted_6$1, _cache[2] || (_cache[2] = [
+          _createElementVNode$1("g", null, [
+            _createElementVNode$1("path", {
+              class: "",
+              "data-original": "#000000",
+              fill: "currentColor",
+              d: "M9.707 19.121a.997.997 0 0 1-1.414 0l-5.646-5.647a1.5 1.5 0 0 1 0-2.121l.707-.707a1.5 1.5 0 0 1 2.121 0L9 14.171l9.525-9.525a1.5 1.5 0 0 1 2.121 0l.707.707a1.5 1.5 0 0 1 0 2.121z"
+            })
+          ], -1)
+        ])))
+      ])
+    ])
+  ]))
+}
+}
+
+};
+const CustomSwitch = /*#__PURE__*/_export_sfc(_sfc_main$1, [['__scopeId',"data-v-68d07641"]]);
+
+const Config_vue_vue_type_style_index_0_scoped_6b3bda00_lang = '';
+
+const {resolveComponent:_resolveComponent,createVNode:_createVNode,createElementVNode:_createElementVNode,withCtx:_withCtx,toDisplayString:_toDisplayString,createTextVNode:_createTextVNode,openBlock:_openBlock,createBlock:_createBlock,createCommentVNode:_createCommentVNode,Fragment:_Fragment,createElementBlock:_createElementBlock,withModifiers:_withModifiers} = await importShared('vue');
 
 
 const _hoisted_1 = { class: "plugin-config" };
@@ -16,10 +110,16 @@ const _hoisted_7 = { class: "d-flex justify-space-between align-center" };
 const _hoisted_8 = { class: "setting-item d-flex align-center py-2" };
 const _hoisted_9 = { class: "setting-content flex-grow-1" };
 const _hoisted_10 = { class: "d-flex justify-space-between align-center" };
-const _hoisted_11 = { class: "d-flex align-center px-3 py-2 mb-3 rounded bg-info-lighten-5" };
+const _hoisted_11 = { class: "tooltip-container" };
+const _hoisted_12 = { class: "setting-item d-flex align-center py-2 mb-5" };
+const _hoisted_13 = { class: "setting-content flex-grow-1" };
+const _hoisted_14 = { class: "d-flex justify-space-between align-center" };
+const _hoisted_15 = { class: "setting-item d-flex align-center py-2 mb-5" };
+const _hoisted_16 = { class: "setting-content flex-grow-1" };
+const _hoisted_17 = { class: "d-flex justify-space-between align-center" };
+const _hoisted_18 = { class: "d-flex align-center px-3 py-2 mb-3 rounded bg-info-lighten-5" };
 
 const {ref,reactive,onMounted} = await importShared('vue');
-
 
 
 const _sfc_main = {
@@ -58,7 +158,13 @@ const serverFetchedConfig = reactive({
   use_proxy: false,
   retry_count: 3,
   cookie: '',
-  onlyonce: false
+  onlyonce: false,
+  auto_purchase_enabled: false,
+  purchase_price_threshold: 0,
+  purchase_quantity_ratio: 0.5,
+  auto_sale_enabled: false,
+  sale_price_threshold: 0,
+  sale_quantity_ratio: 1,
 });
 
 // 编辑中的配置
@@ -70,7 +176,13 @@ const editableConfig = reactive({
   use_proxy: false,
   retry_count: 3,
   cookie: '',
-  onlyonce: false
+  onlyonce: false,
+  auto_purchase_enabled: false,
+  purchase_price_threshold: 0,
+  purchase_quantity_ratio: 0.5,
+  auto_sale_enabled: false,
+  sale_price_threshold: 0,
+  sale_quantity_ratio: 1,
 });
 
 // 更新编辑中的配置
@@ -212,16 +324,15 @@ return (_ctx, _cache) => {
   const _component_v_icon = _resolveComponent("v-icon");
   const _component_v_card_title = _resolveComponent("v-card-title");
   const _component_v_alert = _resolveComponent("v-alert");
-  const _component_v_switch = _resolveComponent("v-switch");
   const _component_v_col = _resolveComponent("v-col");
   const _component_v_row = _resolveComponent("v-row");
   const _component_v_card_text = _resolveComponent("v-card-text");
   const _component_v_card = _resolveComponent("v-card");
   const _component_v_progress_circular = _resolveComponent("v-progress-circular");
   const _component_v_btn = _resolveComponent("v-btn");
-  const _component_v_tooltip = _resolveComponent("v-tooltip");
   const _component_v_text_field = _resolveComponent("v-text-field");
   const _component_VCronField = _resolveComponent("VCronField");
+  const _component_v_select = _resolveComponent("v-select");
   const _component_v_form = _resolveComponent("v-form");
   const _component_v_divider = _resolveComponent("v-divider");
   const _component_v_spacer = _resolveComponent("v-spacer");
@@ -233,7 +344,7 @@ return (_ctx, _cache) => {
       class: "rounded border"
     }, {
       default: _withCtx(() => [
-        _createVNode(_component_v_card_title, { class: "text-subtitle-1 d-flex align-center px-3 py-2 bg-primary-lighten-5" }, {
+        _createVNode(_component_v_card_title, { class: "text-subtitle-1 d-flex align-center px-3 py-2" }, {
           default: _withCtx(() => [
             _createVNode(_component_v_icon, {
               icon: "mdi-cog",
@@ -241,7 +352,7 @@ return (_ctx, _cache) => {
               color: "primary",
               size: "small"
             }),
-            _cache[10] || (_cache[10] = _createElementVNode("span", null, "象岛农场配置", -1))
+            _cache[16] || (_cache[16] = _createElementVNode("span", null, "象岛农场配置", -1))
           ]),
           _: 1
         }),
@@ -281,7 +392,7 @@ return (_ctx, _cache) => {
               ref_key: "form",
               ref: form,
               modelValue: isFormValid.value,
-              "onUpdate:modelValue": _cache[7] || (_cache[7] = $event => ((isFormValid).value = $event)),
+              "onUpdate:modelValue": _cache[13] || (_cache[13] = $event => ((isFormValid).value = $event)),
               onSubmit: _withModifiers(saveFullConfig, ["prevent"])
             }, {
               default: _withCtx(() => [
@@ -290,7 +401,7 @@ return (_ctx, _cache) => {
                   class: "rounded mb-3 border config-card"
                 }, {
                   default: _withCtx(() => [
-                    _createVNode(_component_v_card_title, { class: "text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5" }, {
+                    _createVNode(_component_v_card_title, { class: "text-subtitle-2 d-flex align-center px-3 py-2" }, {
                       default: _withCtx(() => [
                         _createVNode(_component_v_icon, {
                           icon: "mdi-tune",
@@ -298,7 +409,7 @@ return (_ctx, _cache) => {
                           color: "primary",
                           size: "small"
                         }),
-                        _cache[11] || (_cache[11] = _createElementVNode("span", null, "基本设置", -1))
+                        _cache[17] || (_cache[17] = _createElementVNode("span", null, "基本设置", -1))
                       ]),
                       _: 1
                     }),
@@ -320,19 +431,14 @@ return (_ctx, _cache) => {
                                   }, null, 8, ["color"]),
                                   _createElementVNode("div", _hoisted_3, [
                                     _createElementVNode("div", _hoisted_4, [
-                                      _cache[12] || (_cache[12] = _createElementVNode("div", null, [
+                                      _cache[18] || (_cache[18] = _createElementVNode("div", null, [
                                         _createElementVNode("div", { class: "text-subtitle-2" }, "启用插件"),
                                         _createElementVNode("div", { class: "text-caption text-grey" }, "是否启用象岛农场插件")
                                       ], -1)),
-                                      _createVNode(_component_v_switch, {
+                                      _createVNode(CustomSwitch, {
                                         modelValue: editableConfig.enabled,
                                         "onUpdate:modelValue": _cache[0] || (_cache[0] = $event => ((editableConfig.enabled) = $event)),
-                                        color: "primary",
-                                        inset: "",
-                                        disabled: saving.value,
-                                        density: "compact",
-                                        "hide-details": "",
-                                        class: "small-switch"
+                                        disabled: saving.value
                                       }, null, 8, ["modelValue", "disabled"])
                                     ])
                                   ])
@@ -354,19 +460,14 @@ return (_ctx, _cache) => {
                                   }, null, 8, ["color"]),
                                   _createElementVNode("div", _hoisted_6, [
                                     _createElementVNode("div", _hoisted_7, [
-                                      _cache[13] || (_cache[13] = _createElementVNode("div", null, [
+                                      _cache[19] || (_cache[19] = _createElementVNode("div", null, [
                                         _createElementVNode("div", { class: "text-subtitle-2" }, "启用通知"),
                                         _createElementVNode("div", { class: "text-caption text-grey" }, "完成后发送消息通知")
                                       ], -1)),
-                                      _createVNode(_component_v_switch, {
+                                      _createVNode(CustomSwitch, {
                                         modelValue: editableConfig.notify,
                                         "onUpdate:modelValue": _cache[1] || (_cache[1] = $event => ((editableConfig.notify) = $event)),
-                                        color: "info",
-                                        inset: "",
-                                        disabled: saving.value,
-                                        density: "compact",
-                                        "hide-details": "",
-                                        class: "small-switch"
+                                        disabled: saving.value
                                       }, null, 8, ["modelValue", "disabled"])
                                     ])
                                   ])
@@ -388,19 +489,14 @@ return (_ctx, _cache) => {
                                   }, null, 8, ["color"]),
                                   _createElementVNode("div", _hoisted_9, [
                                     _createElementVNode("div", _hoisted_10, [
-                                      _cache[14] || (_cache[14] = _createElementVNode("div", null, [
+                                      _cache[20] || (_cache[20] = _createElementVNode("div", null, [
                                         _createElementVNode("div", { class: "text-subtitle-2" }, "使用代理"),
                                         _createElementVNode("div", { class: "text-caption text-grey" }, "是否使用系统代理访问")
                                       ], -1)),
-                                      _createVNode(_component_v_switch, {
+                                      _createVNode(CustomSwitch, {
                                         modelValue: editableConfig.use_proxy,
                                         "onUpdate:modelValue": _cache[2] || (_cache[2] = $event => ((editableConfig.use_proxy) = $event)),
-                                        color: "info",
-                                        inset: "",
-                                        disabled: saving.value,
-                                        density: "compact",
-                                        "hide-details": "",
-                                        class: "small-switch"
+                                        disabled: saving.value
                                       }, null, 8, ["modelValue", "disabled"])
                                     ])
                                   ])
@@ -422,7 +518,7 @@ return (_ctx, _cache) => {
                   class: "rounded mb-3 border config-card"
                 }, {
                   default: _withCtx(() => [
-                    _createVNode(_component_v_card_title, { class: "text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5" }, {
+                    _createVNode(_component_v_card_title, { class: "text-subtitle-2 d-flex align-center px-3 py-2" }, {
                       default: _withCtx(() => [
                         _createVNode(_component_v_icon, {
                           icon: "mdi-clock-time-five",
@@ -430,7 +526,7 @@ return (_ctx, _cache) => {
                           color: "primary",
                           size: "small"
                         }),
-                        _cache[15] || (_cache[15] = _createElementVNode("span", null, "执行设置", -1))
+                        _cache[21] || (_cache[21] = _createElementVNode("span", null, "执行设置", -1))
                       ]),
                       _: 1
                     }),
@@ -457,50 +553,45 @@ return (_ctx, _cache) => {
                                   class: "text-caption"
                                 }, {
                                   "append-inner": _withCtx(() => [
-                                    _createVNode(_component_v_tooltip, {
-                                      location: "top",
-                                      "open-delay": 500
-                                    }, {
-                                      activator: _withCtx(({ props }) => [
-                                        _createVNode(_component_v_btn, _mergeProps(props, {
-                                          icon: "",
-                                          variant: "tonal",
-                                          color: "secondary",
-                                          onClick: fillWithSiteCookie,
-                                          disabled: saving.value || loadingCookie.value,
-                                          size: "small",
-                                          class: "ml-1"
-                                        }), {
-                                          default: _withCtx(() => [
-                                            (!loadingCookie.value)
-                                              ? (_openBlock(), _createBlock(_component_v_icon, {
-                                                  key: 0,
-                                                  color: "secondary",
-                                                  size: "small"
-                                                }, {
-                                                  default: _withCtx(() => _cache[16] || (_cache[16] = [
-                                                    _createTextVNode("mdi-content-paste")
-                                                  ])),
-                                                  _: 1
-                                                }))
-                                              : (_openBlock(), _createBlock(_component_v_progress_circular, {
-                                                  key: 1,
-                                                  indeterminate: "",
-                                                  size: "16",
-                                                  width: "2",
-                                                  color: "primary"
-                                                }))
-                                          ]),
-                                          _: 2
-                                        }, 1040, ["disabled"])
-                                      ]),
-                                      default: _withCtx(() => [
-                                        _cache[17] || (_cache[17] = _createElementVNode("div", { class: "custom-tooltip-content" }, [
-                                          _createElementVNode("span", { class: "text-caption" }, "使用已添加站点的Cookie")
-                                        ], -1))
-                                      ]),
-                                      _: 1
-                                    })
+                                    _createElementVNode("div", _hoisted_11, [
+                                      _createVNode(_component_v_btn, {
+                                        icon: "",
+                                        variant: "tonal",
+                                        color: "secondary",
+                                        onClick: fillWithSiteCookie,
+                                        disabled: saving.value || loadingCookie.value,
+                                        size: "small",
+                                        class: "tooltip-btn"
+                                      }, {
+                                        default: _withCtx(() => [
+                                          (!loadingCookie.value)
+                                            ? (_openBlock(), _createBlock(_component_v_icon, {
+                                                key: 0,
+                                                color: "secondary",
+                                                size: "small",
+                                                class: "tooltip-icon"
+                                              }, {
+                                                default: _withCtx(() => _cache[22] || (_cache[22] = [
+                                                  _createTextVNode("mdi-content-paste")
+                                                ])),
+                                                _: 1
+                                              }))
+                                            : (_openBlock(), _createBlock(_component_v_progress_circular, {
+                                                key: 1,
+                                                indeterminate: "",
+                                                size: "16",
+                                                width: "2",
+                                                color: "primary"
+                                              }))
+                                        ]),
+                                        _: 1
+                                      }, 8, ["disabled"]),
+                                      _cache[23] || (_cache[23] = _createElementVNode("div", { class: "custom-tooltip" }, [
+                                        _createElementVNode("div", { class: "custom-tooltip-content" }, [
+                                          _createElementVNode("span", { class: "tooltip-text" }, "使用已添加站点的Cookie")
+                                        ])
+                                      ], -1))
+                                    ])
                                   ]),
                                   _: 1
                                 }, 8, ["modelValue", "disabled"])
@@ -582,14 +673,182 @@ return (_ctx, _cache) => {
                   ]),
                   _: 1
                 }),
-                _createElementVNode("div", _hoisted_11, [
+                _createVNode(_component_v_card, {
+                  flat: "",
+                  class: "rounded mb-3 border config-card"
+                }, {
+                  default: _withCtx(() => [
+                    _createVNode(_component_v_card_title, { class: "text-subtitle-2 d-flex align-center px-3 py-2" }, {
+                      default: _withCtx(() => [
+                        _createVNode(_component_v_icon, {
+                          icon: "mdi-cart",
+                          class: "mr-2",
+                          color: "primary",
+                          size: "small"
+                        }),
+                        _cache[24] || (_cache[24] = _createElementVNode("span", null, "自动交易设置", -1))
+                      ]),
+                      _: 1
+                    }),
+                    _createVNode(_component_v_card_text, { class: "px-3 py-2" }, {
+                      default: _withCtx(() => [
+                        _createVNode(_component_v_row, null, {
+                          default: _withCtx(() => [
+                            _createVNode(_component_v_col, {
+                              cols: "12",
+                              md: "6"
+                            }, {
+                              default: _withCtx(() => [
+                                _createElementVNode("div", _hoisted_12, [
+                                  _createVNode(_component_v_icon, {
+                                    icon: "mdi-cart-arrow-down",
+                                    size: "small",
+                                    color: editableConfig.auto_purchase_enabled ? 'success' : 'grey',
+                                    class: "mr-3"
+                                  }, null, 8, ["color"]),
+                                  _createElementVNode("div", _hoisted_13, [
+                                    _createElementVNode("div", _hoisted_14, [
+                                      _cache[25] || (_cache[25] = _createElementVNode("div", null, [
+                                        _createElementVNode("div", { class: "text-subtitle-2" }, "启用自动进货"),
+                                        _createElementVNode("div", { class: "text-caption text-grey" }, "当农场价格低于阈值时自动进货")
+                                      ], -1)),
+                                      _createVNode(CustomSwitch, {
+                                        modelValue: editableConfig.auto_purchase_enabled,
+                                        "onUpdate:modelValue": _cache[7] || (_cache[7] = $event => ((editableConfig.auto_purchase_enabled) = $event)),
+                                        disabled: saving.value
+                                      }, null, 8, ["modelValue", "disabled"])
+                                    ])
+                                  ])
+                                ]),
+                                (editableConfig.auto_purchase_enabled)
+                                  ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [
+                                      _createVNode(_component_v_text_field, {
+                                        modelValue: editableConfig.purchase_price_threshold,
+                                        "onUpdate:modelValue": _cache[8] || (_cache[8] = $event => ((editableConfig.purchase_price_threshold) = $event)),
+                                        modelModifiers: { number: true },
+                                        label: "进货价格阈值",
+                                        type: "number",
+                                        variant: "outlined",
+                                        min: 0,
+                                        rules: [v => v === null || v === '' || (Number(v) >= 0) || '价格必须大于等于0'],
+                                        hint: "当农场价格低于或等于此价格时自动进货（阀值为0时不执行）",
+                                        "persistent-hint": "",
+                                        "prepend-inner-icon": "mdi-currency-usd",
+                                        disabled: saving.value,
+                                        density: "compact",
+                                        class: "text-caption mb-5"
+                                      }, null, 8, ["modelValue", "rules", "disabled"]),
+                                      _createVNode(_component_v_select, {
+                                        modelValue: editableConfig.purchase_quantity_ratio,
+                                        "onUpdate:modelValue": _cache[9] || (_cache[9] = $event => ((editableConfig.purchase_quantity_ratio) = $event)),
+                                        label: "进货数量比例",
+                                        items: [
+                        { title: '20%', value: 0.2 },
+                        { title: '50%', value: 0.5 },
+                        { title: '80%', value: 0.8 },
+                        { title: '全部', value: 1 }
+                      ],
+                                        "item-title": "title",
+                                        "item-value": "value",
+                                        variant: "outlined",
+                                        hint: "根据象草余额按比例进货",
+                                        "persistent-hint": "",
+                                        "prepend-inner-icon": "mdi-percent",
+                                        disabled: saving.value,
+                                        density: "compact",
+                                        class: "text-caption"
+                                      }, null, 8, ["modelValue", "disabled"])
+                                    ], 64))
+                                  : _createCommentVNode("", true)
+                              ]),
+                              _: 1
+                            }),
+                            _createVNode(_component_v_col, {
+                              cols: "12",
+                              md: "6"
+                            }, {
+                              default: _withCtx(() => [
+                                _createElementVNode("div", _hoisted_15, [
+                                  _createVNode(_component_v_icon, {
+                                    icon: "mdi-cart-arrow-up",
+                                    size: "small",
+                                    color: editableConfig.auto_sale_enabled ? 'success' : 'grey',
+                                    class: "mr-3"
+                                  }, null, 8, ["color"]),
+                                  _createElementVNode("div", _hoisted_16, [
+                                    _createElementVNode("div", _hoisted_17, [
+                                      _cache[26] || (_cache[26] = _createElementVNode("div", null, [
+                                        _createElementVNode("div", { class: "text-subtitle-2" }, "启用自动出售"),
+                                        _createElementVNode("div", { class: "text-caption text-grey" }, "当蔬菜店价格高于阈值时自动出售")
+                                      ], -1)),
+                                      _createVNode(CustomSwitch, {
+                                        modelValue: editableConfig.auto_sale_enabled,
+                                        "onUpdate:modelValue": _cache[10] || (_cache[10] = $event => ((editableConfig.auto_sale_enabled) = $event)),
+                                        disabled: saving.value
+                                      }, null, 8, ["modelValue", "disabled"])
+                                    ])
+                                  ])
+                                ]),
+                                (editableConfig.auto_sale_enabled)
+                                  ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [
+                                      _createVNode(_component_v_text_field, {
+                                        modelValue: editableConfig.sale_price_threshold,
+                                        "onUpdate:modelValue": _cache[11] || (_cache[11] = $event => ((editableConfig.sale_price_threshold) = $event)),
+                                        modelModifiers: { number: true },
+                                        label: "出售价格阈值",
+                                        type: "number",
+                                        variant: "outlined",
+                                        min: 0,
+                                        rules: [v => v === null || v === '' || (Number(v) >= 0) || '价格必须大于等于0'],
+                                        hint: "当蔬菜店价格高于或等于此价格时自动出售（阀值为0时不执行）",
+                                        "persistent-hint": "",
+                                        "prepend-inner-icon": "mdi-currency-usd",
+                                        disabled: saving.value,
+                                        density: "compact",
+                                        class: "text-caption mb-5"
+                                      }, null, 8, ["modelValue", "rules", "disabled"]),
+                                      _createVNode(_component_v_select, {
+                                        modelValue: editableConfig.sale_quantity_ratio,
+                                        "onUpdate:modelValue": _cache[12] || (_cache[12] = $event => ((editableConfig.sale_quantity_ratio) = $event)),
+                                        label: "出售数量比例",
+                                        items: [
+                        { title: '20%', value: 0.2 },
+                        { title: '50%', value: 0.5 },
+                        { title: '80%', value: 0.8 },
+                        { title: '全部', value: 1 }
+                      ],
+                                        "item-title": "title",
+                                        "item-value": "value",
+                                        variant: "outlined",
+                                        hint: "根据库存按比例出售",
+                                        "persistent-hint": "",
+                                        "prepend-inner-icon": "mdi-percent",
+                                        disabled: saving.value,
+                                        density: "compact",
+                                        class: "text-caption"
+                                      }, null, 8, ["modelValue", "disabled"])
+                                    ], 64))
+                                  : _createCommentVNode("", true)
+                              ]),
+                              _: 1
+                            })
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    })
+                  ]),
+                  _: 1
+                }),
+                _createElementVNode("div", _hoisted_18, [
                   _createVNode(_component_v_icon, {
                     icon: "mdi-information",
                     color: "info",
                     class: "mr-2",
                     size: "small"
                   }),
-                  _cache[18] || (_cache[18] = _createElementVNode("span", { class: "text-caption" }, " 此插件用于监听象岛农场相关信息，支持定时执行、代理访问、失败重试等功能。 获取象岛农场信息，建议根据实际情况调整。 ", -1))
+                  _cache[27] || (_cache[27] = _createElementVNode("span", { class: "text-caption" }, " 此插件用于监听象岛农场相关信息，支持定时执行、代理访问、失败重试等功能。 获取象岛农场信息，建议根据实际情况调整。 ", -1))
                 ])
               ]),
               _: 1
@@ -602,13 +861,13 @@ return (_ctx, _cache) => {
           default: _withCtx(() => [
             _createVNode(_component_v_btn, {
               color: "info",
-              onClick: _cache[8] || (_cache[8] = $event => (emit('switch'))),
+              onClick: _cache[14] || (_cache[14] = $event => (emit('switch'))),
               "prepend-icon": "mdi-view-dashboard",
               disabled: saving.value,
               variant: "text",
               size: "small"
             }, {
-              default: _withCtx(() => _cache[19] || (_cache[19] = [
+              default: _withCtx(() => _cache[28] || (_cache[28] = [
                 _createTextVNode("状态页")
               ])),
               _: 1
@@ -622,7 +881,7 @@ return (_ctx, _cache) => {
               "prepend-icon": "mdi-restore",
               size: "small"
             }, {
-              default: _withCtx(() => _cache[20] || (_cache[20] = [
+              default: _withCtx(() => _cache[29] || (_cache[29] = [
                 _createTextVNode("重置")
               ])),
               _: 1
@@ -636,20 +895,20 @@ return (_ctx, _cache) => {
               variant: "text",
               size: "small"
             }, {
-              default: _withCtx(() => _cache[21] || (_cache[21] = [
+              default: _withCtx(() => _cache[30] || (_cache[30] = [
                 _createTextVNode("保存配置")
               ])),
               _: 1
             }, 8, ["disabled", "loading"]),
             _createVNode(_component_v_btn, {
               color: "grey",
-              onClick: _cache[9] || (_cache[9] = $event => (emit('close'))),
+              onClick: _cache[15] || (_cache[15] = $event => (emit('close'))),
               "prepend-icon": "mdi-close",
               disabled: saving.value,
               variant: "text",
               size: "small"
             }, {
-              default: _withCtx(() => _cache[22] || (_cache[22] = [
+              default: _withCtx(() => _cache[31] || (_cache[31] = [
                 _createTextVNode("关闭")
               ])),
               _: 1
@@ -665,6 +924,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const ConfigComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-139e71ce"]]);
+const ConfigComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-6b3bda00"]]);
 
 export { ConfigComponent as default };
