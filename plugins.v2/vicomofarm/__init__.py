@@ -26,7 +26,7 @@ class VicomoFarm(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomofarm.png"
     # 插件版本
-    plugin_version = "1.2.1"
+    plugin_version = "1.2.2"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -110,7 +110,7 @@ class VicomoFarm(_PluginBase):
                         name=service.get("name", None)
                     )
                 
-                if self._onlyonce:
+                if self._onlyonce and self._cron is None:
                     # 立即运行一次
                     logger.info(f"象岛农场服务启动，立即运行一次")
                     _GLOBAL_SCHEDULER.add_job(func=self._battle_task, trigger='date',
@@ -498,24 +498,40 @@ class VicomoFarm(_PluginBase):
                 logger.info("进货价格阈值未设置或无效，不执行自动进货")
                 return 0
                 
-            # 获取农场价格和象草余额
-            farm_price = float(farm_info.get("farm", {}).get("价格", 0))
-            bonus = float(farm_info.get("bonus", "0").replace("象草", "").strip())
+            # 获取农场价格和象草余额,增加空值检查
+            farm_price_str = farm_info.get("farm", {}).get("价格", "0")
+            bonus_str = farm_info.get("bonus", "0").replace("象草", "").strip()
+            
+            # 检查是否为空字符串
+            if not farm_price_str or not bonus_str:
+                logger.warning(f"农场价格或象草余额为空: 价格={farm_price_str}, 余额={bonus_str}")
+                return 0
+                
+            try:
+                farm_price = float(farm_price_str)
+                bonus = float(bonus_str)
+            except ValueError as e:
+                logger.error(f"转换价格或余额为float时出错: {e}, 价格={farm_price_str}, 余额={bonus_str}")
+                return 0
             
             # 如果价格高于阈值或余额不足,返回0
             if farm_price > self._purchase_price_threshold or bonus <= 0:
+                logger.info(f"价格({farm_price})高于阈值({self._purchase_price_threshold})或余额({bonus})不足,不执行进货")
                 return 0
                 
             # 计算可购买数量
             max_quantity = int(bonus / farm_price)
             if max_quantity <= 0:
+                logger.info(f"计算出的最大可购买数量({max_quantity})小于等于0,不执行进货")
                 return 0
                 
             # 根据比例计算实际购买数量
             purchase_quantity = int(max_quantity * self._purchase_quantity_ratio)
             
             # 确保不超过最大可购买数量
-            return min(purchase_quantity, max_quantity)
+            final_quantity = min(purchase_quantity, max_quantity)
+            logger.info(f"计算进货数量: 最大可买={max_quantity}, 比例={self._purchase_quantity_ratio}, 最终数量={final_quantity}")
+            return final_quantity
             
         except Exception as e:
             logger.error(f"计算进货数量时发生错误: {e}")
@@ -531,20 +547,35 @@ class VicomoFarm(_PluginBase):
                 logger.info("出售价格阈值未设置或无效，不执行自动出售")
                 return 0
                 
-            # 获取蔬菜店信息
+            # 获取蔬菜店信息,增加空值检查
             shop = farm_info.get("vegetable_shop", {})
-            market_price = float(shop.get("市场单价", 0))
-            stock = int(shop.get("库存", 0))
+            market_price_str = shop.get("市场单价", "0")
+            stock_str = shop.get("库存", "0")
+            
+            # 检查是否为空字符串
+            if not market_price_str or not stock_str:
+                logger.warning(f"市场单价或库存为空: 单价={market_price_str}, 库存={stock_str}")
+                return 0
+                
+            try:
+                market_price = float(market_price_str)
+                stock = int(stock_str)
+            except ValueError as e:
+                logger.error(f"转换市场单价或库存为数值时出错: {e}, 单价={market_price_str}, 库存={stock_str}")
+                return 0
             
             # 如果价格低于阈值或库存为0,返回0
             if market_price < self._sale_price_threshold or stock <= 0:
+                logger.info(f"市场单价({market_price})低于阈值({self._sale_price_threshold})或库存({stock})为0,不执行出售")
                 return 0
                 
             # 根据比例计算实际出售数量
             sale_quantity = int(stock * self._sale_quantity_ratio)
             
             # 确保不超过库存
-            return min(sale_quantity, stock)
+            final_quantity = min(sale_quantity, stock)
+            logger.info(f"计算出售数量: 库存={stock}, 比例={self._sale_quantity_ratio}, 最终数量={final_quantity}")
+            return final_quantity
             
         except Exception as e:
             logger.error(f"计算出售数量时发生错误: {e}")
