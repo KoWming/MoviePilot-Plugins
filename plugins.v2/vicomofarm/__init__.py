@@ -25,7 +25,7 @@ class VicomoFarm(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomofarm.png"
     # 插件版本
-    plugin_version = "1.2.3"
+    plugin_version = "1.2.4"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -402,7 +402,7 @@ class VicomoFarm(_PluginBase):
                 logger.info(f"提取到的进货结果重定向 URL: {redirect_url}")
             else:
                 logger.error("未找到进货结果重定向 URL")
-                return {"success": False, "msg": "未找到进货结果重定向 URL"}
+                return {"success": False, "msg": "未找到进货结果重定向 URL", "quantity": buy_num}
 
             # 访问重定向URL，获取进货结果页面
             result_response = requests.get(redirect_url, headers=headers, proxies=proxies)
@@ -425,13 +425,13 @@ class VicomoFarm(_PluginBase):
                         break
             if result_text:
                 logger.info(f"进货结果: {result_text}")
-                return {"success": True, "msg": result_text}
+                return {"success": True, "msg": result_text, "quantity": buy_num}
             else:
                 logger.error("未能解析到进货结果")
-                return {"success": False, "msg": "未能解析到进货结果"}
+                return {"success": False, "msg": "未能解析到进货结果", "quantity": buy_num}
         except Exception as e:
             logger.error(f"进货任务异常: {e}")
-            return {"success": False, "msg": str(e)}
+            return {"success": False, "msg": str(e), "quantity": buy_num}
 
     def __sale_task(self, sale_num: int):
         """出售任务：自动提交出售表单，跟随重定向并解析出售结果"""
@@ -488,13 +488,13 @@ class VicomoFarm(_PluginBase):
                         break
             if result_text:
                 logger.info(f"出售结果: {result_text}")
-                return {"success": True, "msg": result_text}
+                return {"success": True, "msg": result_text, "quantity": sale_num}
             else:
                 logger.error("未能解析到出售结果")
-                return {"success": False, "msg": "未能解析到出售结果"}
+                return {"success": False, "msg": "未能解析到出售结果", "quantity": sale_num}
         except Exception as e:
             logger.error(f"出售任务异常: {e}")
-            return {"success": False, "msg": str(e)}
+            return {"success": False, "msg": str(e), "quantity": sale_num}
 
     def _calculate_purchase_quantity(self, farm_info: dict) -> int:
         """
@@ -509,26 +509,33 @@ class VicomoFarm(_PluginBase):
             # 获取农场价格和象草余额,增加空值检查
             farm_price_str = farm_info.get("farm", {}).get("价格", "0")
             bonus_str = farm_info.get("bonus", "0").replace("象草", "").strip()
+            remaining_supply_str = farm_info.get("farm", {}).get("剩余配货量", "0")
             
             # 检查是否为空字符串
-            if not farm_price_str or not bonus_str:
-                logger.warning(f"农场价格或象草余额为空: 价格={farm_price_str}, 余额={bonus_str}")
+            if not farm_price_str or not bonus_str or not remaining_supply_str:
+                logger.warning(f"农场价格、象草余额或剩余配货量为空: 价格={farm_price_str}, 余额={bonus_str}, 剩余配货量={remaining_supply_str}")
                 return 0
                 
             try:
+                # 去除字符串中的逗号后再转换
+                bonus_str = bonus_str.replace(",", "")
+                remaining_supply_str = remaining_supply_str.replace(",", "")
                 farm_price = float(farm_price_str)
                 bonus = float(bonus_str)
+                remaining_supply = int(remaining_supply_str)
+                logger.debug(f"转换后的数值: 价格={farm_price}, 余额={bonus}, 剩余配货量={remaining_supply}")
             except ValueError as e:
-                logger.error(f"转换价格或余额为float时出错: {e}, 价格={farm_price_str}, 余额={bonus_str}")
+                logger.error(f"转换价格、余额或剩余配货量为数值时出错: {e}, 价格={farm_price_str}, 余额={bonus_str}, 剩余配货量={remaining_supply_str}")
                 return 0
             
-            # 如果价格高于阈值或余额不足,返回0
-            if farm_price > self._purchase_price_threshold or bonus <= 0:
-                logger.info(f"价格({farm_price})高于阈值({self._purchase_price_threshold})或余额({bonus})不足,不执行进货")
+            # 如果价格高于阈值或余额不足或剩余配货量为0,返回0
+            if farm_price > self._purchase_price_threshold or bonus <= 0 or remaining_supply <= 0:
+                logger.info(f"价格({farm_price})高于阈值({self._purchase_price_threshold})或余额({bonus})不足或剩余配货量({remaining_supply})为0,不执行进货")
                 return 0
                 
-            # 计算可购买数量
-            max_quantity = int(bonus / farm_price)
+            # 计算可购买数量(考虑余额和剩余配货量)
+            max_quantity_by_bonus = int(bonus / farm_price)
+            max_quantity = min(max_quantity_by_bonus, remaining_supply)
             if max_quantity <= 0:
                 logger.info(f"计算出的最大可购买数量({max_quantity})小于等于0,不执行进货")
                 return 0
@@ -538,7 +545,7 @@ class VicomoFarm(_PluginBase):
             
             # 确保不超过最大可购买数量
             final_quantity = min(purchase_quantity, max_quantity)
-            logger.info(f"计算进货数量: 最大可买={max_quantity}, 比例={self._purchase_quantity_ratio}, 最终数量={final_quantity}")
+            logger.info(f"计算进货数量: 最大可买(余额)={max_quantity_by_bonus}, 剩余配货量={remaining_supply}, 比例={self._purchase_quantity_ratio}, 最终数量={final_quantity}")
             return final_quantity
             
         except Exception as e:
@@ -566,8 +573,12 @@ class VicomoFarm(_PluginBase):
                 return 0
                 
             try:
+                # 去除market_price_str和stock_str中的逗号后再转换
+                market_price_str = market_price_str.replace(",", "")
+                stock_str = stock_str.replace(",", "")
                 market_price = float(market_price_str)
                 stock = int(stock_str)
+                logger.debug(f"转换后的数值: 市场单价={market_price}, 库存={stock}")
             except ValueError as e:
                 logger.error(f"转换市场单价或库存为数值时出错: {e}, 单价={market_price_str}, 库存={stock_str}")
                 return 0
@@ -639,9 +650,9 @@ class VicomoFarm(_PluginBase):
                         logger.info(f"开始自动进货,数量: {purchase_quantity}")
                         purchase_result = self.__purchase_task(purchase_quantity)
                         if purchase_result.get("success"):
-                            auto_trade_results.append(f"✅ 自动进货成功: {purchase_result.get('msg')}")
+                            auto_trade_results.append(f"✅ 自动进货成功: {purchase_result.get('msg')} (数量: {purchase_quantity}kg)")
                         else:
-                            auto_trade_results.append(f"❌ 自动进货失败: {purchase_result.get('msg')}")
+                            auto_trade_results.append(f"❌ 自动进货失败: {purchase_result.get('msg')} (尝试数量: {purchase_quantity}kg)")
                             
                 # 自动出售
                 if self._auto_sale_enabled:
@@ -650,9 +661,16 @@ class VicomoFarm(_PluginBase):
                         logger.info(f"开始自动出售,数量: {sale_quantity}")
                         sale_result = self.__sale_task(sale_quantity)
                         if sale_result.get("success"):
-                            auto_trade_results.append(f"✅ 自动出售成功: {sale_result.get('msg')}")
+                            auto_trade_results.append(f"✅ 自动出售成功: {sale_result.get('msg')} (数量: {sale_quantity}kg)")
                         else:
-                            auto_trade_results.append(f"❌ 自动出售失败: {sale_result.get('msg')}")
+                            auto_trade_results.append(f"❌ 自动出售失败: {sale_result.get('msg')} (尝试数量: {sale_quantity}kg)")
+
+                # 重新获取农场和蔬菜店信息以更新状态
+                logger.info("自动交易完成，重新获取农场和蔬菜店信息以更新状态...")
+                farm_info = self.__farm_and_vegetable()
+                if not farm_info:
+                    # 如果重新获取失败，记录错误并继续，避免中断后续流程
+                    logger.error("自动交易后未能重新获取农场信息！")
 
                 # 生成报告
                 logger.info("开始生成报告...")
