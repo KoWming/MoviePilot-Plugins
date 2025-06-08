@@ -84465,7 +84465,7 @@ use(installUniversalTransition);
 // })
 use(installLabelLayout);
 
-const Page_vue_vue_type_style_index_0_scoped_a1273f13_lang = '';
+const Page_vue_vue_type_style_index_0_scoped_ee277a02_lang = '';
 
 const {resolveComponent:_resolveComponent,createVNode:_createVNode,createElementVNode:_createElementVNode,createTextVNode:_createTextVNode,withCtx:_withCtx,toDisplayString:_toDisplayString,openBlock:_openBlock,createBlock:_createBlock,createCommentVNode:_createCommentVNode,Fragment:_Fragment,createElementBlock:_createElementBlock,mergeProps:_mergeProps,normalizeClass:_normalizeClass} = await importShared('vue');
 
@@ -84728,16 +84728,20 @@ async function handleSale() {
 
 // 计算最大可进货数量
 function calculateMaxPurchase() {
-  if (!latestFarmInfo.value.bonus || !latestFarmInfo.value.farm.价格) {
+  if (!latestFarmInfo.value.bonus || !latestFarmInfo.value.farm.价格 || !latestFarmInfo.value.farm.剩余配货量) {
     return 0;
   }
   // 去除千分位逗号
   const bonus = parseFloat(String(latestFarmInfo.value.bonus).replace(/,/g, ''));
   const price = parseFloat(String(latestFarmInfo.value.farm.价格).replace(/,/g, ''));
-  if (isNaN(bonus) || isNaN(price) || price === 0) {
+  const remainingSupply = parseInt(String(latestFarmInfo.value.farm.剩余配货量).replace(/,/g, ''));
+
+  if (isNaN(bonus) || isNaN(price) || price === 0 || isNaN(remainingSupply)) {
     return 0;
   }
-  return Math.floor(bonus / price);
+
+  const maxQuantityByBonus = Math.floor(bonus / price);
+  return Math.min(maxQuantityByBonus, remainingSupply);
 }
 
 // 添加新的计算函数用于出售
@@ -86057,6 +86061,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const PageComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-a1273f13"]]);
+const PageComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-ee277a02"]]);
 
 export { PageComponent as default };
