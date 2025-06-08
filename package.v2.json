@@ -3,11 +3,12 @@
         "name": "Vue-象岛农场",
         "description": "监听象岛农场相关信息，我在PT学卖菜。",
         "labels": "站点",
-        "version": "1.2.3",
+        "version": "1.2.4",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomofarm.png",
         "author": "KoWming",
         "level": 2,
         "history": {
+            "v1.2.4": "修复进货、出售浮点计算问题。",
             "v1.2.3": "修复定时任务重复执行问题。",
             "v1.2.2": "优化进货、出售功能，增加空值检查。",
             "v1.2.1": "新增自动进货、出售功能(待测试)、优化页面UI显示。",
