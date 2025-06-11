@@ -32,7 +32,7 @@ class GroupChatZone(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png"
     # 插件版本
-    plugin_version = "2.1.2"
+    plugin_version = "2.1.3"
     # 插件作者
     plugin_author = "KoWming,madrays"
     # 作者主页
@@ -73,6 +73,7 @@ class GroupChatZone(_PluginBase):
     _feedback_timeout: int = 5      # 获取反馈的超时时间(秒)
     _use_proxy: bool = True        # 是否使用代理
     _zm_independent: bool = True  # 是否织梦独立运行
+    _qingwa_daily_bonus: bool = False  # 是否青蛙每日福利领取
 
     def init_plugin(self, config: Optional[dict] = None):
         self._lock = threading.Lock()
@@ -98,6 +99,7 @@ class GroupChatZone(_PluginBase):
             self._feedback_timeout = int(config.get("feedback_timeout", 5))
             self._use_proxy = bool(config.get("use_proxy", True))
             self._zm_independent = bool(config.get("zm_independent", True))
+            self._qingwa_daily_bonus = bool(config.get("qingwa_daily_bonus", False))
             self._zm_mail_time = config.get("zm_mail_time")
 
             # 过滤掉已删除的站点
@@ -181,7 +183,8 @@ class GroupChatZone(_PluginBase):
                 "sites_messages": self._sites_messages,
                 "use_proxy": self._use_proxy,
                 "zm_independent": self._zm_independent,
-                "zm_mail_time": self._zm_mail_time
+                "zm_mail_time": self._zm_mail_time,
+                "qingwa_daily_bonus": self._qingwa_daily_bonus
             }
         )
 
@@ -442,11 +445,6 @@ class GroupChatZone(_PluginBase):
                 logger.info("没有配置需要发送消息的站点")
                 return
             
-            site_messages = self._sites_messages if isinstance(self._sites_messages, str) else ""
-            if not site_messages.strip():
-                logger.info("没有配置需要发送的消息")
-                return
-            
             # 获取站点信息
             try:
                 all_sites = [site for site in self.sites.get_indexers() if not site.get("public")] + self.__custom_sites()
@@ -460,14 +458,76 @@ class GroupChatZone(_PluginBase):
                 logger.error(f"获取站点信息失败: {str(e)}")
                 return
             
+            # 检查是否需要执行青蛙每日福利购买 - 优先执行
+            daily_bonus_result = None
+            if self._qingwa_daily_bonus:
+                # 在所有选中的站点中查找青蛙站点
+                all_selected_sites = [site for site in all_sites if site.get("id") in self._chat_sites]
+                logger.info(f"青蛙每日福利购买开关已启用，开始检查青蛙站点...")
+                logger.info(f"选中的站点列表: {[site.get('name') for site in all_selected_sites]}")
+                
+                for site in all_selected_sites:
+                    if "青蛙" in site.get("name", ""):
+                        try:
+                            handler = self.get_site_handler(site)
+                            if handler and hasattr(handler, 'buy_daily_bonus'):
+                                logger.info(f"开始执行青蛙每日福利购买: {site.get('name')}")
+                                success, msg = handler.buy_daily_bonus()
+                                daily_bonus_result = {
+                                    "success": success,
+                                    "message": msg,
+                                    "site_name": site.get("name")
+                                }
+                                break
+                        except Exception as e:
+                            logger.error(f"执行青蛙每日福利购买时发生异常: {str(e)}")
+                            daily_bonus_result = {
+                                "success": False,
+                                "message": f"执行异常: {str(e)}",
+                                "site_name": site.get("name")
+                            }
+                            break
+                else:
+                    logger.info("未找到青蛙站点")
+            
+            site_messages = self._sites_messages if isinstance(self._sites_messages, str) else ""
+            if not site_messages.strip():
+                logger.info("没有配置需要发送的消息")
+                
+                # 即使没有喊话消息，也要发送通知（如果有每日福利购买结果）
+                if self._notify and daily_bonus_result:
+                    try:
+                        self._send_notification({}, [], daily_bonus_result)
+                    except Exception as e:
+                        logger.error(f"发送通知失败: {str(e)}")
+                # 重新注册插件
+                self.reregister_plugin()
+                return
+            
             # 解析站点消息
             try:
                 site_msgs = self.parse_site_messages(site_messages)
                 if not site_msgs:
                     logger.info("没有解析到有效的站点消息")
+                    # 即使没有解析到喊话消息，也要发送通知（如果有每日福利购买结果）
+                    if self._notify and daily_bonus_result:
+                        try:
+                            self._send_notification({}, [], daily_bonus_result)
+                        except Exception as e:
+                            logger.error(f"发送通知失败: {str(e)}")
+                    # 重新注册插件
+                    self.reregister_plugin()
                     return
             except Exception as e:
                 logger.error(f"解析站点消息失败: {str(e)}")
+                # 即使解析失败，也要发送通知（如果有每日福利购买结果）
+                if self._notify and daily_bonus_result:
+                    try:
+                        self._send_notification({}, [], daily_bonus_result)
+                    except Exception as e:
+                        logger.error(f"发送通知失败: {str(e)}")
+                # 重新注册插件
+                self.reregister_plugin()
                 return
             
             # 获取大青虫站点的特权信息
@@ -491,6 +551,7 @@ class GroupChatZone(_PluginBase):
             # 执行站点发送消息
             site_results = {}
             all_feedback = []
+            
             for site in do_sites:
                 site_name = site.get("name")
                 logger.info(f"开始处理站点: {site_name}")
@@ -601,7 +662,7 @@ class GroupChatZone(_PluginBase):
             # 发送通知
             if self._notify:
                 try:
-                    self._send_notification(site_results, all_feedback)
+                    self._send_notification(site_results, all_feedback, daily_bonus_result)
                 except Exception as e:
                     logger.error(f"发送通知失败: {str(e)}")
             
@@ -626,93 +687,122 @@ class GroupChatZone(_PluginBase):
         logger.info("重新注册插件")
         Scheduler().update_plugin_job(self.__class__.__name__)
 
-    def _send_notification(self, site_results: Dict[str, Dict], all_feedback: List[Dict]):
+    def _send_notification(self, site_results: Dict[str, Dict], all_feedback: List[Dict], daily_bonus_result: Dict = None):
         """
         发送通知
         """
-        title = "💬群聊区任务完成报告"
-        total_sites = len(site_results)
-        notification_text = f"🌐 站点总数: {total_sites}\n"
+        # 判断是否只有青蛙每日福利购买任务
+        only_daily_bonus = len(site_results) == 0 and daily_bonus_result is not None
         
-        # 添加喊话基本信息
-        success_sites = []
-        failed_sites = []
-        
-        for site_name, result in site_results.items():
-            success_count = result["success_count"]
-            failure_count = result["failure_count"]
-            if success_count > 0 and failure_count == 0:
-                success_sites.append(site_name)
-            elif failure_count > 0:
-                failed_sites.append(site_name)
-        
-        if success_sites:
-            notification_text += f"✅ 成功站点: {', '.join(success_sites)}\n"
-        if failed_sites:
-            notification_text += f"❌ 失败站点: {', '.join(failed_sites)}\n"
-        
-        # 添加失败消息详情
-        failed_details = []
-        for site_name, result in site_results.items():
-            failed_messages = result["failed_messages"]
-            if failed_messages:
-                failed_details.append(f"{site_name}: {', '.join(failed_messages)}")
-        
-        if failed_details:
-            notification_text += "\n🚫 失败消息详情:\n"
-            notification_text += "\n".join(failed_details)
-        
-        # 添加反馈信息
-        notification_text += "\n📋 喊话反馈:\n"
-        
-        # 按站点整理反馈和跳过的消息
-        for site_name, result in site_results.items():
-            feedbacks = result.get("feedback", [])
-            skipped_messages = result.get("skipped_messages", [])
+        if only_daily_bonus:
+            # 只有青蛙每日福利购买时的简化通知
+            title = "🐸青蛙每日福利购买报告"
+            notification_text = ""
             
-            if feedbacks or skipped_messages:
-                notification_text += f"\n━━━ {site_name} 站点反馈 ━━━\n"
+            if daily_bonus_result["success"]:
+                notification_text += f"✅ 购买成功\n"
+                notification_text += f"📝 详情: {daily_bonus_result['message']}\n"
+            else:
+                notification_text += f"❌ 购买失败\n"
+                notification_text += f"📝 原因: {daily_bonus_result['message']}\n"
+            
+            notification_text += f"\n\n⏱️ {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}"
+        else:
+            # 原有的完整通知格式
+            title = "💬群聊区任务完成报告"
+            total_sites = len(site_results)
+            notification_text = f"🌐 站点总数: {total_sites}\n"
+            
+            # 添加喊话基本信息
+            success_sites = []
+            failed_sites = []
+            
+            for site_name, result in site_results.items():
+                success_count = result["success_count"]
+                failure_count = result["failure_count"]
+                if success_count > 0 and failure_count == 0:
+                    success_sites.append(site_name)
+                elif failure_count > 0:
+                    failed_sites.append(site_name)
+            
+            if success_sites:
+                notification_text += f"✅ 成功站点: {', '.join(success_sites)}\n"
+            if failed_sites:
+                notification_text += f"❌ 失败站点: {', '.join(failed_sites)}\n"
+            
+            # 添加失败消息详情
+            failed_details = []
+            for site_name, result in site_results.items():
+                failed_messages = result["failed_messages"]
+                if failed_messages:
+                    failed_details.append(f"{site_name}: {', '.join(failed_messages)}")
+            
+            if failed_details:
+                notification_text += "\n🚫 失败消息详情:\n"
+                notification_text += "\n".join(failed_details)
+            
+            # 添加反馈信息
+            notification_text += "\n📋 喊话反馈:\n"
+            
+            # 按站点整理反馈和跳过的消息
+            for site_name, result in site_results.items():
+                feedbacks = result.get("feedback", [])
+                skipped_messages = result.get("skipped_messages", [])
                 
-                # 处理反馈消息
-                for feedback in feedbacks:
-                    message = feedback.get("message", "")
-                    rewards = feedback.get("rewards", [])
+                if feedbacks or skipped_messages:
+                    notification_text += f"\n━━━ {site_name} 站点反馈 ━━━\n"
                     
-                    if rewards:
-                        notification_text += f"✏️ 消息: \"{message}\"\n"
+                    # 处理反馈消息
+                    for feedback in feedbacks:
+                        message = feedback.get("message", "")
+                        rewards = feedback.get("rewards", [])
                         
-                        # 根据不同类型显示不同图标
-                        for reward in rewards:
-                            reward_type = reward.get("type", "")
-                            icon = NotificationIcons.get(reward_type)
+                        if rewards:
+                            notification_text += f"✏️ 消息: \"{message}\"\n"
                             
-                            if reward_type in ["raw_feedback","上传量", "下载量", "魔力值", "工分", "VIP", "彩虹ID", "电力", "象草", "青蛙"]:
-                                notification_text += f"  {icon} {reward.get('description', '')}\n"
-                
-                # 处理跳过的消息
-                for msg in skipped_messages:
-                    notification_text += f"✏️跳过: \"{msg['message']}\"\n"
-                    notification_text += f"  📌 {msg['reason']}\n"
+                            # 根据不同类型显示不同图标
+                            for reward in rewards:
+                                reward_type = reward.get("type", "")
+                                icon = NotificationIcons.get(reward_type)
+                                
+                                if reward_type in ["raw_feedback","上传量", "下载量", "魔力值", "工分", "VIP", "彩虹ID", "电力", "象草", "青蛙"]:
+                                    notification_text += f"  {icon} {reward.get('description', '')}\n"
+                    
+                    # 处理跳过的消息
+                    for msg in skipped_messages:
+                        notification_text += f"✏️跳过: \"{msg['message']}\"\n"
+                        notification_text += f"  📌 {msg['reason']}\n"
 
-                # 显示最新邮件时间（如果有）
-                handler = result.get("handler")
-                
-                # 通过站点名称判断是否为织梦站点
-                is_zm_site = "织梦" in site_name
-                
-                # 如果是织梦站点并且有最新邮件时间，则显示
-                if handler and is_zm_site and hasattr(handler, '_latest_message_time') and handler._latest_message_time:
-                    # 将时间字符串转换为datetime对象
-                    latest_time = datetime.strptime(handler._latest_message_time, "%Y-%m-%d %H:%M:%S")
-                    # 计算距离下次执行的时间差
-                    now = datetime.now()
-                    seconds_diff = 24 * 3600 - (now - latest_time).total_seconds()
-                    hours = int(seconds_diff // 3600)
-                    minutes = int((seconds_diff % 3600) // 60)
-                    seconds = int(seconds_diff % 60)
-                    notification_text += f"  ✉️ {site_name} 下次奖励获取将在{hours}小时{minutes}分{seconds}秒后执行"
-        
-        notification_text += f"\n\n⏱️ {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}"
+                    # 添加每日福利购买状态到青蛙站点反馈中
+                    if "青蛙" in site_name and daily_bonus_result:
+                        notification_text += "\n━━━━━━━━━━━━━━━━━\n"
+                        notification_text += "\n🎁 每日福利购买状态:\n"
+                        if daily_bonus_result["success"]:
+                            notification_text += f"  ✅ 购买成功\n"
+                            notification_text += f"  📝 详情: {daily_bonus_result['message']}\n"
+                        else:
+                            notification_text += f"  ❌ 购买失败\n"
+                            notification_text += f"  📝 原因: {daily_bonus_result['message']}\n"
+
+                    # 显示最新邮件时间（如果有）
+                    handler = result.get("handler")
+                    
+                    # 通过站点名称判断是否为织梦站点
+                    is_zm_site = "织梦" in site_name
+                    
+                    # 如果是织梦站点并且有最新邮件时间，则显示
+                    if handler and is_zm_site and hasattr(handler, '_latest_message_time') and handler._latest_message_time:
+                        # 将时间字符串转换为datetime对象
+                        latest_time = datetime.strptime(handler._latest_message_time, "%Y-%m-%d %H:%M:%S")
+                        # 计算距离下次执行的时间差
+                        now = datetime.now()
+                        seconds_diff = 24 * 3600 - (now - latest_time).total_seconds()
+                        hours = int(seconds_diff // 3600)
+                        minutes = int((seconds_diff % 3600) // 60)
+                        seconds = int(seconds_diff % 60)
+                        notification_text += f"  ✉️ {site_name} 下次奖励获取将在{hours}小时{minutes}分{seconds}秒后执行"
+            
+            notification_text += f"\n\n⏱️ {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}"
 
         self.post_message(
             mtype=NotificationType.SiteMessage,
