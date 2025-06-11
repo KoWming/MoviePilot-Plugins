@@ -98,3 +98,45 @@ class QingwaHandler(ISiteHandler):
         except Exception as e:
             logger.error(f"获取站点 {site_name} 的用户信息失败: {str(e)}")
             return None
+
+    def buy_daily_bonus(self) -> Tuple[bool, str]:
+        """
+        购买每日福利：1000蝌蚪
+        :return: (是否成功, 消息)
+        """
+        try:
+            # 每日福利商品ID为28
+            item_id = 28
+            amount = 1
+            
+            # 构建购买请求数据
+            data = {
+                'id': item_id,
+                'amount': amount
+            }
+            
+            # 发送购买请求
+            response = self.session.post(
+                urljoin(self.site_url, "/api/bonus-shop/exchange"),
+                data=data,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('success'):
+                    logger.info(f"青蛙每日福利购买成功: {result.get('msg', '')}")
+                    return True, result.get('msg', '购买成功')
+                else:
+                    error_msg = result.get('msg', '购买失败')
+                    logger.warning(f"青蛙每日福利购买失败: {error_msg}")
+                    return False, error_msg
+            else:
+                error_msg = f"请求失败，状态码: {response.status_code}"
+                logger.error(f"青蛙每日福利购买请求失败: {error_msg}")
+                return False, error_msg
+                
+        except Exception as e:
+            error_msg = f"购买每日福利时发生异常: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg
