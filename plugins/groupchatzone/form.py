@@ -240,7 +240,7 @@ def form(site_options) -> list:
                                             'component': 'VCol',
                                             'props': {
                                                 'cols': 12,
-                                                'md': 4
+                                                'md': 3
                                             },
                                             'content': [
                                                 {
@@ -256,7 +256,7 @@ def form(site_options) -> list:
                                             'component': 'VCol',
                                             'props': {
                                                 'cols': 12,
-                                                'md': 4
+                                                'md': 3
                                             },
                                             'content': [
                                                 {
@@ -272,7 +272,7 @@ def form(site_options) -> list:
                                             'component': 'VCol',
                                             'props': {
                                                 'cols': 12,
-                                                'md': 4
+                                                'md': 3
                                             },
                                             'content': [
                                                 {
@@ -280,6 +280,22 @@ def form(site_options) -> list:
                                                     'props': {
                                                         'model': 'zm_independent',
                                                         'label': '独立织梦喊话',
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            'component': 'VCol',
+                                            'props': {
+                                                'cols': 12,
+                                                'md': 3
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'VSwitch',
+                                                    'props': {
+                                                        'model': 'qingwa_daily_bonus',
+                                                        'label': '青蛙福利购买',
                                                     }
                                                 }
                                             ]
@@ -371,61 +387,482 @@ def form(site_options) -> list:
                         {
                             'component': 'VCardText',
                             'props': {
-                                'class': 'pt-4 pb-4',
-                                'style': 'font-size: 1rem;'
+                                'class': 'px-6 pb-6'
                             },
                             'content': [
                                 {
-                                    'component': 'div',
+                                    'component': 'VList',
                                     'props': {
-                                        'class': 'mb-5',
-                                        'style': 'color: #444;'
+                                        'lines': 'two',
+                                        'density': 'comfortable'
                                     },
                                     'content': [
-                                        {'component': 'div', 'style': 'display: flex; align-items: center; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px; color: #6E7B8B;', 'content': [
-                                            {'component': 'VIcon', 'props': {'style': 'margin-right: 8px; color: #2196F3; font-size: 22px;'}, 'text': 'mdi-calendar-clock'},
-                                            {'component': 'span', 'text': '执行周期支持以下三种方式：'}
-                                        ]},
-                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '📅 5位cron表达式'},
-                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '⏰ 配置间隔（小时），如2.3/9-23（9-23点之间每隔2.3小时执行一次）'},
-                                        {'component': 'div', 'props': {'class': 'text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '🔄 周期不填默认9-23点随机执行1次'}
-                                    ]
-                                },
-                                {
-                                    'component': 'div',
-                                    'props': {
-                                        'class': 'mb-5',
-                                        'style': 'color: #444;'
-                                    },
-                                    'content': [
-                                        {'component': 'div', 'style': 'display: flex; align-items: center; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px; color: #6E7B8B;', 'content': [
-                                            {'component': 'VIcon', 'props': {'style': 'margin-right: 8px; color: #FF5722; font-size: 20px;'}, 'text': 'mdi-application-settings'},
-                                            {'component': 'span', 'text': '独立织梦喊话功能说明：'}
-                                        ]},
-                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '🎯 开启后织梦站点将独立执行喊话任务，与其他站点分开处理'},
-                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '⏰ 开启后获取织梦最新电力奖励邮件的时间，用于计算下次执行时间'},
-                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '🔄 关闭时织梦站点将与其他站点一起执行喊话任务，使用统一的执行周期'},
-                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '💡 建议开启此功能，可以更精确的执行喊话任务'},
-                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '📅 织梦定时器说明：'},
-                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '  • 首次运行时会自动获织梦最新电力奖励邮件的时间，用于计算下次执行时间注册"群聊区 - 织梦定时任务"'},
-                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '  • 每次执行完喊话任务后会更新获取的邮件时间，确保定时准确'},
-                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '  • 如果获取的邮件时间对比上次获取的邮件已超过24小时,将立即执行织梦喊话任务'},
-                                        {'component': 'div', 'props': {'class': 'text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '  • 重启或重载插件时会从持久化配置中获取邮件时间，确保定时任务正常运行'}
-                                    ]
-                                },
-                                {
-                                    'component': 'div',
-                                    'props': {
-                                        'class': 'mb-2',
-                                        'style': 'color: #444;'
-                                    },
-                                    'content': [
-                                        {'component': 'div', 'style': 'display: flex; align-items: center; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px; color: #6E7B8B;', 'content': [
-                                            {'component': 'VIcon', 'props': {'style': 'margin-right: 8px; color: #4CAF50; font-size: 22px;'}, 'text': 'mdi-message-reply-text'},
-                                            {'component': 'span', 'text': '获取反馈功能说明：'}
-                                        ]},
-                                        {'component': 'div', 'props': {'class': 'mb-2 text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '📊 获取喊话后的站点反馈(奖励信息)，有助于了解站点对喊话的响应情况'},
-                                        {'component': 'div', 'props': {'class': 'text-body-2', 'style': 'color: #888; margin-left: 38px; font-size: 0.98em;'}, 'text': '📈 反馈信息包括奖励类型、数量和时间，有助于分析站点奖励机制'}
+                                        {
+                                            'component': 'VListItem',
+                                            'props': {
+                                                'lines': 'two'
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'd-flex align-items-start'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'VIcon',
+                                                            'props': {
+                                                                'color': 'primary',
+                                                                'class': 'mt-1 mr-2'
+                                                            },
+                                                            'text': 'mdi-calendar-clock'
+                                                        },
+                                                        {
+                                                            'component': 'div',
+                                                            'props': {
+                                                                'class': 'text-subtitle-1 font-weight-regular mb-1',
+                                                                'style': 'color: #444;'
+                                                            },
+                                                            'text': '执行周期说明'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'text': '支持以下三种方式：'
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '📅 5位cron表达式'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '⏰ 配置间隔（小时），如2.3/9-23（9-23点之间每隔2.3小时执行一次）'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '🔄 周期不填默认9-23点随机执行1次'
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            'component': 'VListItem',
+                                            'props': {
+                                                'lines': 'two'
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'd-flex align-items-start'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'VIcon',
+                                                            'props': {
+                                                                'color': 'warning',
+                                                                'class': 'mt-1 mr-2'
+                                                            },
+                                                            'text': 'mdi-alert'
+                                                        },
+                                                        {
+                                                            'component': 'div',
+                                                            'props': {
+                                                                'class': 'text-subtitle-1 font-weight-regular mb-1',
+                                                                'style': 'color: #444;'
+                                                            },
+                                                            'text': '特别说明X3(重要的事情说3遍)'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '  • 使用插件进行喊话任务时请务必注意查看该站点是否支持喊话'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '  • 如不支持喊话请不要使用插件对该站点进行喊话任务（包含发送无意义的群聊区喊话、刷屏等行为）'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '  • 配置好喊话内容后请使用'
+                                                        },
+                                                        {
+                                                            'component': 'span',
+                                                            'props': {
+                                                                'style': 'color: green;'
+                                                            },
+                                                            'text': '【立即运行一次】'
+                                                        },
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '测试喊话是否正常、确保不会重复喊话刷屏'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '  • 请确保定时Cron表达式设置正确，避免频繁执行喊话任务导致刷屏'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '  • 如果由于不正确的使用导致'
+                                                        },
+                                                        {
+                                                            'component': 'span',
+                                                            'props': {
+                                                                'style': 'color: red; text-decoration: underline;'
+                                                            },
+                                                            'text': '账号封禁'
+                                                        },
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '的请自行承担后果！'
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            'component': 'VListItem',
+                                            'props': {
+                                                'lines': 'two'
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'd-flex align-items-start'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'VIcon',
+                                                            'props': {
+                                                                'color': 'error',
+                                                                'class': 'mt-1 mr-2'
+                                                            },
+                                                            'text': 'mdi-application-settings'
+                                                        },
+                                                        {
+                                                            'component': 'div',
+                                                            'props': {
+                                                                'class': 'text-subtitle-1 font-weight-regular mb-1',
+                                                                'style': 'color: #444;'
+                                                            },
+                                                            'text': '独立织梦喊话功能'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '🎯 开启后织梦站点将独立执行喊话任务，与其他站点分开处理'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '⏰ 开启后获取织梦最新电力奖励邮件的时间，用于计算下次执行时间'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '🔄 关闭时织梦站点将与其他站点一起执行喊话任务，使用统一的执行周期'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '💡 建议开启此功能，可以更精确的执行喊话任务'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8',
+                                                        'style': 'color: #444;'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '📅 织梦定时器说明：'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '  • 首次运行时会自动获织梦最新电力奖励邮件的时间，用于计算下次执行时间注册"群聊区 - 织梦定时任务"'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '  • 每次执行完喊话任务后会更新获取的邮件时间，确保定时准确'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '  • 如果获取的邮件时间对比上次获取的邮件已超过24小时,将立即执行织梦喊话任务'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '  • 重启或重载插件时会从持久化配置中获取邮件时间，确保定时任务正常运行'
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            'component': 'VListItem',
+                                            'props': {
+                                                'lines': 'two'
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'd-flex align-items-start'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'VIcon',
+                                                            'props': {
+                                                                'color': 'success',
+                                                                'class': 'mt-1 mr-2'
+                                                            },
+                                                            'text': 'mdi-gift'
+                                                        },
+                                                        {
+                                                            'component': 'div',
+                                                            'props': {
+                                                                'class': 'text-subtitle-1 font-weight-regular mb-1',
+                                                                'style': 'color: #444;'
+                                                            },
+                                                            'text': '青蛙每日福利功能'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '🎁 开启后会自动执行任务购买青蛙站点的每日福利（1蝌蚪兑换1000蝌蚪）'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '📅 每日限购1次，系统会自动检查是否已购买，避免重复购买'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '💡 购买结果会在通知消息中显示，包括成功或失败的状态'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '⚠️ 需要确保青蛙站点已正确配置且用户有足够的蝌蚪余额'
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            'component': 'VListItem',
+                                            'props': {
+                                                'lines': 'two'
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'd-flex align-items-start'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'VIcon',
+                                                            'props': {
+                                                                'color': 'info',
+                                                                'class': 'mt-1 mr-2'
+                                                            },
+                                                            'text': 'mdi-message-reply-text'
+                                                        },
+                                                        {
+                                                            'component': 'div',
+                                                            'props': {
+                                                                'class': 'text-subtitle-1 font-weight-regular mb-1',
+                                                                'style': 'color: #444;'
+                                                            },
+                                                            'text': '获取反馈功能'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '📊 获取喊话后的站点反馈(奖励信息)，有助于了解站点对喊话的响应情况'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '📈 反馈信息包括奖励类型、数量和时间，有助于分析站点奖励机制'
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
                                     ]
                                 }
                             ]
@@ -445,5 +882,6 @@ def form(site_options) -> list:
         "get_feedback": True,
         "feedback_timeout": 5,
         "use_proxy": True,
-        "zm_independent": True
+        "zm_independent": True,
+        "qingwa_daily_bonus": False
     }
