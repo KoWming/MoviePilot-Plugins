@@ -707,7 +707,7 @@ class GroupChatZone(_PluginBase):
             
             if daily_bonus_result["success"]:
                 notification_text += f"✅ 购买成功\n"
-                notification_text += f"📝 详情: {daily_bonus_result['message']}\n"
+                notification_text += f"📝 详情: 消耗1蝌蚪，获得1000蝌蚪。\n"
             else:
                 notification_text += f"❌ 购买失败\n"
                 notification_text += f"📝 原因: {daily_bonus_result['message']}\n"
@@ -785,7 +785,7 @@ class GroupChatZone(_PluginBase):
                         notification_text += "\n🎁 每日福利购买状态:\n"
                         if daily_bonus_result["success"]:
                             notification_text += f"  ✅ 购买成功\n"
-                            notification_text += f"  📝 详情: {daily_bonus_result['message']}\n"
+                            notification_text += f"  📝 详情: 消耗1蝌蚪，获得1000蝌蚪。\n"
                         else:
                             notification_text += f"  ❌ 购买失败\n"
                             notification_text += f"  📝 原因: {daily_bonus_result['message']}\n"
