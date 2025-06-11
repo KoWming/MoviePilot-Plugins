@@ -32,7 +32,7 @@ class GroupChatZone(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png"
     # 插件版本
-    plugin_version = "2.1.3"
+    plugin_version = "2.1.4"
     # 插件作者
     plugin_author = "KoWming,madrays"
     # 作者主页
@@ -389,8 +389,14 @@ class GroupChatZone(_PluginBase):
         # 获取站点列表
         all_sites = [site for site in self.sites.get_indexers() if not site.get("public")] + self.__custom_sites()
         
+        # 定义目标站点名称
+        target_site_names = ["大青虫", "青蛙", "织梦", "象站", "PTLGS"]
+
+        # 过滤站点，只保留目标站点
+        filtered_sites = [site for site in all_sites if site.get("name") in target_site_names]
+        
         # 构建站点选项
-        site_options = [{"title": site.get("name"), "value": site.get("id")} for site in all_sites]
+        site_options = [{"title": site.get("name"), "value": site.get("id")} for site in filtered_sites]
         return form(site_options)
 
     def __custom_sites(self) -> List[Any]:
