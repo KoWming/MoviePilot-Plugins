@@ -32,7 +32,7 @@ class LocalPluginInstall(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/LocalPluginInstall.png"
     # 插件版本
-    plugin_version = "1.1"
+    plugin_version = "1.2"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -117,9 +117,39 @@ class LocalPluginInstall(_PluginBase):
                     logger.info(f"找到插件子目录: {plugin_dir}, 实际目录名: {actual_plugin_dir_name_from_fs}")
 
             # 检查__init__.py文件和获取插件类
-            plugin_class = self._find_plugin_class(init_file, guessed_plugin_dir_name)
-            if not plugin_class:
-                return False, "", "", f"在 __init__.py 中没有找到继承 _PluginBase 的插件类"
+            try:
+                plugin_class = self._find_plugin_class(init_file, guessed_plugin_dir_name)
+                if not plugin_class:
+                    return False, "", "", f"在 __init__.py 中没有找到继承 _PluginBase 的插件类"
+            except ImportError as e:
+                # 处理依赖缺失等导入错误
+                error_msg = str(e)
+                
+                # 检查是否有 requirements.txt 文件
+                requirements_file = extract_path / "requirements.txt"
+                if not requirements_file.exists():
+                    # 检查插件子目录中是否有 requirements.txt
+                    plugin_dirs = [d for d in extract_path.iterdir() if d.is_dir() and not d.name.startswith('__')]
+                    if plugin_dirs:
+                        requirements_file = plugin_dirs[0] / "requirements.txt"
+                
+                if requirements_file.exists():
+                    logger.info(f"检测到 requirements.txt 文件，尝试先安装依赖: {requirements_file}")
+                    # 尝试安装依赖
+                    dependencies_status = self._install_dependencies(extract_path)
+                    if dependencies_status["status"] == "success":
+                        logger.info("依赖安装成功，重新尝试导入插件")
+                        # 重新尝试导入
+                        try:
+                            plugin_class = self._find_plugin_class(init_file, guessed_plugin_dir_name)
+                            if not plugin_class:
+                                return False, "", "", f"依赖安装后仍无法找到继承 _PluginBase 的插件类"
+                        except ImportError as e2:
+                            return False, "", "", f"依赖安装后插件导入仍失败: {str(e2)}"
+                    else:
+                        return False, "", "", f"依赖安装失败: {dependencies_status['message']}。原始错误: {error_msg}"
+                else:
+                    return False, "", "", f"插件导入失败: {error_msg}。请确保插件包包含 requirements.txt 文件，或手动安装所需依赖。"
             
             # 获取插件类名和显示名称
             actual_plugin_id_for_manager = plugin_class.__name__
@@ -186,6 +216,15 @@ class LocalPluginInstall(_PluginBase):
                 return found_plugin_class
             return None
             
+        except ModuleNotFoundError as e:
+            # 处理依赖缺失的情况
+            missing_module = str(e).split("'")[1] if "'" in str(e) else "未知模块"
+            logger.warning(f"插件依赖缺失: {missing_module}")
+            raise ImportError(f"插件依赖缺失: {missing_module}。请确保插件包包含 requirements.txt 文件，或手动安装所需依赖。")
+        except ImportError as e:
+            # 处理其他导入错误
+            logger.error(f"导入插件模块时发生错误: {e}")
+            raise ImportError(f"导入插件模块失败: {e}")
         except Exception as e:
             logger.error(f"查找插件类时发生错误: {e}", exc_info=True)
             return None
@@ -1092,7 +1131,7 @@ class LocalPluginInstall(_PluginBase):
                                                         'props': {
                                                             'type': 'info',
                                                             'variant': 'tonal',
-                                                            'text': '请确保插件包包含__init__.py文件且继承_PluginBase类',
+                                                            'text': '请确保插件包包含__init__.py文件且继承_PluginBase类。如果插件有依赖，请确保包含requirements.txt文件。',
                                                             'class': 'mb-6',
                                                             'density': 'comfortable',
                                                             'border': 'start',
@@ -1348,7 +1387,7 @@ class LocalPluginInstall(_PluginBase):
                                                                 'props': {
                                                                     'class': 'text-body-2'
                                                                 },
-                                                                'text': '1. 安装失败？检查插件包结构是否正确 2. 依赖安装失败？尝试手动安装依赖 3. 插件不工作？检查日志获取详细信息'
+                                                                'text': '1. 安装失败？检查插件包结构是否正确 2. 依赖安装失败？确保requirements.txt格式正确，或尝试手动安装依赖 3. 插件不工作？检查日志获取详细信息 4. 提示"没有找到继承_PluginBase的插件类"？可能是依赖缺失，请检查requirements.txt文件'
                                                             }
                                                         ]
                                                     }
