@@ -166,5 +166,18 @@
         "v1.1": "新增适配多个站点，优化消息推送结构。",
         "v1.0": "初始版本。"
     }
+  },
+  "NATdetect": {
+    "name": "NAT类型检测",
+    "description": "使用Lucky服务检测NAT类型",
+    "labels": "站点",
+    "version": "1.0",
+    "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/natdetect.png",
+    "author": "KoWming",
+    "level": 1,
+    "v2": true,
+    "history": {
+        "v1.0": "初始版本。"
+    }
   }
 }
