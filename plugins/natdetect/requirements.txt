@@ -1,0 +1,2 @@
+websockets>=10.0
+PyJWT>=2.0 
