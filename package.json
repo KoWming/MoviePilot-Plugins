@@ -28,11 +28,12 @@
     "name": "Lucky助手",
     "description": "定时备份Lucky配置文件",
     "labels": "备份",
-    "version": "1.2.3",
+    "version": "1.2.4",
     "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Lucky_B.png",
     "author": "KoWming",
     "level": 1,
     "history": {
+        "v1.2.4": "新增本地备份开关，新增WebDAV备份设置，优化备份通知消息输出格式。(感谢M.Jinxi大佬提供WebDAV备份功能和美化方案)",
         "v1.2.3": "新增定时框根据版本动态切换(V2版本使用VCronField组件,V1版本使用VTextField组件)。",
         "v1.2.2": "调整消息类型为插件。",
         "v1.2.1": "优化消息推送结构。",
