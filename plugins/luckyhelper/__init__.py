@@ -28,7 +28,7 @@ class LuckyHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Lucky_B.png"
     # 插件版本
-    plugin_version = "1.2.4"
+    plugin_version = "1.2.5"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -416,9 +416,9 @@ class LuckyHelper(_PluginBase):
                             {'component': 'VDivider'},
                             {'component': 'VCardText', 'content': [
                                 {'component': 'VRow', 'content': [
-                                    {'component': 'VCol', 'props': {'cols': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'enabled', 'label': '启用插件', 'color': 'primary', 'prepend-icon': 'mdi-power'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'notify', 'label': '开启通知', 'color': 'info', 'prepend-icon': 'mdi-bell'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'onlyonce', 'label': '立即运行一次', 'color': 'success', 'prepend-icon': 'mdi-play'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'enabled', 'label': '启用插件', 'color': 'primary', 'prepend-icon': 'mdi-power'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'notify', 'label': '开启通知', 'color': 'info', 'prepend-icon': 'mdi-bell'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'onlyonce', 'label': '立即运行一次', 'color': 'success', 'prepend-icon': 'mdi-play'}}]},
                                 ]},
                                 {'component': 'VRow', 'content': [
                                     {'component': 'VCol', 'props': {'cols': 12, 'md': 6}, 'content': [{'component': 'VTextField', 'props': {'model': 'host', 'label': 'Lucky地址', 'placeholder': 'http(s)://ip:port', 'prepend-inner-icon': 'mdi-server-network'}}]},
@@ -439,9 +439,9 @@ class LuckyHelper(_PluginBase):
                             {'component': 'VDivider'},
                             {'component': 'VCardText', 'content': [
                                 {'component': 'VRow', 'content': [
-                                    {'component': 'VCol', 'props': {'cols': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'local_backup', 'label': '启用本地备份', 'color': 'primary', 'prepend-icon': 'mdi-folder-home'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 4}, 'content': [{'component': cron_field_component, 'props': {'model': 'cron', 'label': '备份周期', 'placeholder': '0 8 * * *', 'prepend-inner-icon': 'mdi-clock-outline'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 4}, 'content': [{'component': 'VTextField', 'props': {'model': 'cnt', 'label': '保留份数', 'type': 'number', 'placeholder': '最大保留备份数，默认5份', 'prepend-inner-icon': 'mdi-counter'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'local_backup', 'label': '启用本地备份', 'color': 'primary', 'prepend-icon': 'mdi-folder-home'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': cron_field_component, 'props': {'model': 'cron', 'label': '备份周期', 'placeholder': '0 8 * * *', 'prepend-inner-icon': 'mdi-clock-outline'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VTextField', 'props': {'model': 'cnt', 'label': '保留份数', 'type': 'number', 'placeholder': '最大保留备份数，默认5份', 'prepend-inner-icon': 'mdi-counter'}}]},
                                 ]},
                                 {'component': 'VRow', 'content': [
                                     {'component': 'VCol', 'props': {'cols': 12}, 'content': [{'component': 'VTextField', 'props': {'model': 'back_path', 'label': '备份保存路径', 'placeholder': '如未映射默认即可', 'prepend-inner-icon': 'mdi-folder'}}]},
@@ -476,18 +476,18 @@ class LuckyHelper(_PluginBase):
                             {'component': 'VDivider'},
                             {'component': 'VCardText', 'content': [
                                 {'component': 'VRow', 'content': [
-                                    {'component': 'VCol', 'props': {'cols': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'webdav_enabled', 'label': '启用WebDAV远程备份', 'color': 'primary', 'prepend-icon': 'mdi-cloud-sync'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'webdav_digest_auth', 'label': '启用Digest认证', 'color': 'info', 'prepend-icon': 'mdi-shield-key'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'webdav_disable_check', 'label': '忽略目录校验', 'color': 'warning', 'prepend-icon': 'mdi-alert'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'webdav_enabled', 'label': '启用WebDAV远程备份', 'color': 'primary', 'prepend-icon': 'mdi-cloud-sync'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'webdav_digest_auth', 'label': '启用Digest认证', 'color': 'info', 'prepend-icon': 'mdi-shield-key'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'webdav_disable_check', 'label': '忽略目录校验', 'color': 'warning', 'prepend-icon': 'mdi-alert'}}]},
                                 ]},
                                 {'component': 'VRow', 'content': [
-                                    {'component': 'VCol', 'props': {'cols': 6}, 'content': [{'component': 'VTextField', 'props': {'model': 'webdav_hostname', 'label': 'WebDAV服务器地址', 'placeholder': '例如: https://dav.example.com', 'prepend-inner-icon': 'mdi-cloud'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 6}, 'content': [{'component': 'VTextField', 'props': {'model': 'webdav_dir', 'label': 'WebDAV备份子目录', 'placeholder': '如/lucky', 'prepend-inner-icon': 'mdi-folder-network'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 6}, 'content': [{'component': 'VTextField', 'props': {'model': 'webdav_hostname', 'label': 'WebDAV服务器地址', 'placeholder': '例如: https://dav.example.com', 'prepend-inner-icon': 'mdi-cloud'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 6}, 'content': [{'component': 'VTextField', 'props': {'model': 'webdav_dir', 'label': 'WebDAV备份子目录', 'placeholder': '如/lucky', 'prepend-inner-icon': 'mdi-folder-network'}}]},
                                 ]},
                                 {'component': 'VRow', 'content': [
-                                    {'component': 'VCol', 'props': {'cols': 4}, 'content': [{'component': 'VTextField', 'props': {'model': 'webdav_login', 'label': 'WebDAV登录名', 'type': 'password','placeholder': '请输入WebDAV登录名', 'prepend-inner-icon': 'mdi-account-key'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 4}, 'content': [{'component': 'VTextField', 'props': {'model': 'webdav_password', 'label': 'WebDAV密码', 'type': 'password', 'placeholder': '请输入WebDAV密码', 'prepend-inner-icon': 'mdi-lock-check'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 4}, 'content': [{'component': 'VTextField', 'props': {'model': 'webdav_max_count', 'label': 'WebDAV备份保留数量', 'type': 'number', 'placeholder': '例如: 7', 'prepend-inner-icon': 'mdi-counter'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VTextField', 'props': {'model': 'webdav_login', 'label': 'WebDAV登录名', 'type': 'password','placeholder': '请输入WebDAV登录名', 'prepend-inner-icon': 'mdi-account-key'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VTextField', 'props': {'model': 'webdav_password', 'label': 'WebDAV密码', 'type': 'password', 'placeholder': '请输入WebDAV密码', 'prepend-inner-icon': 'mdi-lock-check'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VTextField', 'props': {'model': 'webdav_max_count', 'label': 'WebDAV备份保留数量', 'type': 'number', 'placeholder': '例如: 7', 'prepend-inner-icon': 'mdi-counter'}}]},
                                 ]},
                             ]}
                         ]
