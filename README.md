@@ -5,18 +5,18 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 > ⚠️ 注意：本插件库为个人维护，代码结构参考了其他开源项目。推荐优先使用[官方插件库](https://github.com/jxxghp/MoviePilot-Plugins)。
 
 ## 📦 插件列表
-- [外部消息转发 (MsgNotify)（v1.4.0）](#外部消息转发-msgnotify)
-- [Lucky助手 (LuckyHelper)（v1.2.5）](#lucky助手-luckyhelper)
-- [群聊区 (GroupChatZone)（v2.1.4）](#群聊区-groupchatzone)
-- [朱雀助手 (ZhuqueHelper)（v1.3.2）](#朱雀助手-zhuquehelper)
-- [Cloudflare订阅 (CloudflaresSubscribe)（v1.0.5）](#cloudflare订阅-cloudflaressubscribe)
-- [本地插件安装 (LocalPluginInstall)（v1.2）](#本地插件安装-localplugininstall)
-- [象岛传说竞技场 (VicomoVS)（v1.2.4）](#象岛传说竞技场-vicomovs)
-- [织梦勋章套装奖励 (ZmedalRwd)（v1.2.1）](#织梦勋章套装奖励-zmedalrwd)
-- [勋章墙 (MedalWall)（v1.1）](#勋章墙-medalwall)
-- [NAT类型检测 (NATdetect)（v1.0）](#nat类型检测-natdetect)
-- [Vue-象岛农场 (VicomoFarm)（v1.2.4）](#vue-象岛农场-vicomofarm)
-- [资源探索集合 (ExploreServices)（v1.0.1）](#资源探索集合-exploreservices)
+- [外部消息转发 (MsgNotify)（v1.4.0）](#1--外部消息转发-msgnotify)
+- [Lucky助手 (LuckyHelper)（v1.2.5）](#2--lucky助手-luckyhelper)
+- [群聊区 (GroupChatZone)（v2.1.4）](#3--群聊区-groupchatzone)
+- [朱雀助手 (ZhuqueHelper)（v1.3.2）](#4--朱雀助手-zhuquehelper)
+- [Cloudflare订阅 (CloudflaresSubscribe)（v1.0.5）](#5--cloudflare订阅-cloudflaressubscribe)
+- [本地插件安装 (LocalPluginInstall)（v1.2）](#6--本地插件安装-localplugininstall)
+- [象岛传说竞技场 (VicomoVS)（v1.2.4）](#7--象岛传说竞技场-vicomovs)
+- [织梦勋章套装奖励 (ZmedalRwd)（v1.2.1）](#8--织梦勋章套装奖励-zmedalrwd)
+- [勋章墙 (MedalWall)（v1.1）](#9--勋章墙-medalwall)
+- [NAT类型检测 (NATdetect)（v1.0）](#10--nat类型检测-natdetect)
+- [Vue-象岛农场 (VicomoFarm)（v1.2.4）](#11--vue-象岛农场-vicomofarm)
+- [资源探索集合 (ExploreServices)（v1.0.1）](#12--资源探索集合-exploreservices)
 
 ### 1. 📢 外部消息转发 (MsgNotify)
 - 版本：v1.4.0
