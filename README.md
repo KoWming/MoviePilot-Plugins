@@ -9,7 +9,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 - [Lucky助手 (LuckyHelper)（v1.2.5）](#2--lucky助手-luckyhelper)
 - [群聊区 (GroupChatZone)（v2.1.4）](#3--群聊区-groupchatzone)
 - [朱雀助手 (ZhuqueHelper)（v1.3.2）](#4--朱雀助手-zhuquehelper)
-- [Cloudflare订阅 (CloudflaresSubscribe)（v1.0.5）](#5--cloudflare订阅-cloudflaressubscribe)
+- [Cloudflare订阅 (CloudflaresSubscribe)（v1.0.5）](#5-%EF%B8%8F-cloudflare订阅-cloudflaressubscribe)
 - [本地插件安装 (LocalPluginInstall)（v1.2）](#6--本地插件安装-localplugininstall)
 - [象岛传说竞技场 (VicomoVS)（v1.2.4）](#7--象岛传说竞技场-vicomovs)
 - [织梦勋章套装奖励 (ZmedalRwd)（v1.2.1）](#8--织梦勋章套装奖励-zmedalrwd)
