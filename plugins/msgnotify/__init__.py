@@ -15,8 +15,6 @@ from app.plugins import _PluginBase
 from app.schemas import MessageChannel, Notification, NotificationType
 from app.utils.http import RequestUtils
 from app.chain.message import MessageChain
-from app.core.event import eventmanager, Event
-from app.schemas.types import EventType
 
 class NotifyRequest(BaseModel):
     title: str
@@ -30,7 +28,7 @@ class MsgNotify(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/MsgNotify.png"
     # 插件版本
-    plugin_version = "1.4.0"
+    plugin_version = "1.4.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -52,8 +50,6 @@ class MsgNotify(_PluginBase):
         super().__init__()
         self._image_history = {}  # 用于记录每个关键词的图片使用历史
         self._last_match = None  # 用于存储最后一次匹配结果
-        self._command_messages = set()  # 用于存储命令执行结果消息
-        self._command_results = set()  # 用于存储命令执行结果的特征
         self.notification_helper = NotificationHelper()  # 初始化通知帮助类
         self.messagehelper = MessageHelper()  # 初始化消息帮助类
         self.messagechain = MessageChain()  # 初始化消息处理链
@@ -63,9 +59,6 @@ class MsgNotify(_PluginBase):
             self._enabled = config.get("enabled")
             self._notify = config.get("notify")
             self._msgtype = config.get("msgtype")
-            # 注册事件监听器
-            eventmanager.add_event_listener(EventType.CommandExcute, self._handle_command_execute)
-            eventmanager.add_event_listener(EventType.NoticeMessage, self._handle_notice_message)
             try:
                 # 解析文本配置，支持多图片URL和样式，样式以第一行为准
                 image_mapping_dict = {}
@@ -258,14 +251,6 @@ class MsgNotify(_PluginBase):
     def get_state(self) -> bool:
         return self._enabled
 
-    def get_module(self) -> Dict[str, Any]:
-        """
-        获取插件模块声明，用于胁持系统模块实现
-        """
-        return {
-            "post_message": self.post_message
-        }
-
     def _get_wechat_instance(self) -> Any:
         """
         获取可用的企业微信实例
@@ -339,73 +324,6 @@ class MsgNotify(_PluginBase):
             logger.error(f"企业微信文本卡片消息发送异常: {str(e)}")
             return False
 
-    def _process_command(self, command: str) -> None:
-        """
-        处理命令的通用方法
-        """
-        if command:
-            logger.info(f"检测到命令执行: {command}")
-            # 将命令添加到集合中
-            self._command_messages.add(command)
-            # 添加命令执行结果特征
-            self._command_results.add(command)
-        else:
-            logger.warning(f"命令数据不完整: command={command}")
-
-    def _process_command_result(self, title: str) -> bool:
-        """
-        处理命令执行结果的通用方法
-        返回: 是否处理了命令结果
-        """
-        if not title:
-            return False
-            
-        # 检查是否有对应的命令执行记录
-        for command in list(self._command_messages):
-            # 从集合中移除已处理的命令
-            self._command_messages.remove(command)
-            return True
-        return False
-
-    @eventmanager.register(EventType.CommandExcute)
-    def _handle_command_execute(self, event: Event):
-        """
-        处理命令执行事件
-        """
-        logger.info(f"收到命令执行事件: {event.event_type}")
-        if not event.event_data:
-            logger.warning("命令执行事件数据为空")
-            return
-            
-        # 从事件数据中获取命令信息
-        command = None
-        if isinstance(event.event_data, dict):
-            command = event.event_data.get("cmd")
-            
-        self._process_command(command)
-
-    @eventmanager.register(EventType.NoticeMessage)
-    def _handle_notice_message(self, event: Event):
-        """
-        处理通知消息事件
-        """
-        if not event.event_data:
-            logger.warning("通知消息事件数据为空")
-            return
-            
-        # 直接使用事件数据作为消息对象
-        message_data = event.event_data
-        if not isinstance(message_data, dict):
-            logger.warning(f"通知消息事件数据格式错误: {message_data}")
-            return
-            
-        # 检查是否是命令执行结果
-        title = message_data.get("title", "")
-        action = message_data.get("action")
-        
-        if title and action == 1:  # 只处理action=1的消息
-            self._process_command_result(title)
-
     def _send_wechat_message(self, service: Any, title: str, text: str, image_url: str = None, style: str = "default") -> bool:
         """
         发送企业微信消息的通用方法
@@ -429,32 +347,12 @@ class MsgNotify(_PluginBase):
         兼容主程序类型分发逻辑，支持企业微信card推送。
         """
         try:
-            # 检查是否是命令执行结果
-            title = getattr(message, "title", "")
-            action = getattr(message, "action", None)
-            
-            # 使用特征集合检查是否是命令执行结果
-            is_command_result = False
-            matched_command = None
-            if title and action == 1:
-                # 检查是否有对应的命令执行特征
-                for command in list(self._command_results):
-                    is_command_result = True
-                    matched_command = command
-                    break
-                
-            if is_command_result:
-                # 确认是命令执行结果后,从特征集合中移除
-                if matched_command:
-                    self._command_results.discard(matched_command)
-                logger.info("检测到命令执行结果,跳过处理")
-                return
-                
             # 获取消息属性
             mtype = getattr(message, "mtype", None)
             mtype_value = mtype.value if mtype else None
             channel = getattr(message, "channel", None)
             text = getattr(message, "text", "")
+            title = getattr(message, "title", "")
             
             # 使用保存的匹配结果
             if self._last_match:
