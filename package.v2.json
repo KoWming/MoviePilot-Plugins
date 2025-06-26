@@ -18,14 +18,15 @@
         }
     },
     "ExploreServices": {
-        "name": "资源探索集合",
-        "description": "将DDSRem大佬的Bangumi每日放送、哔哩哔哩、芒果TV、咪咕视频、CCTV、腾讯视频集合在一起",
+        "name": "探索服务聚合",
+        "description": "统一管理和配置所有探索数据源插件。",
         "labels": "探索",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/ExploreServices.png",
         "author": "KoWming",
         "level": 2,
         "history": {
+            "v1.0.2": "模块化处理，适配新插件加载机制。",
             "v1.0.1": "修复咪咕视频封面图片加载错误",
             "v1.0": "初始版本。"
         }
