@@ -28,7 +28,7 @@ class LuckyHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Lucky_B.png"
     # 插件版本
-    plugin_version = "1.2.5"
+    plugin_version = "1.2.6"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -416,9 +416,9 @@ class LuckyHelper(_PluginBase):
                             {'component': 'VDivider'},
                             {'component': 'VCardText', 'content': [
                                 {'component': 'VRow', 'content': [
-                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'enabled', 'label': '启用插件', 'color': 'primary', 'prepend-icon': 'mdi-power'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'notify', 'label': '开启通知', 'color': 'info', 'prepend-icon': 'mdi-bell'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'onlyonce', 'label': '立即运行一次', 'color': 'success', 'prepend-icon': 'mdi-play'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'enabled', 'label': '启用插件', 'color': 'primary'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'notify', 'label': '开启通知', 'color': 'info'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'onlyonce', 'label': '立即运行一次', 'color': 'success'}}]},
                                 ]},
                                 {'component': 'VRow', 'content': [
                                     {'component': 'VCol', 'props': {'cols': 12, 'md': 6}, 'content': [{'component': 'VTextField', 'props': {'model': 'host', 'label': 'Lucky地址', 'placeholder': 'http(s)://ip:port', 'prepend-inner-icon': 'mdi-server-network'}}]},
@@ -439,7 +439,7 @@ class LuckyHelper(_PluginBase):
                             {'component': 'VDivider'},
                             {'component': 'VCardText', 'content': [
                                 {'component': 'VRow', 'content': [
-                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'local_backup', 'label': '启用本地备份', 'color': 'primary', 'prepend-icon': 'mdi-folder-home'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'local_backup', 'label': '启用本地备份', 'color': 'primary'}}]},
                                     {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': cron_field_component, 'props': {'model': 'cron', 'label': '备份周期', 'placeholder': '0 8 * * *', 'prepend-inner-icon': 'mdi-clock-outline'}}]},
                                     {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VTextField', 'props': {'model': 'cnt', 'label': '保留份数', 'type': 'number', 'placeholder': '最大保留备份数，默认5份', 'prepend-inner-icon': 'mdi-counter'}}]},
                                 ]},
@@ -476,9 +476,9 @@ class LuckyHelper(_PluginBase):
                             {'component': 'VDivider'},
                             {'component': 'VCardText', 'content': [
                                 {'component': 'VRow', 'content': [
-                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'webdav_enabled', 'label': '启用WebDAV远程备份', 'color': 'primary', 'prepend-icon': 'mdi-cloud-sync'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'webdav_digest_auth', 'label': '启用Digest认证', 'color': 'info', 'prepend-icon': 'mdi-shield-key'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'webdav_disable_check', 'label': '忽略目录校验', 'color': 'warning', 'prepend-icon': 'mdi-alert'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'webdav_enabled', 'label': '启用WebDAV远程备份', 'color': 'primary'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'webdav_digest_auth', 'label': '启用Digest认证', 'color': 'info'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VSwitch', 'props': {'model': 'webdav_disable_check', 'label': '忽略目录校验', 'color': 'warning'}}]},
                                 ]},
                                 {'component': 'VRow', 'content': [
                                     {'component': 'VCol', 'props': {'cols': 12, 'md': 6}, 'content': [{'component': 'VTextField', 'props': {'model': 'webdav_hostname', 'label': 'WebDAV服务器地址', 'placeholder': '例如: https://dav.example.com', 'prepend-inner-icon': 'mdi-cloud'}}]},
@@ -526,7 +526,7 @@ class LuckyHelper(_PluginBase):
                                                     {'component': 'VIcon', 'props': {'color': 'warning', 'class': 'mt-1 mr-2'}, 'text': 'mdi-alert'},
                                                     {'component': 'div', 'props': {'class': 'text-subtitle-1 font-weight-regular mb-1', 'style': 'color: #444;'}, 'text': '注意事项'}
                                                 ]},
-                                                {'component': 'div', 'props': {'class': 'text-body-2 ml-8'}, 'text': '请确保WebDAV服务器地址、账号、密码等信息填写正确。'}
+                                                {'component': 'div', 'props': {'class': 'text-body-2 ml-8'}, 'text': '请确保WebDAV服务器地址、账号、密码等信息填写正确，如果配置正确且有提示错误，请打开【忽略目录校验】在尝试。'}
                                             ]
                                         },
                                         {
