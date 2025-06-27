@@ -25,7 +25,7 @@ class VicomoFarm(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomofarm.png"
     # 插件版本
-    plugin_version = "1.2.4"
+    plugin_version = "1.2.5"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -61,6 +61,7 @@ class VicomoFarm(_PluginBase):
     _auto_sale_enabled: bool = False  # 是否启用自动出售
     _sale_price_threshold: float = 0  # 出售价格阈值
     _sale_quantity_ratio: float = 1  # 出售数量比例,默认全部出售
+    _sale_profit_percentage: float = 0  # 出售盈利百分比阈值
 
     # 操作参数
     _farm_interval: int = 15  # 重试间隔
@@ -126,6 +127,7 @@ class VicomoFarm(_PluginBase):
                 self._auto_sale_enabled = config.get("auto_sale_enabled", False)
                 self._sale_price_threshold = float(config.get("sale_price_threshold", 0))
                 self._sale_quantity_ratio = float(config.get("sale_quantity_ratio", 1))
+                self._sale_profit_percentage = float(config.get("sale_profit_percentage", 0))
             
             if not self._enabled:
                 logger.info("象岛农场服务未启用")
@@ -557,35 +559,58 @@ class VicomoFarm(_PluginBase):
         计算出售数量
         """
         try:
-            # 如果阈值为0或负数，不进行自动出售
-            if self._sale_price_threshold <= 0:
-                logger.info("出售价格阈值未设置或无效，不执行自动出售")
-                return 0
-                
             # 获取蔬菜店信息,增加空值检查
             shop = farm_info.get("vegetable_shop", {})
             market_price_str = shop.get("市场单价", "0")
             stock_str = shop.get("库存", "0")
+            cost_str = shop.get("成本", "0")
             
             # 检查是否为空字符串
-            if not market_price_str or not stock_str:
-                logger.warning(f"市场单价或库存为空: 单价={market_price_str}, 库存={stock_str}")
+            if not market_price_str or not stock_str or not cost_str:
+                logger.warning(f"市场单价、库存或成本为空: 单价={market_price_str}, 库存={stock_str}, 成本={cost_str}")
                 return 0
                 
             try:
-                # 去除market_price_str和stock_str中的逗号后再转换
+                # 去除字符串中的逗号后再转换
                 market_price_str = market_price_str.replace(",", "")
                 stock_str = stock_str.replace(",", "")
+                cost_str = cost_str.replace(",", "")
                 market_price = float(market_price_str)
                 stock = int(stock_str)
-                logger.debug(f"转换后的数值: 市场单价={market_price}, 库存={stock}")
+                cost = float(cost_str)
+                logger.debug(f"转换后的数值: 市场单价={market_price}, 库存={stock}, 成本={cost}")
             except ValueError as e:
-                logger.error(f"转换市场单价或库存为数值时出错: {e}, 单价={market_price_str}, 库存={stock_str}")
+                logger.error(f"转换市场单价、库存或成本为数值时出错: {e}, 单价={market_price_str}, 库存={stock_str}, 成本={cost_str}")
                 return 0
             
-            # 如果价格低于阈值或库存为0,返回0
-            if market_price < self._sale_price_threshold or stock <= 0:
-                logger.info(f"市场单价({market_price})低于阈值({self._sale_price_threshold})或库存({stock})为0,不执行出售")
+            # 如果库存为0,返回0
+            if stock <= 0:
+                logger.info(f"库存({stock})为0,不执行出售")
+                return 0
+            
+            # 计算盈利百分比
+            if cost > 0:
+                profit_percentage = ((market_price - cost) / cost) * 100
+                logger.debug(f"盈利百分比计算: 市场单价={market_price}, 成本={cost}, 盈利百分比={profit_percentage:.2f}%")
+            else:
+                profit_percentage = 0
+                logger.warning("成本为0，无法计算盈利百分比")
+            
+            # 判断是否满足出售条件
+            should_sell = False
+            sell_reason = ""
+            
+            # 检查盈利百分比阈值
+            if self._sale_profit_percentage > 0 and profit_percentage >= self._sale_profit_percentage:
+                should_sell = True
+                sell_reason = f"盈利百分比({profit_percentage:.2f}%)达到阈值({self._sale_profit_percentage}%)"
+            # 检查价格阈值（如果盈利百分比未设置或未达到）
+            elif self._sale_price_threshold > 0 and market_price >= self._sale_price_threshold:
+                should_sell = True
+                sell_reason = f"市场单价({market_price})达到阈值({self._sale_price_threshold})"
+            
+            if not should_sell:
+                logger.info(f"不满足出售条件: 盈利百分比={profit_percentage:.2f}%, 盈利阈值={self._sale_profit_percentage}%, 市场单价={market_price}, 价格阈值={self._sale_price_threshold}")
                 return 0
                 
             # 根据比例计算实际出售数量
@@ -593,7 +618,7 @@ class VicomoFarm(_PluginBase):
             
             # 确保不超过库存
             final_quantity = min(sale_quantity, stock)
-            logger.info(f"计算出售数量: 库存={stock}, 比例={self._sale_quantity_ratio}, 最终数量={final_quantity}")
+            logger.info(f"计算出售数量: 库存={stock}, 比例={self._sale_quantity_ratio}, 最终数量={final_quantity}, 原因={sell_reason}")
             return final_quantity
             
         except Exception as e:
@@ -737,6 +762,21 @@ class VicomoFarm(_PluginBase):
             vegetable_shop = farm_info.get("vegetable_shop", {})
             bonus = farm_info.get("bonus", "未知")
             
+            # 计算盈利百分比
+            profit_percentage = "未知"
+            try:
+                market_price_str = vegetable_shop.get("市场单价", "0").replace(",", "")
+                cost_str = vegetable_shop.get("成本", "0").replace(",", "")
+                if market_price_str and cost_str:
+                    market_price = float(market_price_str)
+                    cost = float(cost_str)
+                    if cost > 0:
+                        profit_percentage = f"{((market_price - cost) / cost) * 100:.2f}%"
+                    else:
+                        profit_percentage = "成本为0"
+            except (ValueError, ZeroDivisionError):
+                profit_percentage = "计算失败"
+            
             # 生成报告
             report = f"━━━━━━━━━━━━━━\n"
             report += f"🌿 象草余额：\n"
@@ -757,6 +797,7 @@ class VicomoFarm(_PluginBase):
             report += f"💰 市场单价：{vegetable_shop.get('市场单价', '未知')}\n"
             report += f"📦 库存：{vegetable_shop.get('库存', '未知')}\n"
             report += f"💵 成本：{vegetable_shop.get('成本', '未知')}\n"
+            report += f"📈 盈利百分比：{profit_percentage}\n"
             report += f"📈 开店累计盈利：{vegetable_shop.get('开店累计盈利', '未知')}\n"
             report += f"🎯 盈利目标：{vegetable_shop.get('盈利目标', '未知')}\n"
             report += f"📦 可卖数量：{vegetable_shop.get('可卖数量', '未知')}\n"
@@ -815,7 +856,8 @@ class VicomoFarm(_PluginBase):
             "purchase_quantity_ratio": self._purchase_quantity_ratio,
             "auto_sale_enabled": self._auto_sale_enabled,
             "sale_price_threshold": self._sale_price_threshold,
-            "sale_quantity_ratio": self._sale_quantity_ratio
+            "sale_quantity_ratio": self._sale_quantity_ratio,
+            "sale_profit_percentage": self._sale_profit_percentage
         }
 
     def _save_config(self, config_payload: dict) -> Dict[str, Any]:
@@ -845,6 +887,7 @@ class VicomoFarm(_PluginBase):
             self._auto_sale_enabled = to_bool(config_payload.get('auto_sale_enabled', self._auto_sale_enabled))
             self._sale_price_threshold = float(config_payload.get('sale_price_threshold', self._sale_price_threshold))
             self._sale_quantity_ratio = float(config_payload.get('sale_quantity_ratio', self._sale_quantity_ratio))
+            self._sale_profit_percentage = float(config_payload.get('sale_profit_percentage', self._sale_profit_percentage))
 
             # 准备保存的配置
             config_to_save = {
@@ -861,7 +904,8 @@ class VicomoFarm(_PluginBase):
                 "purchase_quantity_ratio": self._purchase_quantity_ratio,
                 "auto_sale_enabled": self._auto_sale_enabled,
                 "sale_price_threshold": self._sale_price_threshold,
-                "sale_quantity_ratio": self._sale_quantity_ratio
+                "sale_quantity_ratio": self._sale_quantity_ratio,
+                "sale_profit_percentage": self._sale_profit_percentage
             }
             
             # 保存配置
