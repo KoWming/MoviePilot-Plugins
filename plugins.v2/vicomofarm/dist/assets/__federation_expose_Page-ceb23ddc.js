@@ -84465,7 +84465,7 @@ use(installUniversalTransition);
 // })
 use(installLabelLayout);
 
-const Page_vue_vue_type_style_index_0_scoped_cfaa9ee5_lang = '';
+const Page_vue_vue_type_style_index_0_scoped_dd805abe_lang = '';
 
 const {resolveComponent:_resolveComponent,createVNode:_createVNode,createElementVNode:_createElementVNode,withCtx:_withCtx,toDisplayString:_toDisplayString,createTextVNode:_createTextVNode,openBlock:_openBlock,createBlock:_createBlock,createCommentVNode:_createCommentVNode,Fragment:_Fragment,createElementBlock:_createElementBlock,mergeProps:_mergeProps,normalizeClass:_normalizeClass} = await importShared('vue');
 
@@ -84831,6 +84831,13 @@ function getMarketPriceTrend() {
   };
 }
 
+function isDarkTheme() {
+  const theme = document.documentElement.getAttribute('data-theme');
+  if (theme === 'dark' || theme === 'purple' || theme === 'transparent') return true;
+  // 兜底：如果没设置data-theme，检测系统
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
 function renderChart() {
   nextTick(() => {
     if (!chartRef.value) return;
@@ -84838,17 +84845,27 @@ function renderChart() {
       chartInstance = init$1(chartRef.value);
     }
     const { dates, prices } = getMarketPriceTrend();
+    const dark = isDarkTheme();
+    const textColor = dark ? '#E7E3FC' : '#333';
+    const axisColor = textColor;
+    const splitLineColor = dark ? '#444' : '#e3f2fd';
+    const tooltipBg = dark ? '#232323' : '#fff';
+    const tooltipBorder = dark ? '#12B1D1' : '#12B1D1';
+    const lineColor = dark ? '#50a8ff' : '#12B1D1';
+    const areaGradFrom = dark ? 'rgba(80,168,255,0.18)' : 'rgba(18,177,209,0.25)';
+    const areaGradTo = dark ? 'rgba(80,168,255,0.03)' : 'rgba(67,160,71,0.05)';
     const option = {
       backgroundColor: 'transparent',
       tooltip: {
         trigger: 'axis',
-        borderColor: '#12B1D1',
+        backgroundColor: tooltipBg,
+        borderColor: tooltipBorder,
         borderWidth: 1,
-        textStyle: { color: '#333' },
+        textStyle: { color: textColor },
         formatter: params => {
           if (!params.length) return '';
           const p = params[0];
-          return `${p.axisValue}<br/>市场单价: <b style='color:#12B1D1'>${p.data}</b>`;
+          return `${p.axisValue}<br/>市场单价: <b style='color:${lineColor}'>${p.data}</b>`;
         }
       },
       grid: { left: 45, right: 10, top: 30, bottom: 70 },
@@ -84856,27 +84873,26 @@ function renderChart() {
         type: 'category',
         data: dates,
         boundaryGap: false,
-        axisLine: { lineStyle: { color: '#12B1D1' } },
+        axisLine: { lineStyle: { color: axisColor } },
         axisLabel: {
-          color: '#333',
+          color: textColor,
           fontWeight: 500,
           rotate: 45,
           interval: 0,
           formatter: function(value) {
-            // 小屏幕只显示"日"
             if (window.innerWidth <= 600) {
               return value ? value.slice(-2) + '日' : value;
             } else {
-              return value ? value.slice(5) : value; // 显示月-日
+              return value ? value.slice(5) : value;
             }
           },
         }
       },
       yAxis: {
         type: 'value',
-        axisLine: { lineStyle: { color: '#12B1D1' } },
-        splitLine: { lineStyle: { color: '#e3f2fd' } },
-        axisLabel: { color: '#333', fontWeight: 500 }
+        axisLine: { lineStyle: { color: axisColor } },
+        splitLine: { lineStyle: { color: splitLineColor } },
+        axisLabel: { color: textColor, fontWeight: 500 }
       },
       series: [
         {
@@ -84888,28 +84904,29 @@ function renderChart() {
           symbolSize: 8,
           lineStyle: {
             width: 3,
-            color: {
-              type: 'linear',
-              x: 0, y: 0, x2: 1, y2: 0,
-              colorStops: [
-                { offset: 0, color: '#12B1D1' },
-                { offset: 1, color: '#43a047' }
-              ]
-            }
+            color: lineColor
           },
           itemStyle: {
-            color: '#12B1D1',
+            color: lineColor,
             borderColor: '#fff',
             borderWidth: 2
           },
           areaStyle: {
             color: new LinearGradient$1(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(18,177,209,0.25)' },
-              { offset: 1, color: 'rgba(67,160,71,0.05)' }
+              { offset: 0, color: areaGradFrom },
+              { offset: 1, color: areaGradTo }
             ])
+          },
+          label: {
+            color: textColor
           }
         }
-      ]
+      ],
+      legend: {
+        textStyle: {
+          color: textColor
+        }
+      }
     };
     chartInstance.setOption(option, true);
     chartInstance.resize();
@@ -86095,6 +86112,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const PageComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-cfaa9ee5"]]);
+const PageComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-dd805abe"]]);
 
 export { PageComponent as default };

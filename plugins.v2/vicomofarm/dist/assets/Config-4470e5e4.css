@@ -134,20 +134,20 @@
   cursor: not-allowed;
 }
 
-.plugin-config[data-v-a6408701] {
+.plugin-config[data-v-c7835cd3] {
   max-width: 80rem;
   margin: 0 auto;
   padding: 1rem;
 }
-.bg-primary-lighten-5[data-v-a6408701] {
+.bg-primary-lighten-5[data-v-c7835cd3] {
   background: linear-gradient(0deg, rgb(255, 255, 255) 0%, rgb(244, 247, 251) 100%);
 }
-.border[data-v-a6408701] {
+.border[data-v-c7835cd3] {
   border: 5px solid rgb(255, 255, 255);
   border-radius: 40px;
   box-shadow: rgba(133, 189, 215, 0.8784313725) 0px 30px 30px -20px;
 }
-.config-card[data-v-a6408701] {
+.config-card[data-v-c7835cd3] {
   background: linear-gradient(0deg, rgb(255, 255, 255) 0%, rgb(244, 247, 251) 100%);
   border-radius: 30px;
   padding: 20px;
@@ -155,33 +155,90 @@
   box-shadow: rgba(133, 189, 215, 0.8784313725) 0px 20px 20px -15px;
   transition: all 0.3s ease;
 }
-.config-card[data-v-a6408701]:hover {
+
+/* 深色模式适配 - 使用 data 属性选择器避免被过滤 */
+[data-theme="dark"] .config-card[data-v-c7835cd3],
+[data-theme="purple"] .config-card[data-v-c7835cd3],
+[data-theme="transparent"] .config-card[data-v-c7835cd3] {
+  background: linear-gradient(0deg, rgb(30, 30, 30) 0%, rgb(45, 45, 45) 100%);
+  border: 3px solid rgb(60, 60, 60);
+  box-shadow: rgba(0, 0, 0, 0.4) 0px 20px 20px -15px;
+}
+
+/* 系统深色模式适配 */
+@media (prefers-color-scheme: dark) {
+.config-card[data-v-c7835cd3] {
+    background: linear-gradient(0deg, rgb(30, 30, 30) 0%, rgb(45, 45, 45) 100%);
+    border: 3px solid rgb(60, 60, 60);
+    box-shadow: rgba(0, 0, 0, 0.4) 0px 20px 20px -15px;
+}
+}
+.config-card[data-v-c7835cd3]:hover {
   transform: translateY(-2px);
   box-shadow: rgba(133, 189, 215, 0.8784313725) 0px 25px 25px -15px;
 }
-.setting-item[data-v-a6408701] {
+.setting-item[data-v-c7835cd3] {
   min-height: 48px;
   background: white;
   border-radius: 20px;
   padding: 15px 20px;
-  margin: 10px 0;
   box-shadow: #cff0ff 0px 10px 10px -5px;
   border: 2px solid transparent;
   transition: all 0.2s ease;
 }
-.setting-item[data-v-a6408701]:hover {
+
+/* 深色模式适配 - 使用 data 属性选择器避免被过滤 */
+[data-theme="dark"] .setting-item[data-v-c7835cd3],
+[data-theme="purple"] .setting-item[data-v-c7835cd3],
+[data-theme="transparent"] .setting-item[data-v-c7835cd3] {
+  background: rgb(45, 45, 45);
+  box-shadow: rgba(0, 0, 0, 0.3) 0px 10px 10px -5px;
+  border: 2px solid transparent;
+}
+
+/* 系统深色模式适配 */
+@media (prefers-color-scheme: dark) {
+.setting-item[data-v-c7835cd3] {
+    background: rgb(45, 45, 45);
+    box-shadow: rgba(0, 0, 0, 0.3) 0px 10px 10px -5px;
+    border: 2px solid transparent;
+}
+}
+.setting-item[data-v-c7835cd3]:hover {
   border-color: #12B1D1;
   transform: translateY(-1px);
 }
-.setting-content[data-v-a6408701] {
+.setting-content[data-v-c7835cd3] {
   width: 100%;
 }
-.text-subtitle-2[data-v-a6408701] {
+.text-subtitle-2[data-v-c7835cd3] {
   color: rgb(16, 137, 211);
   font-weight: 600;
 }
-.text-caption.text-grey[data-v-a6408701] {
+.text-caption.text-grey[data-v-c7835cd3] {
   color: rgb(170, 170, 170);
+}
+
+/* 深色模式文字颜色适配 */
+[data-theme="dark"] .text-subtitle-2[data-v-c7835cd3],
+[data-theme="purple"] .text-subtitle-2[data-v-c7835cd3],
+[data-theme="transparent"] .text-subtitle-2[data-v-c7835cd3] {
+  color: rgb(100, 200, 255);
+}
+[data-theme="dark"] .text-caption.text-grey[data-v-c7835cd3],
+[data-theme="purple"] .text-caption.text-grey[data-v-c7835cd3],
+[data-theme="transparent"] .text-caption.text-grey[data-v-c7835cd3] {
+  color: rgb(180, 180, 180);
+}
+
+/* 系统深色模式文字颜色适配 */
+@media (prefers-color-scheme: dark) {
+.text-subtitle-2[data-v-c7835cd3] {
+    color: rgb(100, 200, 255);
+}
+.text-caption.text-grey[data-v-c7835cd3] {
+    color: rgb(180, 180, 180);
+}
 }
 
 /* 按钮样式 */
@@ -191,18 +248,37 @@
 /* 提示信息样式 */
 
 /* 帮助信息样式 */
-.bg-info-lighten-5[data-v-a6408701] {
-  padding: 15px 20px !important;
-  border-radius: 20px !important;
-  box-shadow: rgba(133, 189, 215, 0.8784313725) 0px 20px 20px -15px !important;
-  background-color: #e3f2fd;
-  color: #0d47a1;
+.bg-info-lighten-5[data-v-c7835cd3] {
+  border-radius: 10px !important;
+  box-shadow: #cff0ff 0px 10px 10px -5px !important;
+  background-color: #f5faff;
+  color: #50a8ff;
   position: relative;
   overflow: hidden;
   border-left: 4px solid #9155fd;
   padding-left: calc(20px + 4px) !important;
 }
-.bg-info-lighten-5 .text-caption[data-v-a6408701] {
+
+/* 深色模式适配 - 使用 data 属性选择器避免被过滤 */
+[data-theme="dark"] .bg-info-lighten-5[data-v-c7835cd3],
+[data-theme="purple"] .bg-info-lighten-5[data-v-c7835cd3],
+[data-theme="transparent"] .bg-info-lighten-5[data-v-c7835cd3] {
+  background-color: rgba(30, 60, 90, 0.8);
+  color: rgb(150, 200, 255);
+  box-shadow: rgba(0, 0, 0, 0.4) 0px 20px 20px -15px !important;
+  border-left: 4px solid #6E66ED;
+}
+
+/* 系统深色模式适配 */
+@media (prefers-color-scheme: dark) {
+.bg-info-lighten-5[data-v-c7835cd3] {
+    background-color: rgba(30, 60, 90, 0.8);
+    color: rgb(150, 200, 255);
+    box-shadow: rgba(0, 0, 0, 0.4) 0px 20px 20px -15px !important;
+    border-left: 4px solid #6E66ED;
+}
+}
+.bg-info-lighten-5 .text-caption[data-v-c7835cd3] {
   flex-grow: 1;
 }
 
@@ -215,17 +291,17 @@
 /* 卡片内容样式 */
 
 /* Custom Tooltip Styles - Pure CSS */
-.tooltip-container[data-v-a6408701] {
+.tooltip-container[data-v-c7835cd3] {
   position: relative;
   display: inline-block; /* Ensure the container wraps the button tightly */
 }
-.tooltip-btn .tooltip-icon[data-v-a6408701] {
+.tooltip-btn .tooltip-icon[data-v-c7835cd3] {
   transition: transform 0.3s ease;
 }
-.tooltip-container:hover .tooltip-btn .tooltip-icon[data-v-a6408701] {
+.tooltip-container:hover .tooltip-btn .tooltip-icon[data-v-c7835cd3] {
   transform: scale(1.1);
 }
-.custom-tooltip[data-v-a6408701] {
+.custom-tooltip[data-v-c7835cd3] {
   position: absolute;
   bottom: calc(100% + 12px); /* Position further above the button to avoid overlap */
   left: 50%;
@@ -237,20 +313,20 @@
   z-index: 1000; /* Ensure tooltip is above other content */
   white-space: nowrap; /* Prevent text wrapping */
 }
-.tooltip-container:hover .custom-tooltip[data-v-a6408701] {
+.tooltip-container:hover .custom-tooltip[data-v-c7835cd3] {
   visibility: visible;
   opacity: 1;
   transform: translateX(-50%) translateY(0); /* Final position */
   pointer-events: auto; /* Allow interaction with tooltip if needed (though not in this case) */
 }
-.custom-tooltip-content[data-v-a6408701] {
+.custom-tooltip-content[data-v-c7835cd3] {
   padding: 3px 8px; /* Reduced vertical padding to decrease height */
   background: #212121; /* Changed to opaque background */
   border-radius: 6px; /* Increased border radius */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Softer shadow */
   text-align: center;
 }
-.custom-tooltip-content[data-v-a6408701]::before {
+.custom-tooltip-content[data-v-c7835cd3]::before {
   content: '';
   position: absolute;
   top: 100%;
@@ -262,21 +338,21 @@
   border-radius: 2px;
   margin-top: -6px; /* Adjust to position the arrow correctly below the content */
 }
-.tooltip-text[data-v-a6408701] {
+.tooltip-text[data-v-c7835cd3] {
   color: white;
   font-size: 0.8rem; /* Slightly reduced font size */
   font-weight: 400;
 }
 
 /* Optional: Add a slight scale transform to the button on hover */
-.tooltip-btn[data-v-a6408701] {
+.tooltip-btn[data-v-c7835cd3] {
   transition: transform 0.3s ease;
 }
-.tooltip-container:hover .tooltip-btn[data-v-a6408701] {
+.tooltip-container:hover .tooltip-btn[data-v-c7835cd3] {
   transform: translateY(-2px); /* Match the button lift from previous version */
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important; /* Match the shadow from previous version */
 }
-.toolbar-btn[data-v-a6408701] {
+.toolbar-btn[data-v-c7835cd3] {
   margin-left: 8px;
   margin-right: 0;
   min-width: 36px;
@@ -284,10 +360,10 @@
   padding-right: 10px;
 }
 @media (max-width: 600px) {
-.toolbar-btn .btn-text[data-v-a6408701] {
+.toolbar-btn .btn-text[data-v-c7835cd3] {
     display: none !important;
 }
-.toolbar-btn[data-v-a6408701] {
+.toolbar-btn[data-v-c7835cd3] {
     min-width: 32px !important;
     padding-left: 4px !important;
     padding-right: 4px !important;
