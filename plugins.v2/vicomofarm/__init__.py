@@ -1,19 +1,16 @@
 import re
-import pytz
 import time
 import requests
-import threading
 
 from lxml import etree
 from datetime import datetime
 from typing import Any, List, Dict, Tuple, Optional
-
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.log import logger
 from app.core.config import settings
 from app.plugins import _PluginBase
+from app.scheduler import Scheduler
 from app.schemas import NotificationType
 from app.db.site_oper import SiteOper
 
@@ -25,7 +22,7 @@ class VicomoFarm(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomofarm.png"
     # 插件版本
-    plugin_version = "1.2.6"
+    plugin_version = "1.2.7"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -37,77 +34,36 @@ class VicomoFarm(_PluginBase):
     # 可使用的用户级别
     auth_level = 2
 
-    # 类级别的调度器管理
-    _scheduler = None
-    _scheduler_lock = threading.Lock()
-    
-    # 任务执行锁
-    _task_lock = threading.Lock()
-    _task_running = False
-
-    # 私有属性
-    _enabled: bool = False  # 是否启用插件
-    _notify: bool = True  # 是否开启通知，默认启用
-    _use_proxy: bool = True  # 是否使用代理，默认启用
-    _retry_count: int = 2  # 失败重试次数
-    _cron: Optional[str] = None  # 定时任务表达式
-    _cookie: Optional[str] = None  # 站点Cookie
-    _history_count: Optional[int] = None  # 历史记录数量
+    # 配置与状态
+    _enabled: bool = False
+    _notify: bool = True
+    _use_proxy: bool = True
+    _retry_count: int = 2
+    _cron: Optional[str] = None
+    _cookie: Optional[str] = None
+    _history_count: Optional[int] = None
 
     # 自动交易配置
-    _auto_purchase_enabled: bool = False  # 是否启用自动进货
-    _purchase_price_threshold: float = 0  # 进货价格阈值
-    _purchase_quantity_ratio: float = 0.5  # 进货数量比例
-    _auto_sale_enabled: bool = False  # 是否启用自动出售
-    _sale_price_threshold: float = 0  # 出售价格阈值
-    _sale_quantity_ratio: float = 1  # 出售数量比例,默认全部出售
-    _sale_profit_percentage: float = 0  # 出售盈利百分比阈值
+    _auto_purchase_enabled: bool = False
+    _purchase_price_threshold: float = 0
+    _purchase_quantity_ratio: float = 0.5
+    _auto_sale_enabled: bool = False
+    _sale_price_threshold: float = 0
+    _sale_quantity_ratio: float = 1
+    _sale_profit_percentage: float = 0
 
-    # 操作参数
-    _farm_interval: int = 15  # 重试间隔
+    # 其他参数
+    _farm_interval: int = 15
     _site_url: str = "https://ptvicomo.net/"
-    
-    # 站点操作实例
     _siteoper = None
 
     def __init__(self):
         super().__init__()
 
-    @classmethod
-    def get_scheduler(cls):
-        """获取调度器实例"""
-        if cls._scheduler is None:
-            with cls._scheduler_lock:
-                if cls._scheduler is None:
-                    cls._scheduler = BackgroundScheduler(
-                        timezone=settings.TZ,
-                        job_defaults={
-                            'coalesce': True,  # 合并错过的任务
-                            'max_instances': 1,  # 限制任务实例数
-                            'misfire_grace_time': None  # 不允许错过执行
-                        },
-                        daemon=True  # 设置为守护进程
-                    )
-        return cls._scheduler
-
-    @classmethod
-    def stop_scheduler(cls):
-        """停止调度器实例"""
-        if cls._scheduler is not None:
-            with cls._scheduler_lock:
-                if cls._scheduler is not None:
-                    try:
-                        if cls._scheduler.running:
-                            cls._scheduler.shutdown(wait=True)
-                        cls._scheduler = None
-                    except Exception as e:
-                        logger.error(f"停止调度器失败: {str(e)}")
-                        cls._scheduler = None
-
     def init_plugin(self, config: Optional[dict] = None) -> None:
-        """初始化插件"""
+        """初始化插件，加载配置并注册定时任务"""
         try:
-            self.stop_scheduler()
+            self.stop_service()
             self._siteoper = SiteOper()
 
             if config:
@@ -119,7 +75,6 @@ class VicomoFarm(_PluginBase):
                 self._farm_interval = int(config.get("farm_interval", 15))
                 self._use_proxy = config.get("use_proxy", True)
                 self._retry_count = int(config.get("retry_count", 2))
-                
                 # 自动交易配置
                 self._auto_purchase_enabled = config.get("auto_purchase_enabled", False)
                 self._purchase_price_threshold = float(config.get("purchase_price_threshold", 0))
@@ -128,46 +83,25 @@ class VicomoFarm(_PluginBase):
                 self._sale_price_threshold = float(config.get("sale_price_threshold", 0))
                 self._sale_quantity_ratio = float(config.get("sale_quantity_ratio", 1))
                 self._sale_profit_percentage = float(config.get("sale_profit_percentage", 0))
-            
             if not self._enabled:
                 logger.info("象岛农场服务未启用")
                 return
-
-            scheduler = self.get_scheduler()
-            services = self.get_service()
-            
-            if not services:
-                logger.warning("象岛农场服务未添加任何任务")
-                return
-
-            scheduler.remove_all_jobs()
-            for service in services:
-                scheduler.add_job(
-                    func=service["func"],
-                    trigger=service["trigger"],
-                    id=service["id"],
-                    name=service["name"],
-                    kwargs=service.get("kwargs", {}),
-                    replace_existing=True
-                )
-            
-            if not scheduler.running:
-                scheduler.start()
-                logger.info("象岛农场服务启动成功")
-                
+            if self._enabled and self._cron:
+                logger.info(f"{self.plugin_name}: 已配置 CRON '{self._cron}'，任务将通过公共服务注册。")
+            else:
+                logger.info(f"{self.plugin_name}: 未配置定时任务。启动时配置: Enable={self._enabled}, Cron='{self._cron}'")
         except Exception as e:
             logger.error(f"象岛农场服务启动失败: {str(e)}")
             self._enabled = False
-            self.stop_scheduler()
 
     @staticmethod
     def parse_farm_info(title, subtitle):
+        """解析农场信息，返回结构化数据"""
         result = {"名称": "", "类型": "", "状态": "", "剩余配货量": "", "说明": "", "价格": ""}
         # 从title提取名称和状态
         m = re.search(r'【([^】]+)】', title)
         if m:
             name_status = m.group(1)
-            # 可能有" - "分隔
             if ' - ' in name_status:
                 name, status = name_status.split(' - ', 1)
                 result["名称"] = name.strip()
@@ -181,7 +115,7 @@ class VicomoFarm(_PluginBase):
                 result["状态"] += f"（{m_time.group(0)}）"
             else:
                 result["状态"] = m_time.group(0)
-        # 剩余配货量 - 修改正则表达式以匹配输入框提示文本中的格式
+        # 剩余配货量
         m = re.search(r'剩余配货量为(\d+)kg', subtitle)
         if m:
             result["剩余配货量"] = m.group(1)
@@ -193,17 +127,12 @@ class VicomoFarm(_PluginBase):
         m = re.search(r'价格是([\d.]+)', subtitle)
         if m:
             result["价格"] = m.group(1)
-        # 说明 - 提取并拼接说明文本
-        # 第一行：只提取"农作物已成熟"
+        # 说明
         first_line = re.search(r'农作物已成熟', subtitle)
-        # 第二行：提取"保质期至下周六晚24:00，要马上进货吗？"
         second_line = re.search(r'保质期至下周六晚24:00，要马上进货吗？', subtitle)
-        
         if first_line and second_line:
-            # 拼接两行文本，避免重复
             result["说明"] = f"{first_line.group(0)}，{second_line.group(0)}"
         else:
-            # 尝试提取新的说明格式
             new_desc = re.search(r'每周日新的流行农作物成熟后，小象蔬菜店可以来这里批发进货，记得在下一波农作物成熟前卖出哦', subtitle)
             if new_desc:
                 result["说明"] = new_desc.group(0)
@@ -213,12 +142,11 @@ class VicomoFarm(_PluginBase):
 
     @staticmethod
     def parse_vegetable_shop_info(title, desc_text, full_text):
+        """解析蔬菜店信息，返回结构化数据"""
         result = {"名称": "", "市场单价": "", "库存": "", "成本": "", "开店累计盈利": "", "盈利目标": "", "可卖数量": "", "说明": ""}
-        # 名称、市场单价、库存、成本
         m = re.search(r'【([^】]+)】', title)
         if m:
             name_block = m.group(1)
-            # 名称和市场单价
             name = name_block.split(' 市场单价')[0].strip()
             result["名称"] = name
             m2 = re.search(r'市场单价[：: ]*([\d.]+)', name_block)
@@ -230,7 +158,6 @@ class VicomoFarm(_PluginBase):
             m4 = re.search(r'成本[：: ]*([\d.]+)', name_block)
             if m4:
                 result["成本"] = m4.group(1)
-        # 新结构兼容：直接从title整体文本提取库存和成本（如"香辣象青椒丝库存：1 成本：2087.0"）
         if not result["库存"]:
             m = re.search(r'库存[：: ]*([\d]+)', title)
             if m:
@@ -239,24 +166,21 @@ class VicomoFarm(_PluginBase):
             m = re.search(r'成本[：: ]*([\d.]+)', title)
             if m:
                 result["成本"] = m.group(1)
-        # 开店累计盈利
         m = re.search(r'开店累计盈利[：: ]*([\-\d.]+)', full_text)
         if m:
             result["开店累计盈利"] = m.group(1)
-        # 盈利目标
         m = re.search(r'盈利目标[：: ]*([\d]+)', full_text)
         if m:
             result["盈利目标"] = m.group(1)
-        # 可卖数量
         m = re.search(r'可卖数量[为: ]*([\d]+)', full_text)
         if m:
             result["可卖数量"] = m.group(1)
-        # 说明只用desc_text
         result["说明"] = desc_text.strip() if desc_text.strip() else "无"
         return result
 
     @staticmethod
     def parse_section_info(title: str, desc_text: str, full_text: str = None) -> dict:
+        """根据标题类型解析不同区域的信息"""
         if '农庄' in title:
             return VicomoFarm.parse_farm_info(title, desc_text)
         elif '蔬菜店' in title:
@@ -274,7 +198,6 @@ class VicomoFarm(_PluginBase):
             "bonus": "象草余额"
         }
         """
-        # 初始化重试次数
         retry_count = 0
         max_retries = self._retry_count
 
@@ -300,7 +223,6 @@ class VicomoFarm(_PluginBase):
                     # 获取所有文本内容，包括输入框的提示文本
                     farm_subtitle = ""
                     if farm_h1 is not None:
-                        # 获取h1后的所有文本节点
                         all_texts = []
                         current = farm_h1
                         while current is not None:
@@ -320,7 +242,7 @@ class VicomoFarm(_PluginBase):
                 if veg_td:
                     veg_h1 = veg_td[0].xpath('.//h1')[0] if veg_td[0].xpath('.//h1') else None
                     veg_title = veg_h1.xpath('string(.)').strip() if veg_h1 is not None else ""
-                    # 说明字段：h1.tail或下一个非空文本节点
+                    # 获取说明字段
                     veg_subtitle = ""
                     if veg_h1 is not None:
                         if veg_h1.tail and veg_h1.tail.strip():
@@ -336,7 +258,7 @@ class VicomoFarm(_PluginBase):
                                     veg_subtitle = next_node.tail.strip()
                                     break
                                 next_node = next_node.getnext()
-                    # 数值字段：h1所有兄弟节点文本拼接
+                    # 获取数值字段
                     veg_extra_text = []
                     if veg_h1 is not None:
                         sib = veg_h1.getnext()
@@ -415,11 +337,11 @@ class VicomoFarm(_PluginBase):
             striking_texts = html.xpath("//div[@class='striking']/text()")
             result_text = " ".join([t.strip() for t in striking_texts if t.strip()])
             if not result_text:
-                # 兜底：模糊查找
+                # 模糊查找
                 result_texts = html.xpath("//*[contains(text(), '进货成功') or contains(text(), '进货失败') or contains(text(), '获得')]/text()")
                 result_text = " ".join([t.strip() for t in result_texts if t.strip()])
             if not result_text:
-                # 兜底：取页面所有文本，找包含"进货"字样的句子
+                # 取页面所有文本，找包含"进货"字样的句子
                 all_text = " ".join(html.xpath('//text()'))
                 for line in all_text.split():
                     if '进货' in line:
@@ -478,11 +400,11 @@ class VicomoFarm(_PluginBase):
             striking_texts = html.xpath("//div[@class='striking']/text()")
             result_text = " ".join([t.strip() for t in striking_texts if t.strip()])
             if not result_text:
-                # 兜底：模糊查找
+                # 模糊查找
                 result_texts = html.xpath("//*[contains(text(), '出售成功') or contains(text(), '出售失败') or contains(text(), '获得')]/text()")
                 result_text = " ".join([t.strip() for t in result_texts if t.strip()])
             if not result_text:
-                # 兜底：取页面所有文本，找包含"出售"字样的句子
+                # 取页面所有文本，找包含"出售"字样的句子
                 all_text = " ".join(html.xpath('//text()'))
                 for line in all_text.split():
                     if '出售' in line:
@@ -499,9 +421,7 @@ class VicomoFarm(_PluginBase):
             return {"success": False, "msg": str(e), "quantity": sale_num}
 
     def _calculate_purchase_quantity(self, farm_info: dict) -> int:
-        """
-        计算进货数量
-        """
+        """计算进货数量，基于价格阈值、余额和剩余配货量"""
         try:
             # 如果阈值为0或负数，不进行自动进货
             if self._purchase_price_threshold <= 0:
@@ -555,9 +475,7 @@ class VicomoFarm(_PluginBase):
             return 0
 
     def _calculate_sale_quantity(self, farm_info: dict) -> int:
-        """
-        计算出售数量
-        """
+        """计算出售数量，基于盈利百分比和价格阈值"""
         try:
             # 获取蔬菜店信息,增加空值检查
             shop = farm_info.get("vegetable_shop", {})
@@ -626,136 +544,110 @@ class VicomoFarm(_PluginBase):
             return 0
 
     def _battle_task(self):
-        """
-        执行农场任务
-        """
-        # 检查任务是否正在运行
-        if self._task_running:
-            logger.warning("任务正在运行中，跳过本次执行")
-            return {"success": False, "msg": "任务正在运行中"}
-            
+        """执行农场任务，包括获取信息、自动交易和生成报告"""
+        logger.info("开始执行农场任务")
+        
         try:
-            # 尝试获取锁
-            if not self._task_lock.acquire(blocking=False):
-                logger.warning("无法获取任务锁，跳过本次执行")
-                return {"success": False, "msg": "无法获取任务锁"}
-                
-            # 设置任务运行状态
-            self._task_running = True
-            logger.info("开始执行农场任务")
+            # 获取农场和蔬菜店信息
+            logger.info("开始获取农场和蔬菜店信息...")
+            farm_info = self.__farm_and_vegetable()
             
-            try:
-                # 获取农场和蔬菜店信息
-                logger.info("开始获取农场和蔬菜店信息...")
-                farm_info = self.__farm_and_vegetable()
-                
-                # 检查是否成功获取信息
-                if not farm_info:
-                    msg = "😵‍💫获取农场信息失败！"
-                    logger.error(msg)
-                    if self._notify:
-                        self.post_message(
-                            mtype=NotificationType.SiteMessage,
-                            title="【🐘象岛农场】任务失败",
-                            text=f"━━━━━━━━━━━━━━\n"
-                                 f"⚠️ 错误提示：\n"
-                                 f"😵‍💫 获取农场信息失败！\n\n"
-                                 f"━━━━━━━━━━━━━━\n"
-                                 f"📊 状态信息：\n"
-                                 f"🌿 当前象草余额：{farm_info.get('bonus', '未知')}")
-                    return {"success": False, "msg": "获取农场信息失败"}
-
-                # 自动交易处理
-                auto_trade_results = []
-                
-                # 自动进货
-                if self._auto_purchase_enabled:
-                    purchase_quantity = self._calculate_purchase_quantity(farm_info)
-                    if purchase_quantity > 0:
-                        logger.info(f"开始自动进货,数量: {purchase_quantity}")
-                        purchase_result = self.__purchase_task(purchase_quantity)
-                        if purchase_result.get("success"):
-                            auto_trade_results.append(f"✅ 自动进货成功: {purchase_result.get('msg')} (数量: {purchase_quantity}kg)")
-                        else:
-                            auto_trade_results.append(f"❌ 自动进货失败: {purchase_result.get('msg')} (尝试数量: {purchase_quantity}kg)")
-                            
-                # 自动出售
-                if self._auto_sale_enabled:
-                    sale_quantity = self._calculate_sale_quantity(farm_info)
-                    if sale_quantity > 0:
-                        logger.info(f"开始自动出售,数量: {sale_quantity}")
-                        sale_result = self.__sale_task(sale_quantity)
-                        if sale_result.get("success"):
-                            auto_trade_results.append(f"✅ 自动出售成功: {sale_result.get('msg')} (数量: {sale_quantity}kg)")
-                        else:
-                            auto_trade_results.append(f"❌ 自动出售失败: {sale_result.get('msg')} (尝试数量: {sale_quantity}kg)")
-
-                # 重新获取农场和蔬菜店信息以更新状态
-                logger.info("自动交易完成，重新获取农场和蔬菜店信息以更新状态...")
-                farm_info = self.__farm_and_vegetable()
-                if not farm_info:
-                    # 如果重新获取失败，记录错误并继续，避免中断后续流程
-                    logger.error("自动交易后未能重新获取农场信息！")
-
-                # 生成报告
-                logger.info("开始生成报告...")
-                rich_text_report = self.generate_farm_report(farm_info)
-                
-                # 如果有自动交易结果,添加到报告末尾
-                if auto_trade_results:
-                    rich_text_report += "\n\n━━━━━━━━━━━━━━\n"
-                    rich_text_report += "🤖 自动交易结果：\n"
-                    rich_text_report += "\n".join(auto_trade_results)
-                    
-                logger.info(f"报告生成完成：\n{rich_text_report}")
-
-                # 保存历史记录
-                farm_dict = {
-                    "date": datetime.today().strftime('%Y-%m-%d %H:%M:%S'),
-                    "farm_info": farm_info,
-                    "auto_trade_results": auto_trade_results if auto_trade_results else None
-                }
-
-                # 读取历史记录
-                history = self.get_data('sign_dict') or []
-                history.append(farm_dict)
-                # 始终按时间降序排序，确保最新的在前
-                history = sorted(history, key=lambda x: x.get("date") or "", reverse=True)
-                # 只保留最新的N条记录
-                if len(history) > self._history_count:
-                    history = history[:self._history_count]
-                self.save_data(key="sign_dict", value=history)
-
-                # 发送通知
+            # 检查是否成功获取信息
+            if not farm_info:
+                msg = "😵‍💫获取农场信息失败！"
+                logger.error(msg)
                 if self._notify:
                     self.post_message(
                         mtype=NotificationType.SiteMessage,
-                        title="【🐘象岛农场】任务完成",
-                        text=rich_text_report)
+                        title="【🐘象岛农场】任务失败",
+                        text=f"━━━━━━━━━━━━━━\n"
+                             f"⚠️ 错误提示：\n"
+                             f"😵‍💫 获取农场信息失败！\n\n"
+                             f"━━━━━━━━━━━━━━\n"
+                             f"📊 状态信息：\n"
+                             f"🌿 当前象草余额：{farm_info.get('bonus', '未知')}")
+                return {"success": False, "msg": "获取农场信息失败"}
+
+            # 自动交易处理
+            auto_trade_results = []
+            
+            # 自动进货
+            if self._auto_purchase_enabled:
+                purchase_quantity = self._calculate_purchase_quantity(farm_info)
+                if purchase_quantity > 0:
+                    logger.info(f"开始自动进货,数量: {purchase_quantity}")
+                    purchase_result = self.__purchase_task(purchase_quantity)
+                    if purchase_result.get("success"):
+                        auto_trade_results.append(f"✅ 自动进货成功: {purchase_result.get('msg')} (数量: {purchase_quantity}kg)")
+                    else:
+                        auto_trade_results.append(f"❌ 自动进货失败: {purchase_result.get('msg')} (尝试数量: {purchase_quantity}kg)")
                         
-                # 成功时返回结构化响应
-                return {
-                    "success": True, 
-                    "msg": "任务已执行",
-                    "auto_trade_results": auto_trade_results if auto_trade_results else None
-                }
+            # 自动出售
+            if self._auto_sale_enabled:
+                sale_quantity = self._calculate_sale_quantity(farm_info)
+                if sale_quantity > 0:
+                    logger.info(f"开始自动出售,数量: {sale_quantity}")
+                    sale_result = self.__sale_task(sale_quantity)
+                    if sale_result.get("success"):
+                        auto_trade_results.append(f"✅ 自动出售成功: {sale_result.get('msg')} (数量: {sale_quantity}kg)")
+                    else:
+                        auto_trade_results.append(f"❌ 自动出售失败: {sale_result.get('msg')} (尝试数量: {sale_quantity}kg)")
+
+            # 重新获取农场和蔬菜店信息以更新状态
+            logger.info("自动交易完成，重新获取农场和蔬菜店信息以更新状态...")
+            farm_info = self.__farm_and_vegetable()
+            if not farm_info:
+                logger.error("自动交易后未能重新获取农场信息！")
+
+            # 生成报告
+            logger.info("开始生成报告...")
+            rich_text_report = self.generate_farm_report(farm_info)
+            
+            # 如果有自动交易结果,添加到报告末尾
+            if auto_trade_results:
+                rich_text_report += "\n\n━━━━━━━━━━━━━━\n"
+                rich_text_report += "🤖 自动交易结果：\n"
+                rich_text_report += "\n".join(auto_trade_results)
                 
-            finally:
-                # 释放锁和重置状态
-                self._task_running = False
-                self._task_lock.release()
-                logger.info("农场任务执行完成")
+            logger.info(f"报告生成完成：\n{rich_text_report}")
+
+            # 保存历史记录
+            farm_dict = {
+                "date": datetime.today().strftime('%Y-%m-%d %H:%M:%S'),
+                "farm_info": farm_info,
+                "auto_trade_results": auto_trade_results if auto_trade_results else None
+            }
+
+            # 读取历史记录
+            history = self.get_data('sign_dict') or []
+            history.append(farm_dict)
+            # 始终按时间降序排序，确保最新的在前
+            history = sorted(history, key=lambda x: x.get("date") or "", reverse=True)
+            # 只保留最新的N条记录
+            if len(history) > self._history_count:
+                history = history[:self._history_count]
+            self.save_data(key="sign_dict", value=history)
+
+            # 发送通知
+            if self._notify:
+                self.post_message(
+                    mtype=NotificationType.SiteMessage,
+                    title="【🐘象岛农场】任务完成",
+                    text=rich_text_report)
+                    
+            # 成功时返回结构化响应
+            return {
+                "success": True, 
+                "msg": "任务已执行",
+                "auto_trade_results": auto_trade_results if auto_trade_results else None
+            }
                 
         except Exception as e:
-            # 确保异常时也释放锁和重置状态
-            self._task_running = False
-            if self._task_lock.locked():
-                self._task_lock.release()
             logger.error(f"执行农场任务时发生异常: {e}")
             return {"success": False, "msg": f"执行农场任务异常: {e}"}
 
     def generate_farm_report(self, farm_info: dict) -> str:
-        """生成农场报告"""
+        """生成格式化的农场状态报告"""
         try:
             # 获取农场和蔬菜店信息
             farm = farm_info.get("farm", {})
@@ -812,9 +704,7 @@ class VicomoFarm(_PluginBase):
             return "象岛农场\n生成报告时发生错误，请检查日志以获取更多信息。"
 
     def _get_proxies(self):
-        """
-        获取代理设置
-        """
+        """获取代理设置"""
         if not self._use_proxy:
             logger.info("未启用代理")
             return None
@@ -861,7 +751,7 @@ class VicomoFarm(_PluginBase):
         }
 
     def _save_config(self, config_payload: dict) -> Dict[str, Any]:
-        """API接口: 保存插件配置。期望一个字典负载。"""
+        """API接口: 保存插件配置"""
         logger.info(f"{self.plugin_name}: 收到配置保存请求: {config_payload}")
         try:
             # 布尔类型兼容处理
@@ -926,23 +816,54 @@ class VicomoFarm(_PluginBase):
             return {"message": f"保存配置失败: {e}", "error": True, "saved_config": self._get_config()}
 
     def _get_status(self) -> Dict[str, Any]:
-        """API接口: 返回当前插件状态和历史记录。"""
-        scheduler = self.get_scheduler()
+        """API接口: 返回当前插件状态和历史记录"""
         last_run = self.get_data('last_run_results') or []
         history = self.get_data('sign_dict') or []
-        next_run_time = None
         
-        if scheduler and scheduler.running:
-            jobs = scheduler.get_jobs()
-            if jobs and jobs[0].next_run_time:
-                try:
-                    next_run_time = jobs[0].next_run_time.astimezone(pytz.timezone(settings.TZ)).strftime('%Y-%m-%d %H:%M:%S %Z')
-                except Exception:
-                    next_run_time = jobs[0].next_run_time.strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                next_run_time = "无计划任务"
-        else:
-            next_run_time = "插件已禁用" if not self._enabled else "调度器未运行"
+        # 获取公共定时任务信息
+        next_run_time = "未配置定时任务"
+        time_until_next = None
+        task_status = "未启用"
+        
+        if self._enabled and self._cron:
+            try:
+                scheduler = Scheduler()
+                
+                # 获取所有定时任务
+                schedule_list = scheduler.list()
+                
+                # 查找当前插件的任务
+                plugin_task = None
+                for task in schedule_list:
+                    if task.provider == self.plugin_name:
+                        plugin_task = task
+                        break
+                
+                if plugin_task:
+                    # 获取任务状态
+                    task_status = plugin_task.status
+                    
+                    # 获取下次执行时间
+                    if hasattr(plugin_task, 'next_run') and plugin_task.next_run:
+                        next_run_time = plugin_task.next_run
+                        time_until_next = plugin_task.next_run
+                        if isinstance(next_run_time, str) and re.match(r'^(\d+小时)?(\d+分钟)?(\d+秒)?$', next_run_time):
+                            next_run_time += "后"
+                    else:
+                        if plugin_task.status == "正在运行":
+                            next_run_time = "正在运行中"
+                            time_until_next = "正在运行中"
+                        else:
+                            next_run_time = "等待执行"
+                            time_until_next = "等待执行"
+                else:
+                    task_status = "未找到任务"
+                    next_run_time = f"按配置执行: {self._cron}"
+                    
+            except Exception as e:
+                logger.warning(f"获取公共定时任务信息失败: {e}")
+                task_status = "获取失败"
+                next_run_time = f"按配置执行: {self._cron}"
 
         return {
             "enabled": self._enabled,
@@ -952,16 +873,16 @@ class VicomoFarm(_PluginBase):
             "use_proxy": self._use_proxy,
             "retry_count": self._retry_count,
             "next_run_time": next_run_time,
+            "time_until_next": time_until_next,
+            "task_status": task_status,
             "last_run_results": last_run,
             "sign_dict": history
         }
 
-    # 插件前端渲染模式
     def get_render_mode(self) -> Tuple[str, Optional[str]]:
         """返回Vue渲染模式和组件路径"""
         return "vue", "dist/assets"
 
-    # 注册API接口
     def get_api(self) -> List[Dict[str, Any]]:
         """注册插件API"""
         return [
@@ -1017,17 +938,11 @@ class VicomoFarm(_PluginBase):
         ]
 
     def get_form(self) -> Tuple[Optional[List[dict]], Dict[str, Any]]:
-        """
-        即使使用Vue模式，这个方法也必须实现，否则将导致插件加载失败。
-        Vue模式下，第一个参数返回None，第二个参数返回初始配置数据。
-        """
+        """Vue模式下必须实现，返回None和初始配置数据"""
         return None, self._get_config()
 
     def get_page(self) -> List[dict]:
-        """
-        即使使用Vue模式，这个方法也必须实现，否则将导致插件加载失败。
-        Vue模式下，返回一个空列表即可。
-        """
+        """Vue模式下必须实现，返回空列表"""
         return []
 
     def get_service(self) -> List[Dict[str, Any]]:
@@ -1041,13 +956,6 @@ class VicomoFarm(_PluginBase):
                 "kwargs": {}
             }]
         return []
-
-    def stop_service(self) -> None:
-        """退出插件"""
-        try:
-            self.stop_scheduler()
-        except Exception as e:
-            logger.error(f"停止服务失败: {e}")
 
     def __get_cookie(self):
         """获取站点cookie"""
@@ -1069,3 +977,12 @@ class VicomoFarm(_PluginBase):
         except Exception as e:
             logger.error(f"获取站点cookie失败: {e}")
             return {"success": False, "msg": f"获取站点cookie失败: {e}"}
+        
+    def stop_service(self) -> None:
+        """退出插件，注销定时任务并释放资源"""
+        try:
+            # 注销定时任务
+            Scheduler().remove_plugin_job(self.__class__.__name__.lower())
+            logger.info(f"{self.plugin_name}: 插件服务已停止")
+        except Exception as e:
+            logger.error(f"{self.plugin_name}: stop_service 执行异常: {e}")
