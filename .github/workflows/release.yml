@@ -100,8 +100,13 @@ jobs:
               # Ensure no stale local tag remains
               git tag -d "$tag" >/dev/null 2>&1 || true
 
+              # Extract release notes from package file history
+              release_notes=$(jq -r --arg plugin_id "$plugin_id" --arg version "v$plugin_version" \
+                '.[$plugin_id].history[$version] // "Automated release of \($plugin_id) \($version | ltrimstr("v"))"' \
+                "$pkg_file")
+
               echo "Creating release $tag"
-              gh release create "$tag" "$asset" --title "$tag" --notes "Automated release of $plugin_id $plugin_version" --latest --target "$GITHUB_SHA"
+              gh release create "$tag" "$asset" --title "$tag" --notes "$release_notes" --latest --target "$GITHUB_SHA"
 
               echo "$tag" >> processed_tags.txt
             done
