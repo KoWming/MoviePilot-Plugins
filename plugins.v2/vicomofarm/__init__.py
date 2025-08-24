@@ -1,6 +1,7 @@
 import re
 import time
 import requests
+import socket
 
 from lxml import etree
 from datetime import datetime
@@ -22,7 +23,7 @@ class VicomoFarm(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomofarm.png"
     # 插件版本
-    plugin_version = "1.2.7"
+    plugin_version = "1.2.8"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -51,6 +52,7 @@ class VicomoFarm(_PluginBase):
     _sale_price_threshold: float = 0
     _sale_quantity_ratio: float = 1
     _sale_profit_percentage: float = 0
+    _expiry_sale_enabled: bool = False  # 新增：到期出售开关
 
     # 其他参数
     _farm_interval: int = 15
@@ -83,6 +85,7 @@ class VicomoFarm(_PluginBase):
                 self._sale_price_threshold = float(config.get("sale_price_threshold", 0))
                 self._sale_quantity_ratio = float(config.get("sale_quantity_ratio", 1))
                 self._sale_profit_percentage = float(config.get("sale_profit_percentage", 0))
+                self._expiry_sale_enabled = config.get("expiry_sale_enabled", False)  # 新增：到期出售开关
             if not self._enabled:
                 logger.info("象岛农场服务未启用")
                 return
@@ -210,7 +213,24 @@ class VicomoFarm(_PluginBase):
                     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0"
                 }
                 proxies = self._get_proxies()
-                response = requests.get(url, headers=headers, proxies=proxies)
+                
+                # 尝试带代理的请求
+                try:
+                    response = requests.get(url, headers=headers, proxies=proxies, timeout=30)
+                except requests.exceptions.ProxyError as proxy_error:
+                    logger.warning(f"代理连接失败: {proxy_error}")
+                    if proxies:
+                        logger.info("尝试不使用代理直接连接...")
+                        try:
+                            response = requests.get(url, headers=headers, proxies=None, timeout=30)
+                        except Exception as direct_error:
+                            logger.error(f"直接连接也失败: {direct_error}")
+                            raise direct_error
+                    else:
+                        raise proxy_error
+                except Exception as request_error:
+                    logger.error(f"请求失败: {request_error}")
+                    raise request_error
                 html = etree.HTML(response.text)
 
                 result = {}
@@ -315,7 +335,22 @@ class VicomoFarm(_PluginBase):
             }
 
             # 提交进货请求
-            response = requests.post(url, headers=headers, data=data, proxies=proxies)
+            try:
+                response = requests.post(url, headers=headers, data=data, proxies=proxies, timeout=30)
+            except requests.exceptions.ProxyError as proxy_error:
+                logger.warning(f"进货请求代理连接失败: {proxy_error}")
+                if proxies:
+                    logger.info("尝试不使用代理直接连接...")
+                    try:
+                        response = requests.post(url, headers=headers, data=data, proxies=None, timeout=30)
+                    except Exception as direct_error:
+                        logger.error(f"直接连接也失败: {direct_error}")
+                        raise direct_error
+                else:
+                    raise proxy_error
+            except Exception as request_error:
+                logger.error(f"进货请求失败: {request_error}")
+                raise request_error
 
             # 提取重定向URL（window.location.href）
             redirect_url = None
@@ -329,7 +364,22 @@ class VicomoFarm(_PluginBase):
                 return {"success": False, "msg": "未找到进货结果重定向 URL", "quantity": buy_num}
 
             # 访问重定向URL，获取进货结果页面
-            result_response = requests.get(redirect_url, headers=headers, proxies=proxies)
+            try:
+                result_response = requests.get(redirect_url, headers=headers, proxies=proxies, timeout=30)
+            except requests.exceptions.ProxyError as proxy_error:
+                logger.warning(f"进货结果页面代理连接失败: {proxy_error}")
+                if proxies:
+                    logger.info("尝试不使用代理直接连接...")
+                    try:
+                        result_response = requests.get(redirect_url, headers=headers, proxies=None, timeout=30)
+                    except Exception as direct_error:
+                        logger.error(f"直接连接也失败: {direct_error}")
+                        raise direct_error
+                else:
+                    raise proxy_error
+            except Exception as request_error:
+                logger.error(f"获取进货结果页面失败: {request_error}")
+                raise request_error
             logger.info(f"进货结果页面状态码: {result_response.status_code}")
 
             # 解析进货结果页面，优先用class=striking的div
@@ -378,7 +428,22 @@ class VicomoFarm(_PluginBase):
             }
 
             # 提交出售请求
-            response = requests.post(url, headers=headers, data=data, proxies=proxies)
+            try:
+                response = requests.post(url, headers=headers, data=data, proxies=proxies, timeout=30)
+            except requests.exceptions.ProxyError as proxy_error:
+                logger.warning(f"出售请求代理连接失败: {proxy_error}")
+                if proxies:
+                    logger.info("尝试不使用代理直接连接...")
+                    try:
+                        response = requests.post(url, headers=headers, data=data, proxies=None, timeout=30)
+                    except Exception as direct_error:
+                        logger.error(f"直接连接也失败: {direct_error}")
+                        raise direct_error
+                else:
+                    raise proxy_error
+            except Exception as request_error:
+                logger.error(f"出售请求失败: {request_error}")
+                raise request_error
 
             # 提取重定向URL（window.location.href）
             redirect_url = None
@@ -392,7 +457,22 @@ class VicomoFarm(_PluginBase):
                 return {"success": False, "msg": "未找到出售结果重定向 URL"}
 
             # 访问重定向URL，获取出售结果页面
-            result_response = requests.get(redirect_url, headers=headers, proxies=proxies)
+            try:
+                result_response = requests.get(redirect_url, headers=headers, proxies=proxies, timeout=30)
+            except requests.exceptions.ProxyError as proxy_error:
+                logger.warning(f"出售结果页面代理连接失败: {proxy_error}")
+                if proxies:
+                    logger.info("尝试不使用代理直接连接...")
+                    try:
+                        result_response = requests.get(redirect_url, headers=headers, proxies=None, timeout=30)
+                    except Exception as direct_error:
+                        logger.error(f"直接连接也失败: {direct_error}")
+                        raise direct_error
+                else:
+                    raise proxy_error
+            except Exception as request_error:
+                logger.error(f"获取出售结果页面失败: {request_error}")
+                raise request_error
             logger.info(f"出售结果页面状态码: {result_response.status_code}")
 
             # 解析出售结果页面，优先用class=striking的div
@@ -474,6 +554,66 @@ class VicomoFarm(_PluginBase):
             logger.error(f"计算进货数量时发生错误: {e}")
             return 0
 
+    def _should_expiry_sale(self) -> bool:
+        """检查是否应该执行到期出售（每周六14点前）"""
+        try:
+            if not self._expiry_sale_enabled:
+                return False
+                
+            # 获取当前时间
+            now = datetime.now()
+            current_weekday = now.weekday()  # 0=周一, 6=周日
+            
+            # 检查是否是周六（weekday=5）且时间在14:00前
+            if current_weekday == 5:  # 周六
+                current_hour = now.hour
+                
+                # 如果是周六且时间在14:00前（即13:59及之前），执行到期出售
+                if current_hour < 14:  # 14点前执行
+                    logger.info(f"当前时间：{now.strftime('%Y-%m-%d %H:%M:%S')}，周六14点前，满足到期出售条件")
+                    return True
+                    
+            logger.info(f"当前时间：{now.strftime('%Y-%m-%d %H:%M:%S')}，不满足到期出售条件（需要周六14点前）")
+            return False
+            
+        except Exception as e:
+            logger.error(f"检查到期出售条件时发生错误: {e}")
+            return False
+
+    def _calculate_expiry_sale_quantity(self, farm_info: dict) -> int:
+        """计算到期出售数量（全部出售）"""
+        try:
+            # 获取蔬菜店信息
+            shop = farm_info.get("vegetable_shop", {})
+            stock_str = shop.get("库存", "0")
+            
+            # 检查是否为空字符串
+            if not stock_str:
+                logger.warning(f"库存为空: 库存={stock_str}")
+                return 0
+                
+            try:
+                # 去除字符串中的逗号后再转换
+                stock_str = stock_str.replace(",", "")
+                stock = int(stock_str)
+                logger.debug(f"转换后的库存数值: 库存={stock}")
+            except ValueError as e:
+                logger.error(f"转换库存为数值时出错: {e}, 库存={stock_str}")
+                return 0
+            
+            # 如果库存为0,返回0
+            if stock <= 0:
+                logger.info(f"库存({stock})为0,不执行到期出售")
+                return 0
+                
+            # 到期出售：全部出售
+            logger.info(f"到期出售：库存={stock}，全部出售")
+            return stock
+            
+        except Exception as e:
+            logger.error(f"计算到期出售数量时发生错误: {e}")
+            return 0
+
     def _calculate_sale_quantity(self, farm_info: dict) -> int:
         """计算出售数量，基于盈利百分比和价格阈值"""
         try:
@@ -543,6 +683,109 @@ class VicomoFarm(_PluginBase):
             logger.error(f"计算出售数量时发生错误: {e}")
             return 0
 
+    def _expiry_sale_task(self):
+        """专门执行到期出售任务"""
+        logger.info("开始执行到期出售任务")
+        
+        try:
+            # 检查是否启用到期出售
+            if not self._expiry_sale_enabled:
+                logger.info("到期出售功能未启用，跳过执行")
+                return {"success": True, "msg": "到期出售功能未启用"}
+            
+            # 检查是否满足到期出售条件
+            if not self._should_expiry_sale():
+                logger.info("不满足到期出售条件，跳过执行")
+                return {"success": True, "msg": "不满足到期出售条件"}
+            
+            # 获取农场和蔬菜店信息
+            logger.info("开始获取农场和蔬菜店信息...")
+            farm_info = self.__farm_and_vegetable()
+            
+            # 检查是否成功获取信息
+            if not farm_info:
+                msg = "😵‍💫获取农场信息失败！"
+                logger.error(msg)
+                if self._notify:
+                    self.post_message(
+                        mtype=NotificationType.SiteMessage,
+                        title="【🐘象岛农场】到期出售任务失败",
+                        text=f"━━━━━━━━━━━━━━\n"
+                             f"⚠️ 错误提示：\n"
+                             f"😵‍💫 获取农场信息失败！\n\n"
+                             f"━━━━━━━━━━━━━━\n"
+                             f"📊 状态信息：\n"
+                             f"🌿 当前象草余额：{farm_info.get('bonus', '未知')}")
+                return {"success": False, "msg": "获取农场信息失败"}
+
+            # 执行到期出售
+            auto_trade_results = []
+            expiry_sale_quantity = self._calculate_expiry_sale_quantity(farm_info)
+            
+            if expiry_sale_quantity > 0:
+                logger.info(f"开始到期出售,数量: {expiry_sale_quantity}")
+                expiry_sale_result = self.__sale_task(expiry_sale_quantity)
+                if expiry_sale_result.get("success"):
+                    auto_trade_results.append(f"🕐 到期出售成功: {expiry_sale_result.get('msg')} (数量: {expiry_sale_quantity}kg)")
+                else:
+                    auto_trade_results.append(f"❌ 到期出售失败: {expiry_sale_result.get('msg')} (尝试数量: {expiry_sale_quantity}kg)")
+            else:
+                logger.info("到期出售：库存为0，无需出售")
+                auto_trade_results.append("🕐 到期出售：库存为0，无需出售")
+
+            # 重新获取农场和蔬菜店信息以更新状态
+            logger.info("到期出售完成，重新获取农场和蔬菜店信息以更新状态...")
+            farm_info = self.__farm_and_vegetable()
+            if not farm_info:
+                logger.error("到期出售后未能重新获取农场信息！")
+
+            # 生成报告
+            logger.info("开始生成到期出售报告...")
+            rich_text_report = self.generate_farm_report(farm_info)
+            
+            # 添加到期出售结果到报告末尾
+            rich_text_report += "\n\n━━━━━━━━━━━━━━\n"
+            rich_text_report += "🕐 到期出售结果：\n"
+            rich_text_report += "\n".join(auto_trade_results)
+                
+            logger.info(f"到期出售报告生成完成：\n{rich_text_report}")
+
+            # 保存历史记录
+            farm_dict = {
+                "date": datetime.today().strftime('%Y-%m-%d %H:%M:%S'),
+                "farm_info": farm_info,
+                "auto_trade_results": auto_trade_results if auto_trade_results else None,
+                "task_type": "expiry_sale"  # 标记为到期出售任务
+            }
+
+            # 读取历史记录
+            history = self.get_data('sign_dict') or []
+            history.append(farm_dict)
+            # 始终按时间降序排序，确保最新的在前
+            history = sorted(history, key=lambda x: x.get("date") or "", reverse=True)
+            # 只保留最新的N条记录
+            if len(history) > self._history_count:
+                history = history[:self._history_count]
+            self.save_data(key="sign_dict", value=history)
+
+            # 发送通知
+            if self._notify:
+                self.post_message(
+                    mtype=NotificationType.SiteMessage,
+                    title="【🐘象岛农场】到期出售任务完成",
+                    text=rich_text_report)
+                    
+            # 成功时返回结构化响应
+            return {
+                "success": True, 
+                "msg": "到期出售任务已执行",
+                "auto_trade_results": auto_trade_results if auto_trade_results else None
+            }
+                
+        except Exception as e:
+            logger.error(f"执行到期出售任务时发生异常: {e}")
+            return {"success": False, "msg": f"执行到期出售任务异常: {e}"}
+
     def _battle_task(self):
         """执行农场任务，包括获取信息、自动交易和生成报告"""
         logger.info("开始执行农场任务")
@@ -592,6 +835,19 @@ class VicomoFarm(_PluginBase):
                         auto_trade_results.append(f"✅ 自动出售成功: {sale_result.get('msg')} (数量: {sale_quantity}kg)")
                     else:
                         auto_trade_results.append(f"❌ 自动出售失败: {sale_result.get('msg')} (尝试数量: {sale_quantity}kg)")
+
+            # 到期出售（优先级高于普通自动出售）
+            if self._should_expiry_sale():
+                expiry_sale_quantity = self._calculate_expiry_sale_quantity(farm_info)
+                if expiry_sale_quantity > 0:
+                    logger.info(f"开始到期出售,数量: {expiry_sale_quantity}")
+                    expiry_sale_result = self.__sale_task(expiry_sale_quantity)
+                    if expiry_sale_result.get("success"):
+                        auto_trade_results.append(f"🕐 到期出售成功: {expiry_sale_result.get('msg')} (数量: {expiry_sale_quantity}kg)")
+                    else:
+                        auto_trade_results.append(f"❌ 到期出售失败: {expiry_sale_result.get('msg')} (尝试数量: {expiry_sale_quantity}kg)")
+                else:
+                    logger.info("到期出售：库存为0，无需出售")
 
             # 重新获取农场和蔬菜店信息以更新状态
             logger.info("自动交易完成，重新获取农场和蔬菜店信息以更新状态...")
@@ -713,6 +969,24 @@ class VicomoFarm(_PluginBase):
             # 获取系统代理设置
             if hasattr(settings, 'PROXY') and settings.PROXY:
                 logger.info(f"使用系统代理: {settings.PROXY}")
+                
+                # 测试代理连接（可选，但会增加延迟）
+                # 如果代理测试失败，可以记录警告但继续使用
+                try:
+                    proxy_host = settings.PROXY.get('http', '').replace('http://', '').split(':')[0]
+                    proxy_port = int(settings.PROXY.get('http', '').replace('http://', '').split(':')[1])
+                    
+                    # 简单测试代理端口是否可达
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(3)  # 3秒超时
+                    result = sock.connect_ex((proxy_host, proxy_port))
+                    sock.close()
+                    
+                    if result != 0:
+                        logger.warning(f"代理服务器 {proxy_host}:{proxy_port} 连接测试失败，但将继续尝试使用")
+                except Exception as proxy_test_error:
+                    logger.warning(f"代理连接测试失败: {proxy_test_error}，但将继续尝试使用")
+                
                 return settings.PROXY
             else:
                 logger.warning("系统代理未配置")
@@ -747,7 +1021,8 @@ class VicomoFarm(_PluginBase):
             "auto_sale_enabled": self._auto_sale_enabled,
             "sale_price_threshold": self._sale_price_threshold,
             "sale_quantity_ratio": self._sale_quantity_ratio,
-            "sale_profit_percentage": self._sale_profit_percentage
+            "sale_profit_percentage": self._sale_profit_percentage,
+            "expiry_sale_enabled": self._expiry_sale_enabled  # 新增：到期出售开关
         }
 
     def _save_config(self, config_payload: dict) -> Dict[str, Any]:
@@ -778,6 +1053,7 @@ class VicomoFarm(_PluginBase):
             self._sale_price_threshold = float(config_payload.get('sale_price_threshold', self._sale_price_threshold))
             self._sale_quantity_ratio = float(config_payload.get('sale_quantity_ratio', self._sale_quantity_ratio))
             self._sale_profit_percentage = float(config_payload.get('sale_profit_percentage', self._sale_profit_percentage))
+            self._expiry_sale_enabled = to_bool(config_payload.get('expiry_sale_enabled', self._expiry_sale_enabled))  # 新增：到期出售开关
 
             # 准备保存的配置
             config_to_save = {
@@ -795,7 +1071,8 @@ class VicomoFarm(_PluginBase):
                 "auto_sale_enabled": self._auto_sale_enabled,
                 "sale_price_threshold": self._sale_price_threshold,
                 "sale_quantity_ratio": self._sale_quantity_ratio,
-                "sale_profit_percentage": self._sale_profit_percentage
+                "sale_profit_percentage": self._sale_profit_percentage,
+                "expiry_sale_enabled": self._expiry_sale_enabled  # 新增：到期出售开关
             }
             
             # 保存配置
@@ -929,6 +1206,13 @@ class VicomoFarm(_PluginBase):
                 "summary": "执行任务"
             },
             {
+                "path": "/expiry_sale",
+                "endpoint": self._expiry_sale_task,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "执行到期出售任务"
+            },
+            {
                 "path": "/cookie",
                 "endpoint": self.__get_cookie,
                 "methods": ["GET"],
@@ -947,15 +1231,29 @@ class VicomoFarm(_PluginBase):
 
     def get_service(self) -> List[Dict[str, Any]]:
         """注册插件公共服务"""
+        services = []
+        
+        # 主定时任务（用户配置的Cron）
         if self._enabled and self._cron:
-            return [{
+            services.append({
                 "id": "VicomoFarm",
                 "name": "象岛农场 - 定时任务",
                 "trigger": CronTrigger.from_crontab(self._cron),
                 "func": self._battle_task,
                 "kwargs": {}
-            }]
-        return []
+            })
+        
+        # 到期出售定时任务（每周六13:50执行，确保在14点前完成）
+        if self._enabled and self._expiry_sale_enabled:
+            services.append({
+                "id": "VicomoFarm_ExpirySale",
+                "name": "象岛农场 - 到期出售任务",
+                "trigger": CronTrigger(day_of_week=5, hour=13, minute=50),  # 每周六13:50
+                "func": self._expiry_sale_task,
+                "kwargs": {}
+            })
+        
+        return services
 
     def __get_cookie(self):
         """获取站点cookie"""
