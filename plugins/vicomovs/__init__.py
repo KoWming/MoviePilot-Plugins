@@ -52,7 +52,7 @@ class VicomoVS(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomovs.png"
     # 插件版本
-    plugin_version = "1.2.4"
+    plugin_version = "1.2.5"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -161,7 +161,7 @@ class VicomoVS(_PluginBase):
                 "cookie": self._cookie,
                 "referer": self._vs_site_url,
                 "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0"
-            }, proxies=self._proxies)
+            }, proxies=self._proxies, timeout=30)
             html = etree.HTML(response.text)
             values = html.xpath('//input[contains(@class, "memberSelected")]/@value')
             if n is not None:
@@ -200,35 +200,185 @@ class VicomoVS(_PluginBase):
             "content-type": "application/x-www-form-urlencoded",
             "pragma": "no-cache",
         })
-        response = requests.post(self.vs_boss_url, headers=self.headers, data=vs_boss_data, proxies=proxies)
+        response = requests.post(self.vs_boss_url, headers=self.headers, data=vs_boss_data, proxies=proxies, timeout=30)
+        logger.info(f"对战请求状态码: {response.status_code}")
 
         # 从响应中提取重定向 URL
         redirect_url = None
-        match = ContentFilter.re_get_match(response, r"window\.location\.href\s*=\s*'([^']+战斗结果[^']+)'")
-        if match:
-            redirect_url = match.group(1)
-            logger.info(f"提取到的战斗结果重定向 URL: {redirect_url}")
-        else:
+        
+        # 尝试多种正则表达式模式
+        patterns = [
+            r"window\.location\.href\s*=\s*'([^']+战斗结果[^']+)'",
+            r"window\.location\.href\s*=\s*\"([^\"]+战斗结果[^\"]+)\"",
+            r"location\.href\s*=\s*'([^']+战斗结果[^']+)'",
+            r"location\.href\s*=\s*\"([^\"]+战斗结果[^\"]+)\"",
+            r"window\.location\s*=\s*'([^']+战斗结果[^']+)'",
+            r"window\.location\s*=\s*\"([^\"]+战斗结果[^\"]+)\""
+        ]
+        
+        for pattern in patterns:
+            match = ContentFilter.re_get_match(response, pattern)
+            if match:
+                redirect_url = match.group(1)
+                logger.info(f"提取到的战斗结果重定向 URL: {redirect_url}")
+                break
+        
+        if not redirect_url:
+            # 如果正则表达式都失败，尝试从响应内容中查找
+            logger.warning("正则表达式匹配失败，尝试从响应内容中查找重定向URL")
+            if "战斗结果" in response.text:
+                # 查找包含"战斗结果"的URL
+                import re
+                url_match = re.search(r'https?://[^\s\'"]*战斗结果[^\s\'"]*', response.text)
+                if url_match:
+                    redirect_url = url_match.group(0)
+                    logger.info(f"从响应内容中提取到的重定向 URL: {redirect_url}")
+        
+        if not redirect_url:
             logger.error("未找到战斗结果重定向 URL")
+            logger.debug(f"响应内容片段: {response.text[:500]}...")
             return None
 
-        # 访问重定向 URL
-        battle_result_response = requests.get(redirect_url, headers=self.headers)
-        logger.info(f"战斗结果重定向页面状态码: {battle_result_response.status_code}")
-        # logger.info(battle_result_response.text)  # 可选：调试时查看响应内容
+        # 访问重定向 URL，添加重试机制和URL修复
+        battle_result_response = None
+        max_retries = 3
+        
+        # 尝试修复重定向URL格式
+        fixed_redirect_url = self._fix_redirect_url(redirect_url)
+        if fixed_redirect_url != redirect_url:
+            logger.info(f"修复重定向URL: {redirect_url} -> {fixed_redirect_url}")
+            redirect_url = fixed_redirect_url
+        
+        for retry in range(max_retries):
+            try:
+                # 添加更多请求头，模拟真实浏览器访问
+                battle_headers = self.headers.copy()
+                battle_headers.update({
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                    "Accept-Encoding": "gzip, deflate",
+                    "Connection": "keep-alive",
+                    "Upgrade-Insecure-Requests": "1",
+                    "Cache-Control": "no-cache",
+                    "Pragma": "no-cache"
+                })
+                
+                logger.info(f"正在访问重定向URL (第{retry + 1}次): {redirect_url}")
+                battle_result_response = requests.get(redirect_url, headers=battle_headers, proxies=proxies, timeout=30)
+                logger.info(f"战斗结果重定向页面状态码: {battle_result_response.status_code}")
+                
+                # 检查响应状态
+                if battle_result_response.status_code == 200:
+                    logger.info("成功获取战斗结果页面")
+                    break
+                elif battle_result_response.status_code in [301, 302, 303, 307, 308]:
+                    # 处理重定向
+                    new_url = battle_result_response.headers.get('Location')
+                    if new_url:
+                        logger.info(f"跟随重定向到: {new_url}")
+                        redirect_url = new_url if new_url.startswith('http') else f"{self._vs_site_url}{new_url}"
+                        continue
+                    else:
+                        logger.warning("收到重定向状态码但未找到Location头")
+                else:
+                    logger.warning(f"重定向页面返回非200状态码: {battle_result_response.status_code}")
+                    logger.debug(f"响应头: {dict(battle_result_response.headers)}")
+                    
+            except requests.exceptions.ConnectionError as e:
+                logger.warning(f"访问重定向URL第{retry + 1}次失败: {str(e)}")
+                if retry < max_retries - 1:
+                    wait_time = 3 * (retry + 1)  # 递增等待时间
+                    logger.info(f"等待 {wait_time} 秒后重试...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"访问重定向URL失败，已重试{max_retries}次")
+                    return None
+            except requests.exceptions.Timeout as e:
+                logger.warning(f"访问重定向URL第{retry + 1}次超时: {str(e)}")
+                if retry < max_retries - 1:
+                    wait_time = 3 * (retry + 1)  # 递增等待时间
+                    logger.info(f"等待 {wait_time} 秒后重试...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"访问重定向URL超时，已重试{max_retries}次")
+                    return None
+            except Exception as e:
+                logger.error(f"访问重定向URL时发生异常: {str(e)}")
+                if retry < max_retries - 1:
+                    time.sleep(3)
+                    continue
+                else:
+                    return None
+        
+        if not battle_result_response:
+            logger.error("无法获取战斗结果页面")
+            return None
 
-        # 解析战斗结果页面并提取 battleMsgInput
-        parsed_html = ContentFilter.lxml_get_HTML(battle_result_response)
-        battle_msg_input = parsed_html.xpath('//*[@id="battleMsgInput"]')
-        if battle_msg_input:
-            battle_info = parsed_html.xpath('//*[@id="battleResultStringLastShow"]/div[1]//text()')
-            battle_text = ' '.join([text.strip() for text in battle_info if text.strip()])
-            logger.info("找到Battle Info:", battle_text)
-            logger.info("找到Battle Result:",
-                parsed_html.xpath('//*[@id="battleResultStringLastShow"]/div[2]/text()')[0].strip())
-            return parsed_html.xpath('//*[@id="battleResultStringLastShow"]/div[2]/text()')[0].strip()
-        else:
-            logger.error("未找到Battle Result")
+        # 解析战斗结果页面并提取战斗结果
+        try:
+            parsed_html = ContentFilter.lxml_get_HTML(battle_result_response)
+            
+            # 调试：记录页面内容片段
+            logger.debug(f"战斗结果页面内容片段: {battle_result_response.text[:500]}...")
+            
+            # 首先尝试查找包含"平局"、"胜利"、"战败"等关键词的文本
+            # 从截图可以看到，战斗结果直接显示在页面上
+            result_text = None
+            
+            # 方法1：查找包含战斗结果的文本节点
+            result_patterns = [
+                '//*[contains(text(), "平局")]',
+                '//*[contains(text(), "胜利")]',
+                '//*[contains(text(), "战败")]',
+                '//*[contains(text(), "象草")]'
+            ]
+            
+            for pattern in result_patterns:
+                elements = parsed_html.xpath(pattern)
+                if elements:
+                    for element in elements:
+                        text = element.text.strip() if element.text else ""
+                        if text and ("胜利" in text or "战败" in text or "平局" in text) and "象草" in text:
+                            logger.info(f"通过模式 {pattern} 找到战斗结果: {text}")
+                            result_text = text
+                            break
+                    if result_text:
+                        break
+            
+            # 方法2：如果方法1失败，尝试查找特定的div结构
+            if not result_text:
+                logger.warning("方法1失败，尝试查找特定div结构")
+                battle_result_divs = parsed_html.xpath('//div[contains(text(), "平局") or contains(text(), "胜利") or contains(text(), "战败")]')
+                for div in battle_result_divs:
+                    text = div.text.strip() if div.text else ""
+                    if text and ("胜利" in text or "战败" in text or "平局" in text) and "象草" in text:
+                        logger.info(f"通过div结构找到战斗结果: {text}")
+                        result_text = text
+                        break
+            
+            # 方法3：如果方法2失败，尝试从页面文本中提取
+            if not result_text:
+                logger.warning("方法2失败，尝试从页面文本中提取")
+                page_text = battle_result_response.text
+                import re
+                # 查找包含战斗结果和象草的行
+                result_match = re.search(r'(平局|胜利|战败)[^\\n]*?(\d+)象草', page_text)
+                if result_match:
+                    result_text = f"{result_match.group(1)} - 获得奖励: {result_match.group(2)}象草"
+                    logger.info(f"通过正则表达式找到战斗结果: {result_text}")
+            
+            if result_text:
+                return result_text
+            else:
+                logger.error("未找到任何战斗结果信息")
+                # 记录更多调试信息
+                logger.debug(f"页面内容: {battle_result_response.text}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"解析战斗结果页面时发生异常: {str(e)}")
             return None
 
     def _battle_task(self):
@@ -241,7 +391,28 @@ class VicomoVS(_PluginBase):
             char_info = self.get_character_info()
             
             # 检查是否有角色
-            if not char_info["has_characters"]:
+            if char_info.get("has_characters") is None:
+                # 网络问题，发送错误通知
+                error_msg = char_info.get("error", "未知网络错误")
+                msg = f"❌网络连接失败，无法获取角色信息：{error_msg}"
+                logger.error(msg)
+                if self._notify:
+                    self.post_message(
+                        mtype=NotificationType.SiteMessage,
+                        title="【🐘象岛传说竞技场】网络错误",
+                        text=f"━━━━━━━━━━━━━━\n"
+                             f"⚠️ 错误提示：\n"
+                             f"❌ 网络连接失败，无法获取角色信息\n"
+                             f"🔍 错误详情：{error_msg}\n\n"
+                             f"━━━━━━━━━━━━━━\n"
+                             f"💡 解决建议：\n"
+                             f"🌐 检查网络连接是否正常\n"
+                             f"🔧 检查代理设置是否正确\n"
+                             f"🔄 稍后重试\n\n"
+                             f"━━━━━━━━━━━━━━\n"
+                             f"⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                return
+            elif not char_info["has_characters"]:
                 msg = "😵‍💫你还还未获得任何角色，无法进行战斗！"
                 logger.info(msg)
                 if self._notify:
@@ -303,7 +474,8 @@ class VicomoVS(_PluginBase):
                     # 记录失败的对战信息
                     failed_battles.append({
                         "battle_number": current_battle,
-                        "battle_date": datetime.now().strftime('%Y-%m-%d')
+                        "battle_date": datetime.now().strftime('%Y-%m-%d'),
+                        "error": str(e)
                     })
                 
                 if battle_result:
@@ -312,6 +484,7 @@ class VicomoVS(_PluginBase):
                     
                     # 如果还有下一场对战，等待指定间隔时间
                     if i < battles_to_execute - 1:
+                        logger.info(f"等待 {self._vs_boss_interval} 秒后进行下一场对战...")
                         time.sleep(self._vs_boss_interval)
 
             # 生成报告
@@ -466,7 +639,7 @@ class VicomoVS(_PluginBase):
                 "referer": self._vs_site_url,
                 "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0"
             }
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, proxies=self._proxies, timeout=30)
             
             # 解析页面
             html = ContentFilter.lxml_get_HTML(response)
@@ -498,6 +671,22 @@ class VicomoVS(_PluginBase):
                 "battles_remaining": battles_remaining
             }
             
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"网络连接失败: {str(e)}")
+            return {
+                "has_characters": None,  # 使用None表示网络问题，不是真的没有角色
+                "character_names": [],
+                "battles_remaining": None,
+                "error": "网络连接失败"
+            }
+        except requests.exceptions.Timeout as e:
+            logger.error(f"请求超时: {str(e)}")
+            return {
+                "has_characters": None,
+                "character_names": [],
+                "battles_remaining": None,
+                "error": "请求超时"
+            }
         except Exception as e:
             logger.error(f"获取角色名称和战斗次数失败: {str(e)}")
             return {
@@ -542,6 +731,39 @@ class VicomoVS(_PluginBase):
         except Exception as e:
             logger.error(f"获取站点cookie失败: {str(e)}")
             return ""
+
+    def _fix_redirect_url(self, url: str) -> str:
+        """
+        修复重定向URL格式
+        """
+        try:
+            # 从截图确认，URL格式 do=战斗结果=1756024896 是正确的
+            # 不需要修复这种格式
+            if "do=战斗结果=" in url:
+                logger.info(f"URL格式正确，无需修复: {url}")
+                return url
+            
+            # 检查其他可能的格式问题
+            if "战斗结果" in url and "=" in url and "&" not in url:
+                # 尝试修复参数格式
+                parts = url.split("?")
+                if len(parts) == 2:
+                    base_url = parts[0]
+                    params = parts[1]
+                    # 将单个参数转换为标准格式
+                    if "=" in params:
+                        param_parts = params.split("=")
+                        if len(param_parts) >= 2:
+                            key = param_parts[0]
+                            value = "=".join(param_parts[1:])
+                            fixed_url = f"{base_url}?{key}={value}"
+                            logger.info(f"修复参数格式: {url} -> {fixed_url}")
+                            return fixed_url
+            
+            return url
+        except Exception as e:
+            logger.error(f"修复重定向URL时发生异常: {str(e)}")
+            return url
 
     def _get_proxies(self):
         """
