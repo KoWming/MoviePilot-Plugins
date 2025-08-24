@@ -95,7 +95,7 @@ return (_ctx, _cache) => {
 };
 const CustomSwitch = /*#__PURE__*/_export_sfc(_sfc_main$1, [['__scopeId',"data-v-68d07641"]]);
 
-const Config_vue_vue_type_style_index_0_scoped_c7835cd3_lang = '';
+const Config_vue_vue_type_style_index_0_scoped_36beb76d_lang = '';
 
 const {resolveComponent:_resolveComponent,createVNode:_createVNode,createElementVNode:_createElementVNode,withCtx:_withCtx,toDisplayString:_toDisplayString,createTextVNode:_createTextVNode,openBlock:_openBlock,createBlock:_createBlock,createCommentVNode:_createCommentVNode,Fragment:_Fragment,createElementBlock:_createElementBlock,withModifiers:_withModifiers} = await importShared('vue');
 
@@ -117,15 +117,18 @@ const _hoisted_14 = { class: "d-flex justify-space-between align-center" };
 const _hoisted_15 = { class: "setting-item d-flex align-center py-2 mb-5" };
 const _hoisted_16 = { class: "setting-content flex-grow-1" };
 const _hoisted_17 = { class: "d-flex justify-space-between align-center" };
-const _hoisted_18 = {
+const _hoisted_18 = { class: "setting-item d-flex align-center py-2 mb-5" };
+const _hoisted_19 = { class: "setting-content flex-grow-1" };
+const _hoisted_20 = { class: "d-flex justify-space-between align-center" };
+const _hoisted_21 = {
   class: "d-flex align-center",
   style: {"gap":"16px","flex-wrap":"wrap"}
 };
-const _hoisted_19 = {
+const _hoisted_22 = {
   class: "text-caption mb-4",
   style: {"color":"#999","margin-top":"5px","margin-bottom":"19px"}
 };
-const _hoisted_20 = { class: "d-flex align-center px-3 py-2 mb-3 rounded bg-info-lighten-5" };
+const _hoisted_23 = { class: "d-flex align-center px-3 py-2 mb-3 rounded bg-info-lighten-5" };
 
 const {ref,reactive,onMounted,computed} = await importShared('vue');
 
@@ -195,6 +198,8 @@ const serverFetchedConfig = reactive({
   sale_price_threshold: 0,
   sale_quantity_ratio: 1,
   sale_profit_percentage: 0,
+  sale_threshold_type: 'price', // 新增：保存出售条件类型
+  expiry_sale_enabled: false, // 新增：到期出售开关
 });
 
 // 编辑中的配置
@@ -214,6 +219,7 @@ const editableConfig = reactive({
   sale_price_threshold: 0,
   sale_quantity_ratio: 1,
   sale_profit_percentage: 0,
+  expiry_sale_enabled: false, // 新增：到期出售开关
 });
 
 // 更新编辑中的配置
@@ -391,7 +397,7 @@ return (_ctx, _cache) => {
               color: "primary",
               size: "small"
             }),
-            _cache[21] || (_cache[21] = _createElementVNode("span", null, "象岛农场配置", -1)),
+            _cache[22] || (_cache[22] = _createElementVNode("span", null, "象岛农场配置", -1)),
             _createVNode(_component_v_spacer),
             _createVNode(_component_v_btn, {
               color: "info",
@@ -402,7 +408,7 @@ return (_ctx, _cache) => {
               size: "small",
               class: "toolbar-btn"
             }, {
-              default: _withCtx(() => _cache[17] || (_cache[17] = [
+              default: _withCtx(() => _cache[18] || (_cache[18] = [
                 _createElementVNode("span", { class: "btn-text" }, "状态页", -1)
               ])),
               _: 1
@@ -416,7 +422,7 @@ return (_ctx, _cache) => {
               size: "small",
               class: "toolbar-btn"
             }, {
-              default: _withCtx(() => _cache[18] || (_cache[18] = [
+              default: _withCtx(() => _cache[19] || (_cache[19] = [
                 _createElementVNode("span", { class: "btn-text" }, "重置", -1)
               ])),
               _: 1
@@ -431,7 +437,7 @@ return (_ctx, _cache) => {
               size: "small",
               class: "toolbar-btn"
             }, {
-              default: _withCtx(() => _cache[19] || (_cache[19] = [
+              default: _withCtx(() => _cache[20] || (_cache[20] = [
                 _createElementVNode("span", { class: "btn-text" }, "保存配置", -1)
               ])),
               _: 1
@@ -445,7 +451,7 @@ return (_ctx, _cache) => {
               size: "small",
               class: "toolbar-btn"
             }, {
-              default: _withCtx(() => _cache[20] || (_cache[20] = [
+              default: _withCtx(() => _cache[21] || (_cache[21] = [
                 _createElementVNode("span", { class: "btn-text" }, "关闭", -1)
               ])),
               _: 1
@@ -489,7 +495,7 @@ return (_ctx, _cache) => {
               ref_key: "form",
               ref: form,
               modelValue: isFormValid.value,
-              "onUpdate:modelValue": _cache[16] || (_cache[16] = $event => ((isFormValid).value = $event)),
+              "onUpdate:modelValue": _cache[17] || (_cache[17] = $event => ((isFormValid).value = $event)),
               onSubmit: _withModifiers(saveFullConfig, ["prevent"])
             }, {
               default: _withCtx(() => [
@@ -506,7 +512,7 @@ return (_ctx, _cache) => {
                           color: "primary",
                           size: "small"
                         }),
-                        _cache[22] || (_cache[22] = _createElementVNode("span", null, "基本设置", -1))
+                        _cache[23] || (_cache[23] = _createElementVNode("span", null, "基本设置", -1))
                       ]),
                       _: 1
                     }),
@@ -528,7 +534,7 @@ return (_ctx, _cache) => {
                                   }, null, 8, ["color"]),
                                   _createElementVNode("div", _hoisted_3, [
                                     _createElementVNode("div", _hoisted_4, [
-                                      _cache[23] || (_cache[23] = _createElementVNode("div", null, [
+                                      _cache[24] || (_cache[24] = _createElementVNode("div", null, [
                                         _createElementVNode("div", { class: "text-subtitle-2" }, "启用插件"),
                                         _createElementVNode("div", { class: "text-caption text-grey" }, "是否启用象岛农场插件")
                                       ], -1)),
@@ -557,7 +563,7 @@ return (_ctx, _cache) => {
                                   }, null, 8, ["color"]),
                                   _createElementVNode("div", _hoisted_6, [
                                     _createElementVNode("div", _hoisted_7, [
-                                      _cache[24] || (_cache[24] = _createElementVNode("div", null, [
+                                      _cache[25] || (_cache[25] = _createElementVNode("div", null, [
                                         _createElementVNode("div", { class: "text-subtitle-2" }, "启用通知"),
                                         _createElementVNode("div", { class: "text-caption text-grey" }, "完成后发送消息通知")
                                       ], -1)),
@@ -586,7 +592,7 @@ return (_ctx, _cache) => {
                                   }, null, 8, ["color"]),
                                   _createElementVNode("div", _hoisted_9, [
                                     _createElementVNode("div", _hoisted_10, [
-                                      _cache[25] || (_cache[25] = _createElementVNode("div", null, [
+                                      _cache[26] || (_cache[26] = _createElementVNode("div", null, [
                                         _createElementVNode("div", { class: "text-subtitle-2" }, "使用代理"),
                                         _createElementVNode("div", { class: "text-caption text-grey" }, "是否使用系统代理访问")
                                       ], -1)),
@@ -623,7 +629,7 @@ return (_ctx, _cache) => {
                           color: "primary",
                           size: "small"
                         }),
-                        _cache[26] || (_cache[26] = _createElementVNode("span", null, "执行设置", -1))
+                        _cache[27] || (_cache[27] = _createElementVNode("span", null, "执行设置", -1))
                       ]),
                       _: 1
                     }),
@@ -668,7 +674,7 @@ return (_ctx, _cache) => {
                                                 size: "small",
                                                 class: "tooltip-icon"
                                               }, {
-                                                default: _withCtx(() => _cache[27] || (_cache[27] = [
+                                                default: _withCtx(() => _cache[28] || (_cache[28] = [
                                                   _createTextVNode("mdi-content-paste")
                                                 ])),
                                                 _: 1
@@ -683,7 +689,7 @@ return (_ctx, _cache) => {
                                         ]),
                                         _: 1
                                       }, 8, ["disabled"]),
-                                      _cache[28] || (_cache[28] = _createElementVNode("div", { class: "custom-tooltip" }, [
+                                      _cache[29] || (_cache[29] = _createElementVNode("div", { class: "custom-tooltip" }, [
                                         _createElementVNode("div", { class: "custom-tooltip-content" }, [
                                           _createElementVNode("span", { class: "tooltip-text" }, "使用已添加站点的Cookie")
                                         ])
@@ -783,7 +789,7 @@ return (_ctx, _cache) => {
                           color: "primary",
                           size: "small"
                         }),
-                        _cache[29] || (_cache[29] = _createElementVNode("span", null, "自动交易设置", -1))
+                        _cache[30] || (_cache[30] = _createElementVNode("span", null, "自动交易设置", -1))
                       ]),
                       _: 1
                     }),
@@ -792,8 +798,8 @@ return (_ctx, _cache) => {
                         _createVNode(_component_v_row, null, {
                           default: _withCtx(() => [
                             _createVNode(_component_v_col, {
-                              cols: "12",
-                              md: "6"
+                              cols: "4",
+                              md: "4"
                             }, {
                               default: _withCtx(() => [
                                 _createElementVNode("div", _hoisted_12, [
@@ -805,7 +811,7 @@ return (_ctx, _cache) => {
                                   }, null, 8, ["color"]),
                                   _createElementVNode("div", _hoisted_13, [
                                     _createElementVNode("div", _hoisted_14, [
-                                      _cache[30] || (_cache[30] = _createElementVNode("div", null, [
+                                      _cache[31] || (_cache[31] = _createElementVNode("div", null, [
                                         _createElementVNode("div", { class: "text-subtitle-2" }, "启用自动进货"),
                                         _createElementVNode("div", { class: "text-caption text-grey" }, "当农场价格低于阈值时自动进货")
                                       ], -1)),
@@ -816,12 +822,83 @@ return (_ctx, _cache) => {
                                       }, null, 8, ["modelValue", "disabled"])
                                     ])
                                   ])
-                                ]),
+                                ])
+                              ]),
+                              _: 1
+                            }),
+                            _createVNode(_component_v_col, {
+                              cols: "4",
+                              md: "4"
+                            }, {
+                              default: _withCtx(() => [
+                                _createElementVNode("div", _hoisted_15, [
+                                  _createVNode(_component_v_icon, {
+                                    icon: "mdi-cart-arrow-up",
+                                    size: "small",
+                                    color: editableConfig.auto_sale_enabled ? 'success' : 'grey',
+                                    class: "mr-3"
+                                  }, null, 8, ["color"]),
+                                  _createElementVNode("div", _hoisted_16, [
+                                    _createElementVNode("div", _hoisted_17, [
+                                      _cache[32] || (_cache[32] = _createElementVNode("div", null, [
+                                        _createElementVNode("div", { class: "text-subtitle-2" }, "启用自动出售"),
+                                        _createElementVNode("div", { class: "text-caption text-grey" }, "当蔬菜店价格高于阈值时自动出售")
+                                      ], -1)),
+                                      _createVNode(CustomSwitch, {
+                                        modelValue: editableConfig.auto_sale_enabled,
+                                        "onUpdate:modelValue": _cache[10] || (_cache[10] = $event => ((editableConfig.auto_sale_enabled) = $event)),
+                                        disabled: saving.value
+                                      }, null, 8, ["modelValue", "disabled"])
+                                    ])
+                                  ])
+                                ])
+                              ]),
+                              _: 1
+                            }),
+                            _createVNode(_component_v_col, {
+                              cols: "4",
+                              md: "4"
+                            }, {
+                              default: _withCtx(() => [
+                                _createElementVNode("div", _hoisted_18, [
+                                  _createVNode(_component_v_icon, {
+                                    icon: "mdi-calendar-clock",
+                                    size: "small",
+                                    color: editableConfig.expiry_sale_enabled ? 'warning' : 'grey',
+                                    class: "mr-3"
+                                  }, null, 8, ["color"]),
+                                  _createElementVNode("div", _hoisted_19, [
+                                    _createElementVNode("div", _hoisted_20, [
+                                      _cache[33] || (_cache[33] = _createElementVNode("div", null, [
+                                        _createElementVNode("div", { class: "text-subtitle-2" }, "启用到期出售"),
+                                        _createElementVNode("div", { class: "text-caption text-grey" }, "每周六14点前无论是否亏损将执行全部出售")
+                                      ], -1)),
+                                      _createVNode(CustomSwitch, {
+                                        modelValue: editableConfig.expiry_sale_enabled,
+                                        "onUpdate:modelValue": _cache[11] || (_cache[11] = $event => ((editableConfig.expiry_sale_enabled) = $event)),
+                                        disabled: saving.value
+                                      }, null, 8, ["modelValue", "disabled"])
+                                    ])
+                                  ])
+                                ])
+                              ]),
+                              _: 1
+                            })
+                          ]),
+                          _: 1
+                        }),
+                        _createVNode(_component_v_row, null, {
+                          default: _withCtx(() => [
+                            _createVNode(_component_v_col, {
+                              cols: "12",
+                              md: "6"
+                            }, {
+                              default: _withCtx(() => [
                                 (editableConfig.auto_purchase_enabled)
                                   ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [
                                       _createVNode(_component_v_text_field, {
                                         modelValue: editableConfig.purchase_price_threshold,
-                                        "onUpdate:modelValue": _cache[10] || (_cache[10] = $event => ((editableConfig.purchase_price_threshold) = $event)),
+                                        "onUpdate:modelValue": _cache[12] || (_cache[12] = $event => ((editableConfig.purchase_price_threshold) = $event)),
                                         modelModifiers: { number: true },
                                         label: "进货价格阈值",
                                         type: "number",
@@ -837,7 +914,7 @@ return (_ctx, _cache) => {
                                       }, null, 8, ["modelValue", "rules", "disabled"]),
                                       _createVNode(_component_v_select, {
                                         modelValue: editableConfig.purchase_quantity_ratio,
-                                        "onUpdate:modelValue": _cache[11] || (_cache[11] = $event => ((editableConfig.purchase_quantity_ratio) = $event)),
+                                        "onUpdate:modelValue": _cache[13] || (_cache[13] = $event => ((editableConfig.purchase_quantity_ratio) = $event)),
                                         label: "进货数量比例",
                                         items: [
                         { title: '20%', value: 0.2 },
@@ -865,27 +942,6 @@ return (_ctx, _cache) => {
                               md: "6"
                             }, {
                               default: _withCtx(() => [
-                                _createElementVNode("div", _hoisted_15, [
-                                  _createVNode(_component_v_icon, {
-                                    icon: "mdi-cart-arrow-up",
-                                    size: "small",
-                                    color: editableConfig.auto_sale_enabled ? 'success' : 'grey',
-                                    class: "mr-3"
-                                  }, null, 8, ["color"]),
-                                  _createElementVNode("div", _hoisted_16, [
-                                    _createElementVNode("div", _hoisted_17, [
-                                      _cache[31] || (_cache[31] = _createElementVNode("div", null, [
-                                        _createElementVNode("div", { class: "text-subtitle-2" }, "启用自动出售"),
-                                        _createElementVNode("div", { class: "text-caption text-grey" }, "当蔬菜店价格高于阈值时自动出售")
-                                      ], -1)),
-                                      _createVNode(CustomSwitch, {
-                                        modelValue: editableConfig.auto_sale_enabled,
-                                        "onUpdate:modelValue": _cache[12] || (_cache[12] = $event => ((editableConfig.auto_sale_enabled) = $event)),
-                                        disabled: saving.value
-                                      }, null, 8, ["modelValue", "disabled"])
-                                    ])
-                                  ])
-                                ]),
                                 (editableConfig.auto_sale_enabled)
                                   ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [
                                       _createVNode(_component_v_row, null, {
@@ -896,10 +952,10 @@ return (_ctx, _cache) => {
                                             style: {"min-width":"0"}
                                           }, {
                                             default: _withCtx(() => [
-                                              _createElementVNode("div", _hoisted_18, [
+                                              _createElementVNode("div", _hoisted_21, [
                                                 _createVNode(_component_v_select, {
                                                   modelValue: saleThresholdType.value,
-                                                  "onUpdate:modelValue": _cache[13] || (_cache[13] = $event => ((saleThresholdType).value = $event)),
+                                                  "onUpdate:modelValue": _cache[14] || (_cache[14] = $event => ((saleThresholdType).value = $event)),
                                                   label: "出售条件类型",
                                                   items: [
                               { title: '价格阈值', value: 'price' },
@@ -917,7 +973,7 @@ return (_ctx, _cache) => {
                                                 }, null, 8, ["modelValue", "disabled"]),
                                                 _createVNode(_component_v_text_field, {
                                                   modelValue: saleThresholdValueComputed.value,
-                                                  "onUpdate:modelValue": _cache[14] || (_cache[14] = $event => ((saleThresholdValueComputed).value = $event)),
+                                                  "onUpdate:modelValue": _cache[15] || (_cache[15] = $event => ((saleThresholdValueComputed).value = $event)),
                                                   modelModifiers: { number: true },
                                                   label: saleThresholdType.value === 'price' ? '出售价格阈值' : '盈利百分比阈值',
                                                   type: "number",
@@ -935,7 +991,7 @@ return (_ctx, _cache) => {
                                                   style: {"flex":"1 1 0","min-width":"160px","max-width":"260px"}
                                                 }, null, 8, ["modelValue", "label", "max", "rules", "prepend-inner-icon", "disabled"])
                                               ]),
-                                              _createElementVNode("div", _hoisted_19, [
+                                              _createElementVNode("div", _hoisted_22, [
                                                 (saleThresholdType.value === 'price')
                                                   ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [
                                                       _createTextVNode(" 当蔬菜店价格高于或等于此价格时自动出售（阈值为0时不执行） ")
@@ -952,7 +1008,7 @@ return (_ctx, _cache) => {
                                       }),
                                       _createVNode(_component_v_select, {
                                         modelValue: editableConfig.sale_quantity_ratio,
-                                        "onUpdate:modelValue": _cache[15] || (_cache[15] = $event => ((editableConfig.sale_quantity_ratio) = $event)),
+                                        "onUpdate:modelValue": _cache[16] || (_cache[16] = $event => ((editableConfig.sale_quantity_ratio) = $event)),
                                         label: "出售数量比例",
                                         items: [
                         { title: '20%', value: 0.2 },
@@ -984,14 +1040,14 @@ return (_ctx, _cache) => {
                   ]),
                   _: 1
                 }),
-                _createElementVNode("div", _hoisted_20, [
+                _createElementVNode("div", _hoisted_23, [
                   _createVNode(_component_v_icon, {
                     icon: "mdi-information",
                     color: "info",
                     class: "mr-2",
                     size: "small"
                   }),
-                  _cache[32] || (_cache[32] = _createElementVNode("span", { class: "text-caption" }, " 此插件用于监听象岛农场相关信息，支持定时执行、代理访问、失败重试等功能。 获取象岛农场信息，建议根据实际情况调整。 ", -1))
+                  _cache[34] || (_cache[34] = _createElementVNode("span", { class: "text-caption" }, " 此插件用于监听象岛农场相关信息，支持定时执行、代理访问、失败重试等功能。 获取象岛农场信息，建议根据实际情况调整。 ", -1))
                 ])
               ]),
               _: 1
@@ -1007,6 +1063,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const ConfigComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-c7835cd3"]]);
+const ConfigComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-36beb76d"]]);
 
 export { ConfigComponent as default };
