@@ -95,7 +95,7 @@ return (_ctx, _cache) => {
 };
 const CustomSwitch = /*#__PURE__*/_export_sfc(_sfc_main$1, [['__scopeId',"data-v-68d07641"]]);
 
-const Config_vue_vue_type_style_index_0_scoped_36beb76d_lang = '';
+const Config_vue_vue_type_style_index_0_scoped_7998ca2e_lang = '';
 
 const {resolveComponent:_resolveComponent,createVNode:_createVNode,createElementVNode:_createElementVNode,withCtx:_withCtx,toDisplayString:_toDisplayString,createTextVNode:_createTextVNode,openBlock:_openBlock,createBlock:_createBlock,createCommentVNode:_createCommentVNode,Fragment:_Fragment,createElementBlock:_createElementBlock,withModifiers:_withModifiers} = await importShared('vue');
 
@@ -798,7 +798,7 @@ return (_ctx, _cache) => {
                         _createVNode(_component_v_row, null, {
                           default: _withCtx(() => [
                             _createVNode(_component_v_col, {
-                              cols: "4",
+                              cols: "12",
                               md: "4"
                             }, {
                               default: _withCtx(() => [
@@ -827,7 +827,7 @@ return (_ctx, _cache) => {
                               _: 1
                             }),
                             _createVNode(_component_v_col, {
-                              cols: "4",
+                              cols: "12",
                               md: "4"
                             }, {
                               default: _withCtx(() => [
@@ -856,7 +856,7 @@ return (_ctx, _cache) => {
                               _: 1
                             }),
                             _createVNode(_component_v_col, {
-                              cols: "4",
+                              cols: "12",
                               md: "4"
                             }, {
                               default: _withCtx(() => [
@@ -1063,6 +1063,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const ConfigComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-36beb76d"]]);
+const ConfigComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-7998ca2e"]]);
 
 export { ConfigComponent as default };
