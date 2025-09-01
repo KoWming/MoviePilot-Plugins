@@ -196,6 +196,57 @@ def form(site_options) -> list:
                                             ]
                                         }
                                     ]
+                                },
+                                {
+                                    'component': 'VRow',
+                                    'content': [
+                                        {
+                                            'component': 'VCol',
+                                            'props': {
+                                                'cols': 12,
+                                                'md': 6
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'VSelect',
+                                                    'props': {
+                                                        'model': 'retry_count',
+                                                        'label': '喊话失败重试次数',
+                                                        'items': [
+                                                            {'title': '0次(不重试)', 'value': 0},
+                                                            {'title': '1次', 'value': 1},
+                                                            {'title': '2次', 'value': 2},
+                                                            {'title': '3次', 'value': 3}
+                                                        ]
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            'component': 'VCol',
+                                            'props': {
+                                                'cols': 12,
+                                                'md': 6
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'VSelect',
+                                                    'props': {
+                                                        'model': 'retry_interval',
+                                                        'label': '喊话失败重试间隔(分钟)',
+                                                        'items': [
+                                                            {'title': '5分钟', 'value': 5},
+                                                            {'title': '10分钟', 'value': 10},
+                                                            {'title': '15分钟', 'value': 15},
+                                                            {'title': '30分钟', 'value': 30},
+                                                            {'title': '60分钟', 'value': 60},
+                                                            {'title': '120分钟', 'value': 120}
+                                                        ]
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ]
                                 }
                             ]
                         }
@@ -883,5 +934,7 @@ def form(site_options) -> list:
         "feedback_timeout": 5,
         "use_proxy": True,
         "zm_independent": True,
-        "qingwa_daily_bonus": False
+        "qingwa_daily_bonus": False,
+        "retry_count": 2,
+        "retry_interval": 10
     }
