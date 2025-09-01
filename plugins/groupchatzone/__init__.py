@@ -32,7 +32,7 @@ class GroupChatZone(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png"
     # 插件版本
-    plugin_version = "2.1.4"
+    plugin_version = "2.1.5"
     # 插件作者
     plugin_author = "KoWming,madrays"
     # 作者主页
@@ -74,6 +74,8 @@ class GroupChatZone(_PluginBase):
     _use_proxy: bool = True        # 是否使用代理
     _zm_independent: bool = True  # 是否织梦独立运行
     _qingwa_daily_bonus: bool = False  # 是否青蛙每日福利领取
+    _retry_count: int = 3          # 喊话失败重试次数
+    _retry_interval: int = 10      # 重试间隔时间(分钟)
 
     def init_plugin(self, config: Optional[dict] = None):
         self._lock = threading.Lock()
@@ -100,6 +102,8 @@ class GroupChatZone(_PluginBase):
             self._use_proxy = bool(config.get("use_proxy", True))
             self._zm_independent = bool(config.get("zm_independent", True))
             self._qingwa_daily_bonus = bool(config.get("qingwa_daily_bonus", False))
+            self._retry_count = int(config.get("retry_count", 3))
+            self._retry_interval = int(config.get("retry_interval", 10))
             self._zm_mail_time = config.get("zm_mail_time")
 
             # 过滤掉已删除的站点
@@ -184,7 +188,9 @@ class GroupChatZone(_PluginBase):
                 "use_proxy": self._use_proxy,
                 "zm_independent": self._zm_independent,
                 "zm_mail_time": self._zm_mail_time,
-                "qingwa_daily_bonus": self._qingwa_daily_bonus
+                "qingwa_daily_bonus": self._qingwa_daily_bonus,
+                "retry_count": self._retry_count,
+                "retry_interval": self._retry_interval
             }
         )
 
@@ -432,6 +438,288 @@ class GroupChatZone(_PluginBase):
             logger.error(f"获取代理设置出错: {str(e)}")
             return None
 
+    def _send_single_message(self, handler, message_content: str, site_name: str):
+        """
+        发送单条消息（不包含重试逻辑）
+        """
+        try:
+            success, msg = handler.send_messagebox(message_content)
+            return success, msg
+        except Exception as e:
+            logger.error(f"向站点 {site_name} 发送消息 '{message_content}' 时发生异常: {str(e)}")
+            return False, str(e)
+
+    def _send_single_zm_message(self, handler, message_content: str, site_name: str, zm_stats: Dict = None):
+        """
+        发送单条织梦站点消息（不包含重试逻辑）
+        """
+        try:
+            success, msg = handler.send_messagebox(message_content, zm_stats=zm_stats)
+            return success, msg
+        except Exception as e:
+            logger.error(f"向织梦站点 {site_name} 发送消息 '{message_content}' 时发生异常: {str(e)}")
+            return False, str(e)
+
+    def _send_messages_with_unified_retry(self, handler, pending_messages: List[Dict], site_name: str, all_feedback: List[Dict]):
+        """
+        统一重试逻辑：先发送所有消息，收集失败的消息，然后统一重试
+        """
+        if not pending_messages:
+            return 0, 0, [], [], {}
+        
+        retry_count = self._retry_count
+        retry_interval_minutes = self._retry_interval
+        retry_interval_seconds = retry_interval_minutes * 60  # 转换为秒
+        
+        success_count = 0
+        failed_messages_details = []
+        site_feedback = []
+        retry_status = {}  # 重试状态信息
+        
+        # 当前待处理的消息列表
+        current_messages = pending_messages.copy()
+        
+        for attempt in range(retry_count + 1):  # +1 因为第一次不算重试
+            if not current_messages:
+                break
+                
+            if attempt > 0:
+                logger.info(f"站点 {site_name} 开始第{attempt + 1}次尝试，待重试消息数: {len(current_messages)}")
+            
+            # 存储本轮失败的消息
+            round_failed_messages = []
+            
+            for i, message_info in enumerate(current_messages):
+                message_content = message_info.get("content")
+                
+                try:
+                    # 发送消息
+                    success, msg = self._send_single_message(handler, message_content, site_name)
+                    if success:
+                        success_count += 1
+                        if attempt > 0:
+                            logger.info(f"站点 {site_name} 消息 '{message_content}' 重试成功（第{attempt + 1}次尝试）")
+                        
+                        # 获取反馈
+                        if self._get_feedback:
+                            try:
+                                time.sleep(self._feedback_timeout)  # 等待反馈
+                                feedback = handler.get_feedback(message_content)
+                                if feedback:
+                                    site_feedback.append(feedback)
+                                    all_feedback.append(feedback)
+                            except Exception as e:
+                                logger.error(f"获取站点 {site_name} 的反馈失败: {str(e)}")
+                    else:
+                        # 消息发送失败，添加到本轮失败列表
+                        round_failed_messages.append(message_info)
+                        if attempt == retry_count:
+                            # 已达到最大重试次数，记录最终失败
+                            failed_messages_details.append(f"{message_content} ({msg})")
+                            logger.error(f"站点 {site_name} 消息 '{message_content}' 发送失败，已达到最大重试次数: {msg}")
+                        elif attempt == 0:
+                            logger.warning(f"站点 {site_name} 消息 '{message_content}' 首次发送失败: {msg}")
+                        else:
+                            logger.warning(f"站点 {site_name} 消息 '{message_content}' 第{attempt + 1}次尝试失败: {msg}")
+                            
+                except Exception as e:
+                    # 发送异常，添加到本轮失败列表
+                    round_failed_messages.append(message_info)
+                    if attempt == retry_count:
+                        # 已达到最大重试次数，记录最终失败
+                        failed_messages_details.append(f"{message_content} (异常: {str(e)})")
+                        logger.error(f"站点 {site_name} 消息 '{message_content}' 发送异常，已达到最大重试次数: {str(e)}")
+                    else:
+                        logger.warning(f"站点 {site_name} 消息 '{message_content}' 发送异常: {str(e)}")
+
+                # 消息间间隔
+                if i < len(current_messages) - 1:
+                    time.sleep(self._interval_cnt)
+            
+            # 更新下一轮要重试的消息
+            current_messages = round_failed_messages
+            
+            # 如果还有失败的消息且未达到最大重试次数，等待重试间隔
+            if current_messages and attempt < retry_count:
+                logger.info(f"站点 {site_name} 等待 {retry_interval_minutes} 分钟后进行重试，失败消息数: {len(current_messages)}")
+                
+                # 记录重试状态信息
+                retry_status = {
+                    "site_name": site_name,
+                    "current_attempt": attempt + 1,
+                    "remaining_attempts": retry_count - attempt,
+                    "failed_messages": [msg.get("content") for msg in current_messages],
+                    "next_retry_time": datetime.now() + timedelta(minutes=retry_interval_minutes),
+                    "retry_interval_minutes": retry_interval_minutes
+                }
+                
+                time.sleep(retry_interval_seconds)
+        
+        failure_count = len(failed_messages_details)
+        return success_count, failure_count, failed_messages_details, site_feedback, retry_status
+
+    def _send_zm_messages_with_unified_retry(self, handler, pending_messages: List[Dict], site_name: str, all_feedback: List[Dict], zm_stats: Dict = None):
+        """
+        织梦站点统一重试逻辑：先发送所有消息，收集失败的消息，然后统一重试
+        """
+        if not pending_messages:
+            return 0, 0, [], [], {}
+        
+        retry_count = self._retry_count
+        retry_interval_minutes = self._retry_interval
+        retry_interval_seconds = retry_interval_minutes * 60  # 转换为秒
+        
+        success_count = 0
+        failed_messages_details = []
+        site_feedback = []
+        retry_status = {}  # 重试状态信息
+        
+        # 当前待处理的消息列表
+        current_messages = pending_messages.copy()
+        
+        for attempt in range(retry_count + 1):  # +1 因为第一次不算重试
+            if not current_messages:
+                break
+                
+            if attempt > 0:
+                logger.info(f"织梦站点 {site_name} 开始第{attempt + 1}次尝试，待重试消息数: {len(current_messages)}")
+            
+            # 存储本轮失败的消息
+            round_failed_messages = []
+            
+            for i, message_info in enumerate(current_messages):
+                message_content = message_info.get("content")
+                
+                try:
+                    # 发送消息
+                    success, msg = self._send_single_zm_message(handler, message_content, site_name, zm_stats)
+                    if success:
+                        success_count += 1
+                        if attempt > 0:
+                            logger.info(f"织梦站点 {site_name} 消息 '{message_content}' 失败重试成功（第{attempt + 1}次尝试）")
+                        
+                        # 获取反馈
+                        if self._get_feedback:
+                            try:
+                                time.sleep(self._feedback_timeout)  # 等待反馈
+                                feedback = handler.get_feedback(message_content)
+                                if feedback:
+                                    site_feedback.append(feedback)
+                                    all_feedback.append(feedback)
+                            except Exception as e:
+                                logger.error(f"获取织梦站点 {site_name} 的反馈失败: {str(e)}")
+                    else:
+                        # 消息发送失败，添加到本轮失败列表
+                        round_failed_messages.append(message_info)
+                        if attempt == retry_count:
+                            # 已达到最大重试次数，记录最终失败
+                            failed_messages_details.append(f"{message_content} ({msg})")
+                            logger.error(f"织梦站点 {site_name} 消息 '{message_content}' 发送失败，已达到最大重试次数: {msg}")
+                        elif attempt == 0:
+                            logger.warning(f"织梦站点 {site_name} 消息 '{message_content}' 首次发送失败: {msg}")
+                        else:
+                            logger.warning(f"织梦站点 {site_name} 消息 '{message_content}' 第{attempt + 1}次尝试失败: {msg}")
+                            
+                except Exception as e:
+                    # 发送异常，添加到本轮失败列表
+                    round_failed_messages.append(message_info)
+                    if attempt == retry_count:
+                        # 已达到最大重试次数，记录最终失败
+                        failed_messages_details.append(f"{message_content} (异常: {str(e)})")
+                        logger.error(f"织梦站点 {site_name} 消息 '{message_content}' 发送异常，已达到最大重试次数: {str(e)}")
+                    else:
+                        logger.warning(f"织梦站点 {site_name} 消息 '{message_content}' 发送异常: {str(e)}")
+
+                # 消息间间隔
+                if i < len(current_messages) - 1:
+                    time.sleep(self._interval_cnt)
+            
+            # 更新下一轮要重试的消息
+            current_messages = round_failed_messages
+            
+            # 如果还有失败的消息且未达到最大重试次数，等待重试间隔
+            if current_messages and attempt < retry_count:
+                logger.info(f"织梦站点 {site_name} 等待 {retry_interval_minutes} 分钟后进行重试，失败消息数: {len(current_messages)}")
+                
+                # 记录重试状态信息
+                retry_status = {
+                    "site_name": site_name,
+                    "current_attempt": attempt + 1,
+                    "remaining_attempts": retry_count - attempt,
+                    "failed_messages": [msg.get("content") for msg in current_messages],
+                    "next_retry_time": datetime.now() + timedelta(minutes=retry_interval_minutes),
+                    "retry_interval_minutes": retry_interval_minutes
+                }
+                
+                time.sleep(retry_interval_seconds)
+        
+        failure_count = len(failed_messages_details)
+        return success_count, failure_count, failed_messages_details, site_feedback, retry_status
+
+    def _send_failure_retry_notification(self, retry_status_list: List[Dict]):
+        """
+        发送多站点统一失败重试通知
+        """
+        if not retry_status_list:
+            return
+            
+        # 获取第一个重试状态作为基准信息
+        first_retry = retry_status_list[0]
+        current_attempt = first_retry.get("current_attempt", 0)
+        remaining_attempts = first_retry.get("remaining_attempts", 0)
+        retry_interval = first_retry.get("retry_interval_minutes", 0)
+        next_retry_time = first_retry.get("next_retry_time")
+        
+        # 格式化下次重试时间
+        if next_retry_time:
+            if isinstance(next_retry_time, str):
+                next_retry_str = next_retry_time
+            else:
+                next_retry_str = next_retry_time.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            next_retry_str = "未知"
+        
+        # 收集所有站点名称
+        site_names = [retry.get("site_name", "未知站点") for retry in retry_status_list]
+        site_names_str = "、".join(site_names)
+        
+        # 构建通知内容
+        title = "⚠️ 喊话失败重试通知"
+        notification_text = f"📡 站点: {site_names_str}\n"
+        notification_text += f"🔄 当前重试次数: 第{current_attempt}次\n"
+        notification_text += f"📊 剩余重试次数: {remaining_attempts}次\n"
+        notification_text += f"⏰ 重试间隔: {retry_interval}分钟\n"
+        notification_text += f"🕐 下次重试时间: {next_retry_str}\n\n"
+        
+        # 按站点分组显示失败消息
+        for retry_status in retry_status_list:
+            site_name = retry_status.get("site_name", "未知站点")
+            failed_messages = retry_status.get("failed_messages", [])
+            
+            if failed_messages:
+                notification_text += f"🚫 {site_name}失败的消息:\n"
+                for i, message in enumerate(failed_messages, 1):
+                    notification_text += f"  {i}. {message}\n"
+                notification_text += "\n"
+        
+        notification_text += f"⏱️ 通知发送时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}"
+        
+        # 发送通知
+        self.post_message(
+            mtype=NotificationType.SiteMessage,
+            title=title,
+            text=notification_text
+        )
+        
+        total_failed_messages = sum(len(retry.get("failed_messages", [])) for retry in retry_status_list)
+        logger.info(f"已发送多站点统一失败重试通知: 站点数 {len(site_names)}, 总失败消息数: {total_failed_messages}, 下次重试: {next_retry_str}")
+    
+    def _send_single_site_failure_retry_notification(self, retry_status: Dict):
+        """
+        发送单站点失败重试通知（兼容旧版本调用）
+        """
+        self._send_failure_retry_notification([retry_status])
+
     def send_site_messages(self):
         """
         自动向站点发送消息
@@ -557,6 +845,7 @@ class GroupChatZone(_PluginBase):
             # 执行站点发送消息
             site_results = {}
             all_feedback = []
+            all_retry_status = []  # 收集所有站点的重试状态
             
             for site in do_sites:
                 site_name = site.get("name")
@@ -583,7 +872,9 @@ class GroupChatZone(_PluginBase):
                     logger.error(f"获取站点 {site_name} 的处理器失败: {str(e)}")
                     continue
 
-                for i, message_info in enumerate(messages):
+                # 准备要发送的消息列表（过滤跳过的消息）
+                pending_messages = []
+                for message_info in messages:
                     # 检查是否需要过滤消息
                     if site_name == "大青虫" and dqc_privileges:
                         msg_type = message_info.get("type")
@@ -628,33 +919,20 @@ class GroupChatZone(_PluginBase):
                                 })
                                 continue
                     
-                    try:
-                        # 发送消息
-                        success, msg = handler.send_messagebox(message_info.get("content"))
-                        if success:
-                            success_count += 1
-                            # 获取反馈
-                            if self._get_feedback:
-                                try:
-                                    time.sleep(self._feedback_timeout)  # 等待反馈
-                                    feedback = handler.get_feedback(message_info.get("content"))
-                                    if feedback:
-                                        site_feedback.append(feedback)
-                                        all_feedback.append(feedback)
-                                except Exception as e:
-                                    logger.error(f"获取站点 {site_name} 的反馈失败: {str(e)}")
-                        else:
-                            failure_count += 1
-                            failed_messages.append(f"{message_info.get('content')} ({msg})")
-                            
-                    except Exception as e:
-                        logger.error(f"向站点 {site_name} 发送消息 '{message_info.get('content')}' 失败: {str(e)}")
-                        failure_count += 1
-                        failed_messages.append(message_info.get("content"))
-
-                    if i < len(messages) - 1:
-                        logger.info(f"等待 {self._interval_cnt} 秒后继续发送下一条消息...")
-                        time.sleep(self._interval_cnt)
+                    # 添加到待发送列表
+                    pending_messages.append(message_info)
+                
+                # 使用统一重试逻辑发送消息
+                success_count, failure_count, failed_messages_details, site_feedback, retry_status = self._send_messages_with_unified_retry(
+                    handler, pending_messages, site_name, all_feedback
+                )
+                
+                # 将详细的失败消息添加到failed_messages
+                failed_messages.extend(failed_messages_details)
+                
+                # 收集重试状态信息，稍后统一发送通知
+                if retry_status and retry_status.get("failed_messages"):
+                    all_retry_status.append(retry_status)
                 logger.debug(f"站点 {site_name} 消息处理完成，成功消息数: {success_count}")
 
                 site_results[site_name] = {
@@ -671,6 +949,13 @@ class GroupChatZone(_PluginBase):
                     self._send_notification(site_results, all_feedback, daily_bonus_result)
                 except Exception as e:
                     logger.error(f"发送通知失败: {str(e)}")
+            
+            # 统一发送失败重试通知
+            if all_retry_status:
+                try:
+                    self._send_failure_retry_notification(all_retry_status)
+                except Exception as e:
+                    logger.error(f"发送失败重试通知失败: {str(e)}")
             
             # 重新注册插件
             self.reregister_plugin()
@@ -1020,6 +1305,7 @@ class GroupChatZone(_PluginBase):
             # 执行站点发送消息
             site_results = {}
             all_feedback = []
+            all_retry_status = []  # 收集所有站点的重试状态
             
             for site in zm_sites:
                 site_name = site.get("name")
@@ -1046,37 +1332,22 @@ class GroupChatZone(_PluginBase):
                     logger.error(f"获取站点 {site_name} 的处理器失败: {str(e)}")
                     continue
 
-                for i, message_info in enumerate(messages):
-                    try:
-                        # 发送消息
-                        if "织梦" in site_name:
-                            success, msg = handler.send_messagebox(message_info.get("content"), zm_stats=zm_stats)
-                        else:
-                            success, msg = handler.send_messagebox(message_info.get("content"))
-                        if success:
-                            success_count += 1
-                            # 获取反馈
-                            if self._get_feedback:
-                                try:
-                                    time.sleep(self._feedback_timeout)  # 等待反馈
-                                    feedback = handler.get_feedback(message_info.get("content"))
-                                    if feedback:
-                                        site_feedback.append(feedback)
-                                        all_feedback.append(feedback)
-                                except Exception as e:
-                                    logger.error(f"获取站点 {site_name} 的反馈失败: {str(e)}")
-                        else:
-                            failure_count += 1
-                            failed_messages.append(f"{message_info.get('content')} ({msg})")
-                            
-                    except Exception as e:
-                        logger.error(f"向站点 {site_name} 发送消息 '{message_info.get('content')}' 失败: {str(e)}")
-                        failure_count += 1
-                        failed_messages.append(message_info.get("content"))
-
-                    if i < len(messages) - 1:
-                        logger.info(f"等待 {self._interval_cnt} 秒后继续发送下一条消息...")
-                        time.sleep(self._interval_cnt)
+                # 使用统一重试逻辑发送消息
+                if "织梦" in site_name:
+                    success_count, failure_count, failed_messages_details, site_feedback, retry_status = self._send_zm_messages_with_unified_retry(
+                        handler, messages, site_name, all_feedback, zm_stats
+                    )
+                else:
+                    success_count, failure_count, failed_messages_details, site_feedback, retry_status = self._send_messages_with_unified_retry(
+                        handler, messages, site_name, all_feedback
+                    )
+                
+                # 将详细的失败消息添加到failed_messages
+                failed_messages.extend(failed_messages_details)
+                
+                # 收集重试状态信息，稍后统一发送通知
+                if retry_status and retry_status.get("failed_messages"):
+                    all_retry_status.append(retry_status)
                 
                 # 获取最新邮件时间
                 try:
@@ -1116,6 +1387,13 @@ class GroupChatZone(_PluginBase):
                     self._send_notification(site_results, all_feedback)
                 except Exception as e:
                     logger.error(f"发送通知失败: {str(e)}")
+            
+            # 统一发送失败重试通知
+            if all_retry_status:
+                try:
+                    self._send_failure_retry_notification(all_retry_status)
+                except Exception as e:
+                    logger.error(f"发送失败重试通知失败: {str(e)}")
             
             self.reregister_plugin()
             
