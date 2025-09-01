@@ -30,6 +30,7 @@
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/ExploreServices.png",
         "author": "KoWming",
         "level": 2,
+        "release": true,
         "history": {
             "v1.0.2": "模块化处理，适配新插件加载机制。",
             "v1.0.1": "修复咪咕视频封面图片加载错误",
