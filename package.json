@@ -8,7 +8,6 @@
     "author": "KoWming",
     "level": 1,
     "v2": true,
-    "release": true,
     "history": {
       "v1.4.1": "移除主程序消息模块挟持，避免消息重复发送问题。",
       "v1.3.9": "修复已知问题，优化代码结构。",
@@ -33,7 +32,6 @@
     "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Lucky_B.png",
     "author": "KoWming",
     "level": 1,
-    "release": true,
     "history": {
         "v1.2.6": "移除开关前面的图标，优化界面显示，更新使用说明。",
         "v1.2.5": "修复移动端UI显示异常。",
@@ -56,7 +54,6 @@
     "author": "KoWming,madrays",
     "level": 2,
     "v2": true,
-    "release": true,
     "history": {
       "v2.1.5": "新增失败重试功能[避免刷屏喊话]，添加失败重试通知。",
       "v2.1.4": "优化站点选择。",
@@ -81,7 +78,6 @@
       "author": "KoWming",
       "level": 2,
       "v2": true,
-      "release": true,
       "history": {
           "v1.3.2": "新增使用代理开关，新增使用站点Cookie开关，优化推送消息输出格式，优化配置UI新增定时框根据版本动态切换(V2版本使用VCronField组件,V1版本使用VTextField组件)。",
           "v1.3.1": "修复用户信息获取失败问题。",
@@ -102,7 +98,6 @@
     "author": "KoWming",
     "level": 2,
     "v2": true,
-    "release": true,
     "history": {
         "v1.0.5": "新增使用代理开关，新增定时框根据版本动态切换(V2版本使用VCronField组件,V1版本使用VTextField组件)。",
         "v1.0.4": "调整消息类型为插件。",
@@ -121,7 +116,6 @@
     "author": "KoWming",
     "level": 1,
     "v2": true,
-    "release": true,
     "history": {
         "v1.2": "新增智能依赖处理功能：自动检测并安装插件依赖，优化插件导入验证逻辑，改进错误提示信息。",
         "v1.1": "优化插件性能，重构插件安装加载逻辑确保插件安装正确显示。新增插件安装前备份旧插件设置。",
@@ -137,7 +131,6 @@
     "author": "KoWming",
     "level": 2,
     "v2": true,
-    "release": true,
     "history": {
         "v1.2.6": "修复对战问题，优化网络连接、对战结果提取方法。",
         "v1.2.4": "修复对战失败问题，优化失败重试。",
@@ -158,7 +151,6 @@
     "author": "KoWming",
     "level": 2,
     "v2": true,
-    "release": true,
     "history": {
         "v1.2.1": "修复定时器注册缺少kwargs参数可能导致注册错误的问题。",
         "v1.2": "新增使用代理开关，新增使用站点Cookie开关。",
