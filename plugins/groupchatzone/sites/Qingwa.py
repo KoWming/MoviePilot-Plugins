@@ -32,13 +32,32 @@ class QingwaHandler(ISiteHandler):
         :param callback: 回调函数
         :return: 发送结果
         """
-        # 调用父类方法
-        result = super().send_messagebox(message, 
-                                       lambda response: " ".join(etree.HTML(response.text).xpath("//ul[1]/li/text()")))
+        try:
+            if not message:
+                return False, "消息内容不能为空"
+            
+            # 调用父类方法
+            result = super().send_messagebox(message, 
+                                           lambda response: " ".join(etree.HTML(response.text).xpath("//ul[1]/li/text()")))
 
-        # 保存结果
-        self._last_message_result = result[1] if result[0] else None
-        return result
+            # 保存结果
+            if result[0]:
+                # 发送成功
+                self._last_message_result = result[1]
+                logger.info(f"青蛙站点消息发送成功: {result[1]}")
+            else:
+                # 发送失败
+                self._last_message_result = None
+                error_msg = result[1] if result[1] else "发送失败"
+                logger.error(f"青蛙站点消息发送失败: {error_msg}")
+            
+            return result
+            
+        except Exception as e:
+            error_msg = f"发送消息时发生异常: {str(e)}"
+            logger.error(f"青蛙站点消息发送异常: {error_msg}")
+            self._last_message_result = None
+            return False, error_msg
             
     def get_feedback(self, message: str = None) -> Optional[Dict]:
         """
