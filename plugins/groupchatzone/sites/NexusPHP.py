@@ -33,6 +33,9 @@ class NexusPHPHandler(ISiteHandler):
         # 如果站点名包含"青蛙",则不是通用NexusPHP站点
         if "青蛙" in self.site_name.lower():
             return False
+        # 如果站点名包含"LongPT",则不是通用NexusPHP站点
+        if "LongPT" in self.site_name.lower():
+            return False
         
         # 如果其他特定站点处理器都不匹配，则使用此通用处理器
         return True
