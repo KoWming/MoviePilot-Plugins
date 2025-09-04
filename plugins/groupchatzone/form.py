@@ -50,7 +50,7 @@ def form(site_options) -> list:
                                             'component': 'VCol',
                                             'props': {
                                                 'cols': 12,
-                                                'md': 4
+                                                'md': 3
                                             },
                                             'content': [
                                                 {
@@ -58,6 +58,7 @@ def form(site_options) -> list:
                                                     'props': {
                                                         'model': 'enabled',
                                                         'label': '启用插件',
+                                                        'color': 'primary'
                                                     }
                                                 }
                                             ]
@@ -66,7 +67,7 @@ def form(site_options) -> list:
                                             'component': 'VCol',
                                             'props': {
                                                 'cols': 12,
-                                                'md': 4
+                                                'md': 3
                                             },
                                             'content': [
                                                 {
@@ -74,6 +75,7 @@ def form(site_options) -> list:
                                                     'props': {
                                                         'model': 'notify',
                                                         'label': '发送通知',
+                                                        'color': 'info'
                                                     }
                                                 }
                                             ]
@@ -82,7 +84,24 @@ def form(site_options) -> list:
                                             'component': 'VCol',
                                             'props': {
                                                 'cols': 12,
-                                                'md': 4
+                                                'md': 3
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'VSwitch',
+                                                    'props': {
+                                                        'model': 'use_proxy',
+                                                        'label': '启用代理',
+                                                        'color': 'success'
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            'component': 'VCol',
+                                            'props': {
+                                                'cols': 12,
+                                                'md': 3
                                             },
                                             'content': [
                                                 {
@@ -90,6 +109,7 @@ def form(site_options) -> list:
                                                     'props': {
                                                         'model': 'onlyonce',
                                                         'label': '立即运行一次',
+                                                        'color': 'warning'
                                                     }
                                                 }
                                             ]
@@ -204,7 +224,7 @@ def form(site_options) -> list:
                                             'component': 'VCol',
                                             'props': {
                                                 'cols': 12,
-                                                'md': 6
+                                                'md': 4
                                             },
                                             'content': [
                                                 {
@@ -226,7 +246,7 @@ def form(site_options) -> list:
                                             'component': 'VCol',
                                             'props': {
                                                 'cols': 12,
-                                                'md': 6
+                                                'md': 4
                                             },
                                             'content': [
                                                 {
@@ -242,6 +262,25 @@ def form(site_options) -> list:
                                                             {'title': '60分钟', 'value': 60},
                                                             {'title': '120分钟', 'value': 120}
                                                         ]
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            'component': 'VCol',
+                                            'props': {
+                                                'cols': 12,
+                                                'md': 4
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'VSwitch',
+                                                    'props': {
+                                                        'model': 'retry_notify',
+                                                        'label': '启用重试通知',
+                                                        'hint': '开启后，当喊话失败需要重试时会发送通知提醒；关闭后仅执行重试，不发送通知。',
+                                                        'persistent-hint': True,
+                                                        'color': 'error'
                                                     }
                                                 }
                                             ]
@@ -297,24 +336,9 @@ def form(site_options) -> list:
                                                 {
                                                     'component': 'VSwitch',
                                                     'props': {
-                                                        'model': 'use_proxy',
-                                                        'label': '启用代理',
-                                                    }
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            'component': 'VCol',
-                                            'props': {
-                                                'cols': 12,
-                                                'md': 3
-                                            },
-                                            'content': [
-                                                {
-                                                    'component': 'VSwitch',
-                                                    'props': {
                                                         'model': 'get_feedback',
                                                         'label': '获取反馈',
+                                                        'color': 'primary'
                                                     }
                                                 }
                                             ]
@@ -331,6 +355,7 @@ def form(site_options) -> list:
                                                     'props': {
                                                         'model': 'zm_independent',
                                                         'label': '独立织梦喊话',
+                                                        'color': 'info'
                                                     }
                                                 }
                                             ]
@@ -347,6 +372,24 @@ def form(site_options) -> list:
                                                     'props': {
                                                         'model': 'qingwa_daily_bonus',
                                                         'label': '青蛙福利购买',
+                                                        'color': 'success'
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            'component': 'VCol',
+                                            'props': {
+                                                'cols': 12,
+                                                'md': 3
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'VSwitch',
+                                                    'props': {
+                                                        'model': 'longpt_daily_lottery',
+                                                        'label': 'LongPT每日抽奖',
+                                                        'color': 'warning'
                                                     }
                                                 }
                                             ]
@@ -390,7 +433,7 @@ def form(site_options) -> list:
                                                     'props': {
                                                         'model': 'sites_messages',
                                                         'label': '自定义消息',
-                                                        'rows': 6,
+                                                        'rows': 7,
                                                         'placeholder': '每一行一个配置，配置方式：\n'
                                                                         '站点名称|消息内容1|消息内容2|消息内容3|...\n'
                                                                         '同名站点消息配置多行支持消息合并。\n'
@@ -935,6 +978,8 @@ def form(site_options) -> list:
         "use_proxy": True,
         "zm_independent": True,
         "qingwa_daily_bonus": False,
+        "longpt_daily_lottery": False,
         "retry_count": 2,
-        "retry_interval": 10
+        "retry_interval": 10,
+        "retry_notify": True
     }
