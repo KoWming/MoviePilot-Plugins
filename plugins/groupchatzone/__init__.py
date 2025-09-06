@@ -32,7 +32,7 @@ class GroupChatZone(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png"
     # 插件版本
-    plugin_version = "2.1.7"
+    plugin_version = "2.1.8"
     # 插件作者
     plugin_author = "KoWming,madrays"
     # 作者主页
@@ -339,43 +339,24 @@ class GroupChatZone(_PluginBase):
                 try:
                     # 将存储的时间字符串转换为datetime对象
                     mail_time = datetime.strptime(self._zm_mail_time, "%Y-%m-%d %H:%M:%S")
+                    # 计算24小时后的时间
+                    next_time = mail_time + timedelta(hours=24)
                     # 获取当前时间
                     now = datetime.now()
-                    
-                    # 验证邮件时间的合理性
-                    # 如果邮件时间比当前时间还新，说明时间异常，需要重新获取
-                    if mail_time > now:
-                        logger.warning(f"存储的邮件时间 {mail_time} 比当前时间还新，时间异常，将重新获取邮件时间")
-                        if self.get_zm_mail_time():
-                            # 重新计算时间参数
-                            return self.get_service()
-                        return services
-                    
-                    # 计算距离上次邮件的时间差
-                    time_since_last_mail = now - mail_time
-                    
-                    # 如果距离上次邮件不足24小时，计算剩余等待时间
-                    if time_since_last_mail.total_seconds() < 24 * 3600:
-                        remaining_time = (24 * 3600) - time_since_last_mail.total_seconds()
-                        hours = int(remaining_time // 3600)
-                        minutes = int((remaining_time % 3600) // 60)
-                        seconds = int(remaining_time % 60)
-                        logger.info(f"距离下次执行还有 {hours}小时 {minutes}分钟 {seconds}秒")
+                    # 计算时间差
+                    time_diff = next_time - now
+                    # 如果时间差小于0,说明已经超过24小时,立即执行
+                    if time_diff.total_seconds() <= 0:
+                        hours = 0
+                        minutes = 0
+                        seconds = 0
+                        logger.info("距离上次邮件已超过24小时,将立即执行")
                     else:
-                        # 如果已经超过24小时，检查是否超过48小时（防止重复执行）
-                        if time_since_last_mail.total_seconds() > 48 * 3600:
-                            logger.warning(f"距离上次邮件已超过48小时({time_since_last_mail.total_seconds() // 3600}小时)，可能存在时间异常，将重新获取邮件时间")
-                            if self.get_zm_mail_time():
-                                # 重新计算时间参数
-                                return self.get_service()
-                            return services
-                        else:
-                            # 超过24小时但未超过48小时，立即执行
-                            hours = 0
-                            minutes = 0
-                            seconds = 0
-                            logger.info("距离上次邮件已超过24小时，将立即执行")
-                            
+                        # 转换为小时、分钟、秒
+                        hours = int(time_diff.total_seconds() // 3600)
+                        minutes = int((time_diff.total_seconds() % 3600) // 60)
+                        seconds = int(time_diff.total_seconds() % 60)
+                        logger.info(f"距离下次执行还有 {hours}小时 {minutes}分钟 {seconds}秒")         
                 except Exception as e:
                     logger.error(f"计算织梦定时任务时间参数失败: {str(e)}")
                     # 立即获取邮件时间
@@ -1302,29 +1283,12 @@ class GroupChatZone(_PluginBase):
                         if latest_time:
                             try:
                                 # 将时间字符串转换为datetime对象以验证格式
-                                mail_time = datetime.strptime(latest_time, "%Y-%m-%d %H:%M:%S")
-                                now = datetime.now()
-                                
-                                # 验证时间的合理性
-                                # 如果邮件时间比当前时间还新，说明时间异常，跳过这个时间
-                                if mail_time > now:
-                                    logger.warning(f"{site_name} 站点的邮件时间 {latest_time} 比当前时间还新，时间异常，跳过")
-                                    continue
-                                
-                                # 如果邮件时间超过7天，可能有问题，记录警告但继续处理
-                                if (now - mail_time).total_seconds() > 7 * 24 * 3600:
-                                    logger.warning(f"{site_name} 站点的邮件时间 {latest_time} 距今超过7天，可能存在异常")
-                                
-                                # 检查是否比当前存储的时间更新
-                                if (self._zm_mail_time is None or 
-                                    mail_time > datetime.strptime(self._zm_mail_time, "%Y-%m-%d %H:%M:%S")):
-                                    handler._latest_message_time = latest_time
-                                    self._zm_mail_time = latest_time
-                                    # 更新配置以持久化存储
-                                    self.__update_config()
-                                    logger.info(f"成功保存 {site_name} 站点最新邮件时间: {latest_time}")
-                                else:
-                                    logger.info(f"{site_name} 站点的邮件时间 {latest_time} 不是最新的，当前存储时间: {self._zm_mail_time}")
+                                datetime.strptime(latest_time, "%Y-%m-%d %H:%M:%S")
+                                handler._latest_message_time = latest_time
+                                self._zm_mail_time = latest_time
+                                # 更新配置以持久化存储
+                                self.__update_config()
+                                logger.info(f"成功保存 {site_name} 站点最新邮件时间: {latest_time}")
                             except ValueError:
                                 logger.error(f"{site_name} 站点最新邮件时间格式错误: {latest_time}")
                         else:
@@ -1555,8 +1519,7 @@ class GroupChatZone(_PluginBase):
                         logger.info("所有重试任务完成，关闭空闲的内部调度器。")
                         # 使用 wait=False 避免在当前线程中等待自己
                         self._scheduler.shutdown(wait=False)
-                        self._scheduler = None
-                
+                        self._scheduler = None    
         except Exception as e:
             logger.error(f"执行重试任务时发生异常: {str(e)}")
         finally:
@@ -1672,9 +1635,6 @@ class GroupChatZone(_PluginBase):
                 return False
                 
             # 遍历织梦站点获取邮件时间
-            latest_mail_time = None
-            latest_site_name = None
-            
             for site in zm_sites:
                 try:
                     handler = self.get_site_handler(site)
@@ -1683,24 +1643,12 @@ class GroupChatZone(_PluginBase):
                         if latest_time:
                             try:
                                 # 将时间字符串转换为datetime对象以验证格式
-                                mail_time = datetime.strptime(latest_time, "%Y-%m-%d %H:%M:%S")
-                                now = datetime.now()
-                                
-                                # 验证时间的合理性
-                                # 如果邮件时间比当前时间还新，说明时间异常，跳过这个时间
-                                if mail_time > now:
-                                    logger.warning(f"{site.get('name')} 站点的邮件时间 {latest_time} 比当前时间还新，时间异常，跳过")
-                                    continue
-                                
-                                # 如果邮件时间超过7天，可能有问题，记录警告但继续处理
-                                if (now - mail_time).total_seconds() > 7 * 24 * 3600:
-                                    logger.warning(f"{site.get('name')} 站点的邮件时间 {latest_time} 距今超过7天，可能存在异常")
-                                
-                                # 记录最新的邮件时间
-                                if latest_mail_time is None or mail_time > datetime.strptime(latest_mail_time, "%Y-%m-%d %H:%M:%S"):
-                                    latest_mail_time = latest_time
-                                    latest_site_name = site.get('name')
-                                    
+                                datetime.strptime(latest_time, "%Y-%m-%d %H:%M:%S")
+                                self._zm_mail_time = latest_time
+                                # 更新配置以持久化存储
+                                self.__update_config()
+                                logger.info(f"成功获取 {site.get('name')} 站点最新邮件时间: {latest_time}")
+                                return True
                             except ValueError:
                                 logger.error(f"{site.get('name')} 站点最新邮件时间格式错误: {latest_time}")
                         else:
@@ -1710,22 +1658,7 @@ class GroupChatZone(_PluginBase):
                 except Exception as e:
                     logger.error(f"获取 {site.get('name')} 站点的最新邮件时间时出错: {str(e)}")
                     continue
-            
-            # 如果获取到了有效的邮件时间，更新配置
-            if latest_mail_time:
-                # 检查是否与当前存储的时间不同
-                if self._zm_mail_time != latest_mail_time:
-                    logger.info(f"更新邮件时间: {self._zm_mail_time} -> {latest_mail_time} (来自站点: {latest_site_name})")
-                    self._zm_mail_time = latest_mail_time
-                    # 更新配置以持久化存储
-                    self.__update_config()
-                else:
-                    logger.info(f"邮件时间未变化: {latest_mail_time}")
-                return True
-            else:
-                logger.warning("未能获取到任何有效的邮件时间")
-                return False
-            
+            return False  
         except Exception as e:
             logger.error(f"获取织梦站点邮件时间时发生异常: {str(e)}")
             return False
