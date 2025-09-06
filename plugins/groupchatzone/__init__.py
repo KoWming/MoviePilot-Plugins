@@ -1329,6 +1329,8 @@ class GroupChatZone(_PluginBase):
             else:
                 logger.info("没有失败消息，无需创建重试任务")
             
+            self.reregister_plugin()
+            
         except Exception as e:
             logger.error(f"发送织梦站点消息时发生异常: {str(e)}")
         finally:
