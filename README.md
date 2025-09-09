@@ -17,7 +17,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 | 7 | [🎮 象岛传说竞技场 (VicomoVS)](#7--象岛传说竞技场-vicomovs) | v1.2.6 | 象岛传说竞技场，对战boss | 站点 |
 | 8 | [🏆 织梦勋章套装奖励 (ZmedalRwd)](#8--织梦勋章套装奖励-zmedalrwd) | v1.2.1 | 领取勋章套装奖励 | 站点 |
 | 9 | [🏅 勋章墙 (MedalWall)](#9--勋章墙-medalwall) | v1.1 | 站点勋章购买提醒、统计、展示 | 站点 |
-| 10 | [🌐 NAT类型检测 (NATdetect)](#10--nat类型检测-natdetect) | v1.0 | 使用Lucky服务检测NAT类型 | 站点 |
+| 10 | [🌐 NAT类型检测 (NATdetect)](#10--nat类型检测-natdetect) | v2.0 | 检测MP所在环境的网络NAT类型 | 站点 |
 | 11 | [🌾 Vue-象岛农场 (VicomoFarm)](#11--vue-象岛农场-vicomofarm) | v1.3.0 | 监听象岛农场相关信息，我在PT学卖菜 | 站点 |
 | 12 | [🔍 资源探索集合 (ExploreServices)](#12--资源探索集合-exploreservices) | v1.0.2 | 统一管理和配置所有探索数据源插件 | 探索 |
 
@@ -227,18 +227,19 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   </details>
 
 ### 10. 🌐 NAT类型检测 (NATdetect)
-- 版本：v1.0
-- 功能：使用Lucky服务检测NAT类型
+- 版本：v2.0
+- 功能：检测MP所在环境的网络NAT类型
 - 标签：站点
 - 特点：
-  - 🌍 支持多服务器检测
-  - 🔑 API令牌校验
-  - 📝 实时日志输出
-  - ⚡ 一键检测NAT类型
+  - 🔍 独立检测方法，不依赖外部服务
+  - 🎯 精准识别网络NAT类型
+  - 📱 优化的界面显示
+  - ⚡ 快速检测响应
 - 更新说明：
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v2.0: 重构检测方法，不在依赖Lucky请求。优化界面显示。
   - v1.0: 初始版本
   </details>
 
