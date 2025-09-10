@@ -129,7 +129,6 @@ class STUNClient:
                 parsed = self._parse_address(attr_value)
                 if parsed:
                     attributes['changed_address'] = parsed
-                    logger.debug(f"解析到CHANGED_ADDRESS: {parsed}")
             elif attr_type == self.ERROR_CODE:
                 parsed = self._parse_error_code(attr_value)
                 if parsed:
@@ -143,11 +142,6 @@ class STUNClient:
                 parsed = self._parse_address(attr_value)
                 if parsed:
                     attributes['alternate_server'] = parsed
-                    
-        # 添加调试日志
-        logger.debug(f"解析到的STUN属性: {list(attributes.keys())}")
-        for key, value in attributes.items():
-            logger.debug(f"  {key}: {value}")
         return attributes
 
     def _parse_address(self, data: bytes) -> str:
@@ -231,7 +225,7 @@ class NATdetect(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/natdetect.png"
     # 插件版本
-    plugin_version = "2.0"
+    plugin_version = "2.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -272,9 +266,6 @@ class NATdetect(_PluginBase):
         "stun.radiojar.com:3478",
         "stun.sip.us:3478"
     ]
-    
-    # 服务器状态缓存: {server: (is_available, last_check_time)}
-    _server_status = {}
 
     def init_plugin(self, config: dict = None):
         if config:
@@ -289,14 +280,7 @@ class NATdetect(_PluginBase):
 
     def get_api(self) -> List[Dict[str, Any]]:
         """
-        定义API路由信息
-        返回API路由列表，每个API路由都是一个包含以下键的字典：
-        - path: API路径
-        - endpoint: 处理函数
-        - methods: 支持的HTTP方法
-        - summary: API功能简要描述
-        - description: API功能详细描述
-        - websocket: 是否是WebSocket接口（可选）
+        注册API接口
         """
         return [{
             "path": "/natdetect/start",
@@ -310,12 +294,6 @@ class NATdetect(_PluginBase):
             "methods": ["GET"],
             "summary": "获取NAT检测任务日志",
             "description": "轮询获取检测日志"
-        }, {
-            "path": "/natdetect/server_status",
-            "endpoint": self.get_server_status,
-            "methods": ["GET"],
-            "summary": "获取服务器状态",
-            "description": "获取STUN服务器可用性状态"
         }]
 
     def get_service(self) -> List[Dict[str, Any]]:
@@ -473,83 +451,6 @@ class NATdetect(_PluginBase):
             "enabled": False,
             "server": "stun.miwifi.com:3478"
         }
-        
-        # 添加内联CSS样式
-        form[0]['content'].append({
-            'component': 'style',
-            'text': """
-                /* 信息卡片样式 */
-                .info-section {
-                    margin-top: 16px;
-                }
-                
-                .info-card {
-                    display: flex;
-                    background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
-                    border-radius: 12px;
-                    padding: 12px 16px;
-                    border: 1px solid #e1f5fe;
-                    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.1);
-                }
-                
-                .info-icon {
-                    background: linear-gradient(135deg, #2196F3, #1976d2);
-                    color: white;
-                    width: 24px;
-                    height: 24px;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin-right: 10px;
-                    font-weight: bold;
-                    flex-shrink: 0;
-                    position: relative;
-                    box-shadow: 0 1px 4px rgba(33, 150, 243, 0.3);
-                }
-                
-                /* 信息图标矢量样式 */
-                .info-icon::before {
-                    content: '';
-                    display: inline-block;
-                    width: 12px;
-                    height: 12px;
-                    background-size: contain;
-                    background-repeat: no-repeat;
-                    background-position: center;
-                }
-                
-                .info-icon[data-icon="info"]::before {
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='16' x2='12' y2='12'%3E%3C/line%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'%3E%3C/line%3E%3C/svg%3E");
-                }
-                
-                .info-content {
-                    color: #1976d2;
-                    font-weight: 500;
-                    line-height: 1.4;
-                    font-size: 13px;
-                    display: flex;
-                    align-items: center;
-                }
-                
-                /* 深色模式适配 */
-                .v-theme--dark .info-card {
-                    background: linear-gradient(135deg, #2a2e42, #3d4459) !important;
-                    border: 1px solid #4a5072 !important;
-                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
-                }
-                
-                .v-theme--dark .info-icon {
-                    background: linear-gradient(135deg, #6E66ED, #5A52D5) !important;
-                }
-                
-                .v-theme--dark .info-content {
-                    color: #42A5F5 !important;
-                }
-            """
-        })
-        
-        return form
 
     def get_page(self) -> List[dict]:
         """拼装插件详情页面"""
@@ -1224,51 +1125,7 @@ class NATdetect(_PluginBase):
                     flex: 1;
                     margin-bottom: 20px;
                     box-sizing: border-box;
-                }
-                
-                /* 日志条目 */
-                .log-info, .log-warn, .log-error, .log-debug {
-                    display: flex;
-                    padding: 12px;
-                    border-radius: 8px;
-                    margin-bottom: 10px;
-                    background: #fff;
-                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
-                    border-left: 4px solid #2196F3;
-                }
-                
-                .log-warn {
-                    border-left-color: #FF9800;
-                }
-                
-                .log-error {
-                    border-left-color: #F44336;
-                }
-                
-                .log-debug {
-                    border-left-color: #78909C;
-                }
-                
-                .log-icon {
-                    margin-right: 12px;
-                    display: flex;
-                    align-items: center;
-                }
-                
-                .log-content {
-                    flex: 1;
-                }
-                
-                .log-timestamp {
-                    font-size: 12px;
-                    color: #78909c;
-                    margin-bottom: 4px;
-                }
-                
-                .log-message {
-                    font-size: 14px;
-                    color: #37474f;
-                    line-height: 1.5;
+                    clip-path: inset(0 round 12px);
                 }
                 
                 /* 按钮样式 */
@@ -1444,12 +1301,10 @@ class NATdetect(_PluginBase):
                 /* 深色模式适配 - 使用Vuetify主题系统 */
                 .v-theme--dark {
                     .modern-container {
-                        background: #0E1116 !important;
                         color: #B6BEE3 !important;
                     }
                     
                     .header-section {
-                        background: linear-gradient(135deg, #1a1d2e, #2a2e42) !important;
                         border-bottom: 1px solid #3d4459 !important;
                     }
                     
@@ -1468,7 +1323,7 @@ class NATdetect(_PluginBase):
                     }
                     
                     .card-header {
-                        background: linear-gradient(135deg, #2a2e42, #3d4459) !important;
+                        background: #2a2e42 !important;
                         border-bottom: 1px solid #4a5072 !important;
                     }
                     
@@ -1477,19 +1332,12 @@ class NATdetect(_PluginBase):
                     }
                     
                     /* 强制覆盖Vuetify卡片样式 */
-                    .v-card.v-card--variant-elevated {
-                        background: #1e1e1e !important;
-                        color: #e0e0e0 !important;
-                    }
-                    
-                    .v-card.v-card--variant-flat {
+                    .v-card {
                         background: #1e1e1e !important;
                         color: #e0e0e0 !important;
                     }
                     
                     .v-card.v-card--variant-outlined {
-                        background: #1e1e1e !important;
-                        color: #e0e0e0 !important;
                         border: 1px solid #333 !important;
                     }
                     
@@ -1500,7 +1348,6 @@ class NATdetect(_PluginBase):
                     }
                     
                     .server-select {
-                        background: #2a2e42 !important;
                         color: #B6BEE3 !important;
                     }
                     
@@ -1677,62 +1524,46 @@ class NATdetect(_PluginBase):
                         background: #4a5072 !important;
                     }
                     
-                    .v-btn--variant-flat {
-                        background: transparent !important;
-                        color: #B6BEE3 !important;
-                    }
-                    
-                    .v-btn--variant-flat:hover {
-                        background: rgba(182, 190, 227, 0.1) !important;
-                    }
-                    
+                    .v-btn--variant-flat,
                     .v-btn--variant-outlined {
                         background: transparent !important;
                         color: #B6BEE3 !important;
-                        border: 1px solid #4a5072 !important;
                     }
                     
+                    .v-btn--variant-flat:hover,
                     .v-btn--variant-outlined:hover {
                         background: rgba(182, 190, 227, 0.1) !important;
                     }
                     
+                    .v-btn--variant-outlined {
+                        border: 1px solid #4a5072 !important;
+                    }
+                    
                     /* 强制覆盖所有可能的Vuetify样式 */
-                    .v-theme--light .v-card {
+                    .v-theme--light .v-card,
+                    .v-application .v-card,
+                    .v-card[class*="card"] {
                         background: #1a1d2e !important;
                         color: #B6BEE3 !important;
                     }
                     
-                    .v-theme--light .v-card-item {
+                    .v-theme--light .v-card-item,
+                    .v-application .v-card-item,
+                    .v-card[class*="card"] .v-card-item {
                         background: #1a1d2e !important;
                         color: #B6BEE3 !important;
                     }
                     
-                    .v-theme--light .v-card-text {
+                    .v-theme--light .v-card-text,
+                    .v-application .v-card-text,
+                    .v-card[class*="card"] .v-card-text {
                         background: #1a1d2e !important;
                         color: #B6BEE3 !important;
                     }
                     
-                    .v-theme--light .v-card-title {
-                        color: #CFD3EC !important;
-                    }
-                    
-                    /* 最高优先级强制覆盖 */
-                    .v-application .v-card {
-                        background: #1a1d2e !important;
-                        color: #B6BEE3 !important;
-                    }
-                    
-                    .v-application .v-card-item {
-                        background: #1a1d2e !important;
-                        color: #B6BEE3 !important;
-                    }
-                    
-                    .v-application .v-card-text {
-                        background: #1a1d2e !important;
-                        color: #B6BEE3 !important;
-                    }
-                    
-                    .v-application .v-card-title {
+                    .v-theme--light .v-card-title,
+                    .v-application .v-card-title,
+                    .v-card[class*="card"] .v-card-title {
                         color: #CFD3EC !important;
                     }
                     
@@ -1751,26 +1582,6 @@ class NATdetect(_PluginBase):
                     
                     .v-application .v-btn {
                         color: #B6BEE3 !important;
-                    }
-                    
-                    /* 针对特定组件的强制覆盖 */
-                    .v-card[class*="card"] {
-                        background: #1a1d2e !important;
-                        color: #B6BEE3 !important;
-                    }
-                    
-                    .v-card[class*="card"] .v-card-item {
-                        background: #1a1d2e !important;
-                        color: #B6BEE3 !important;
-                    }
-                    
-                    .v-card[class*="card"] .v-card-text {
-                        background: #1a1d2e !important;
-                        color: #B6BEE3 !important;
-                    }
-                    
-                    .v-card[class*="card"] .v-card-title {
-                        color: #CFD3EC !important;
                     }
                 }
                 
@@ -1990,7 +1801,6 @@ class NATdetect(_PluginBase):
         """
         # 检查任务是否已经存在
         if task_id not in self._tasks or task_id not in self._logs:
-            logger.warning(f"任务 {task_id} 不存在或已被清理")
             return
             
         # 确保任务开始时没有重复的日志
@@ -2178,13 +1988,13 @@ class NATdetect(_PluginBase):
                     # 在NAT后
                     if mapping_behavior == 1:  # 端点独立映射
                         if filtering_behavior == 1:  # 端点独立过滤
-                            return "NAT1 (Full Cone) - 全锥型NAT"
+                            return "NAT1 - 全锥型NAT"
                         elif filtering_behavior == 2:  # 地址依赖过滤
-                            return "NAT2 (Restricted Cone) - 地址限制锥型NAT"
+                            return "NAT2 - 地址限制锥型NAT"
                         else:  # 地址和端口依赖过滤
-                            return "NAT3 (Port-Restricted Cone) - 端口限制锥型NAT"
+                            return "NAT3 - 端口限制锥型NAT"
                     else:  # 端点依赖映射
-                        return "NAT4 (Symmetric) - 对称型NAT"
+                        return "NAT4 - 对称型NAT"
                         
             finally:
                 sock.close()
@@ -2226,66 +2036,6 @@ class NATdetect(_PluginBase):
             if (time.time() - start_time) * 1000 >= timeout_ms:
                 return {"code": 200, "logs": [], "status": status, "total": len(logs)}
             await asyncio.sleep(0.1)
-    
-    async def get_server_status(self, apikey: str = Query(...)):
-        """
-        获取服务器状态
-        """
-        if apikey != settings.API_TOKEN:
-            return {"code": 401, "message": "API令牌错误!"}
-            
-        status_results = {}
-        for server in self._servers:
-            # 检查缓存
-            if server in self._server_status:
-                is_available, last_check = self._server_status[server]
-                # 如果最近1小时内检查过，则使用缓存结果
-                if time.time() - last_check < 3600:
-                    status_results[server] = is_available
-                    continue
-            
-            # 执行实际检查
-            is_available = await self._check_server_availability(server)
-            self._server_status[server] = (is_available, time.time())
-            status_results[server] = is_available
-            
-        return {"code": 200, "status": status_results}
-    
-    async def _check_server_availability(self, server: str) -> bool:
-        """
-        检查服务器是否可用
-        """
-        try:
-            if ':' in server:
-                host, port = server.split(':', 1)
-                port = int(port)
-            else:
-                host = server
-                port = 3478
-                
-            # 解析服务器地址
-            socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_DGRAM)
-            
-            # 创建UDP套接字并发送测试请求
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(2)
-            
-            try:
-                # 创建简单的STUN绑定请求
-                stun_request = (
-                    b'\x00\x01\x00\x00' +  # 消息类型和长度
-                    b'\x21\x12\xa4\x42' +  # 魔术字
-                    b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c'  # 事务ID
-                )
-                
-                sock.sendto(stun_request, (host, port))
-                sock.recvfrom(1024)
-                return True
-            finally:
-                sock.close()
-                
-        except Exception:
-            return False
     
     def stop_service(self):
         """停止插件服务"""
