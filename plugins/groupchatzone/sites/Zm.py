@@ -44,12 +44,18 @@ class ZmHandler(ISiteHandler):
                 messages = [messages]
                 
             result_list = []
+            success_count = 0
+            
             for message in messages:
                 # 发送消息
                 result = super().send_messagebox(message, lambda response: "")
                 if not result[0]:
-                    return False, "发送消息失败"
+                    logger.error(f"发送消息失败: {message}")
+                    continue
                     
+                success_count += 1
+                logger.info(f"消息发送成功: {message}")
+                
                 # 等待消息发送完成
                 time.sleep(self._feedback_timeout)
                 
@@ -57,10 +63,18 @@ class ZmHandler(ISiteHandler):
                 feedback = self._get_messagebox_feedback(message)
                 if feedback:
                     result_list.append(feedback)
+                    logger.info(f"获取到反馈: {feedback}")
+                else:
+                    logger.warning(f"未获取到反馈: {message}")
                     
             # 保存结果
             self._last_message_result = "\n".join(result_list) if result_list else None
-            return True, self._last_message_result if self._last_message_result else "消息发送成功"
+            
+            # 只有当所有消息都发送成功时才返回True
+            if success_count == len(messages):
+                return True, self._last_message_result if self._last_message_result else "消息发送成功"
+            else:
+                return False, f"部分消息发送失败，成功: {success_count}/{len(messages)}"
             
         except Exception as e:
             logger.error(f"发送消息失败: {str(e)}")
@@ -86,18 +100,8 @@ class ZmHandler(ISiteHandler):
                 }]
             }
             
-        # 如果都没有,返回默认反馈
-        return {
-            "site": self.site_name,
-            "message": message,
-            "rewards": [{
-                "type": "电力",
-                "description": "消息发送成功",
-                "amount": "",
-                "unit": "",
-                "is_negative": False
-            }]
-        }
+        # 如果没有反馈结果，返回None，避免喊话失败重试逻辑失效
+        return None
     
     def get_latest_message_time(self) -> Optional[str]:
         """
