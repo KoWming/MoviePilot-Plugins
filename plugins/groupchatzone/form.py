@@ -224,7 +224,7 @@ def form(site_options) -> list:
                                             'component': 'VCol',
                                             'props': {
                                                 'cols': 12,
-                                                'md': 4
+                                                'md': 3
                                             },
                                             'content': [
                                                 {
@@ -246,7 +246,7 @@ def form(site_options) -> list:
                                             'component': 'VCol',
                                             'props': {
                                                 'cols': 12,
-                                                'md': 4
+                                                'md': 3
                                             },
                                             'content': [
                                                 {
@@ -270,7 +270,24 @@ def form(site_options) -> list:
                                             'component': 'VCol',
                                             'props': {
                                                 'cols': 12,
-                                                'md': 4
+                                                'md': 3
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'VSelect',
+                                                    'props': {
+                                                        'model': 'zm_interval',
+                                                        'label': '独立织梦喊话间隔(秒)',
+                                                        'items': [{'title': f'{i}秒', 'value': i} for i in range(60, 121)]
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            'component': 'VCol',
+                                            'props': {
+                                                'cols': 12,
+                                                'md': 3
                                             },
                                             'content': [
                                                 {
@@ -754,6 +771,30 @@ def form(site_options) -> list:
                                                     'content': [
                                                         {
                                                             'component': 'span',
+                                                            'text': '⏱️ 独立织梦喊话间隔：可配置60-120秒之间的喊话间隔，避免过于频繁的喊话'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '🛡️ 防重复执行：内置10分钟冷却机制，防止短时间内重复执行喊话任务'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
                                                             'text': '💡 建议开启此功能，可以更精确的执行喊话任务'
                                                         }
                                                     ]
@@ -816,6 +857,30 @@ def form(site_options) -> list:
                                                         {
                                                             'component': 'span',
                                                             'text': '  • 重启或重载插件时会从持久化配置中获取邮件时间，确保定时任务正常运行'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '  • 内置10分钟冷却机制，防止短时间内重复执行喊话任务'
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    'component': 'div',
+                                                    'props': {
+                                                        'class': 'text-body-2 ml-8'
+                                                    },
+                                                    'content': [
+                                                        {
+                                                            'component': 'span',
+                                                            'text': '  • 邮件时间获取失败时，最多重试3次，超过后使用默认24小时间隔'
                                                         }
                                                     ]
                                                 }
@@ -981,5 +1046,6 @@ def form(site_options) -> list:
         "longpt_daily_lottery": False,
         "retry_count": 2,
         "retry_interval": 10,
+        "zm_interval": 60,
         "retry_notify": True
     }
