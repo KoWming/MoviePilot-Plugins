@@ -32,7 +32,7 @@ class GroupChatZone(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png"
     # 插件版本
-    plugin_version = "2.1.8"
+    plugin_version = "2.1.9"
     # 插件作者
     plugin_author = "KoWming,madrays"
     # 作者主页
@@ -55,6 +55,12 @@ class GroupChatZone(_PluginBase):
     
     #织梦邮件时间
     _zm_mail_time: Optional[int] = None
+    
+    # 织梦执行控制属性
+    _last_zm_execution_time: Optional[datetime] = None  # 上次织梦执行时间
+    _zm_execution_cooldown: int = 600 # 织梦执行冷却时间（秒），默认10分钟
+    _zm_mail_retry_count: int = 0  # 邮件时间获取重试次数
+    _max_zm_mail_retries: int = 3  # 最大重试次数
 
     # 配置属性
     _enabled: bool = False          # 是否启用插件
@@ -77,6 +83,7 @@ class GroupChatZone(_PluginBase):
     _longpt_daily_lottery: bool = False  # 是否LongPT每日抽奖
     _retry_count: int = 2          # 喊话失败重试次数
     _retry_interval: int = 10      # 喊话失败重试间隔(分钟)
+    _zm_interval: int = 60      # 独立织梦喊话间隔(秒)
     _retry_notify: bool = True     # 是否发送重试通知
     
     # 重试相关属性
@@ -115,7 +122,19 @@ class GroupChatZone(_PluginBase):
             self._retry_count = int(config.get("retry_count", 2))
             self._retry_interval = int(config.get("retry_interval", 10))
             self._retry_notify = bool(config.get("retry_notify", True))
+            self._zm_interval = int(config.get("zm_interval", 60))
             self._zm_mail_time = config.get("zm_mail_time")
+            
+            # 恢复织梦执行控制状态
+            self._last_zm_execution_time = config.get("last_zm_execution_time")
+            if self._last_zm_execution_time and isinstance(self._last_zm_execution_time, str):
+                try:
+                    self._last_zm_execution_time = datetime.fromisoformat(self._last_zm_execution_time)
+                except ValueError:
+                    self._last_zm_execution_time = None
+            self._zm_execution_cooldown = int(config.get("zm_execution_cooldown", 3600))
+            self._zm_mail_retry_count = int(config.get("zm_mail_retry_count", 0))
+            self._max_zm_mail_retries = int(config.get("max_zm_mail_retries", 3))
             
             # 恢复重试相关状态
             self._failed_messages = config.get("failed_messages", [])
@@ -226,6 +245,11 @@ class GroupChatZone(_PluginBase):
                 "use_proxy": self._use_proxy,
                 "zm_independent": self._zm_independent,
                 "zm_mail_time": self._zm_mail_time,
+                "zm_interval": self._zm_interval,
+                "last_zm_execution_time": self._last_zm_execution_time.isoformat() if self._last_zm_execution_time else None,
+                "zm_execution_cooldown": self._zm_execution_cooldown,
+                "zm_mail_retry_count": self._zm_mail_retry_count,
+                "max_zm_mail_retries": self._max_zm_mail_retries,
                 "qingwa_daily_bonus": self._qingwa_daily_bonus,
                 "longpt_daily_lottery": self._longpt_daily_lottery,
                 "retry_count": self._retry_count,
@@ -1144,6 +1168,16 @@ class GroupChatZone(_PluginBase):
             return
             
         try:
+            # 检查冷却时间
+            if self._last_zm_execution_time:
+                time_since_last = datetime.now() - self._last_zm_execution_time
+                if time_since_last.total_seconds() < self._zm_execution_cooldown:
+                    remaining_time = self._zm_execution_cooldown - time_since_last.total_seconds()
+                    logger.info(f"织梦站点执行冷却中，距离下次可执行还有 {remaining_time:.0f} 秒")
+                    return
+            
+            # 记录执行时间
+            self._last_zm_execution_time = datetime.now()
             self._running = True
             
             # 清空之前的失败消息列表
@@ -1272,8 +1306,8 @@ class GroupChatZone(_PluginBase):
                         })
 
                     if i < len(messages) - 1:
-                        logger.info(f"等待 {self._interval_cnt} 秒后继续发送下一条消息...")
-                        time.sleep(self._interval_cnt)
+                        logger.info(f"等待 {self._zm_interval} 秒后继续发送下一条消息...")
+                        time.sleep(self._zm_interval)
                 
                 # 获取最新邮件时间
                 try:
@@ -1626,6 +1660,15 @@ class GroupChatZone(_PluginBase):
         :return: 是否成功获取
         """
         try:
+            # 如果重试次数过多，使用默认间隔
+            if self._zm_mail_retry_count >= self._max_zm_mail_retries:
+                logger.warning(f"邮件时间获取失败次数过多（{self._zm_mail_retry_count}次），使用默认24小时间隔")
+                # 设置一个默认的邮件时间（24小时前）
+                self._zm_mail_time = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+                self._zm_mail_retry_count = 0  # 重置重试计数
+                self.__update_config()
+                return True
+            
             # 获取所有站点
             all_sites = [site for site in self.sites.get_indexers() if not site.get("public")] + self.__custom_sites()
             
@@ -1634,6 +1677,7 @@ class GroupChatZone(_PluginBase):
             
             if not zm_sites:
                 logger.info("没有找到选中的织梦站点")
+                self._zm_mail_retry_count += 1
                 return False
                 
             # 遍历织梦站点获取邮件时间
@@ -1647,6 +1691,7 @@ class GroupChatZone(_PluginBase):
                                 # 将时间字符串转换为datetime对象以验证格式
                                 datetime.strptime(latest_time, "%Y-%m-%d %H:%M:%S")
                                 self._zm_mail_time = latest_time
+                                self._zm_mail_retry_count = 0  # 重置重试计数
                                 # 更新配置以持久化存储
                                 self.__update_config()
                                 logger.info(f"成功获取 {site.get('name')} 站点最新邮件时间: {latest_time}")
@@ -1660,9 +1705,14 @@ class GroupChatZone(_PluginBase):
                 except Exception as e:
                     logger.error(f"获取 {site.get('name')} 站点的最新邮件时间时出错: {str(e)}")
                     continue
+            
+            # 如果所有站点都获取失败，增加重试计数
+            self._zm_mail_retry_count += 1
+            logger.warning(f"获取邮件时间失败，重试次数: {self._zm_mail_retry_count}/{self._max_zm_mail_retries}")
             return False  
         except Exception as e:
             logger.error(f"获取织梦站点邮件时间时发生异常: {str(e)}")
+            self._zm_mail_retry_count += 1
             return False
 
 class NotificationIcons:
