@@ -15,6 +15,7 @@ from app.plugins import _PluginBase
 from app.schemas import MessageChannel, Notification, NotificationType
 from app.utils.http import RequestUtils
 from app.chain.message import MessageChain
+from app.helper.wallpaper import WallpaperHelper
 
 class NotifyRequest(BaseModel):
     title: str
@@ -28,7 +29,7 @@ class MsgNotify(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/MsgNotify.png"
     # 插件版本
-    plugin_version = "1.4.1"
+    plugin_version = "1.4.2"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -84,8 +85,10 @@ class MsgNotify(_PluginBase):
                         image_urls = []
                         for url in url_parts:
                             url = url.lstrip('/')
-                            if url and url.lower().startswith('http'):
-                                image_urls.append(url)
+                            if url:
+                                # 允许http/https以及内置占位符
+                                if url.lower().startswith('http') or url in ("背景壁纸", "背景壁纸列表"):
+                                    image_urls.append(url)
                         # 合并
                         if keyword not in image_mapping_dict:
                             image_mapping_dict[keyword] = {
@@ -168,10 +171,31 @@ class MsgNotify(_PluginBase):
                 for key, value in mapping.items():
                     if key.startswith("image_url") and value and value.strip():
                         image_urls.append(value)
-                
-                # 如果找到图片URL,使用历史记录避免重复
+                # 解析占位符为真实图片URL
+                resolved_urls = []
                 if image_urls:
-                    selected_url = self._select_random_image(keyword, image_urls)
+                    helper = WallpaperHelper()
+                    for u in image_urls:
+                        if u == "背景壁纸":
+                            try:
+                                _u = helper.get_wallpaper()
+                                if _u:
+                                    resolved_urls.append(_u)
+                            except Exception:
+                                pass
+                        elif u == "背景壁纸列表":
+                            try:
+                                _list = helper.get_wallpapers()
+                                if _list:
+                                    resolved_urls.extend(_list)
+                            except Exception:
+                                pass
+                        else:
+                            resolved_urls.append(u)
+
+                # 如果找到图片URL,使用历史记录避免重复
+                if resolved_urls:
+                    selected_url = self._select_random_image(keyword, resolved_urls)
                     logger.info(f"为关键词 '{keyword}' 选择图片: {selected_url}, 使用样式: {style}")
                     return selected_url, style
                 else:
@@ -603,7 +627,7 @@ class MsgNotify(_PluginBase):
                                                                     'height': 400,
                                                                     'auto-grow': False,
                                                                     'hide-details': False,
-                                                                    'placeholder': '群辉|https://example.com/1.jpg|/https://example.com/2.jpg|card\n群辉|https://example.com/3.jpg\nLucky|card'
+                                                                    'placeholder': '群辉|https://example.com/1.jpg|/https://example.com/2.jpg|card\n群辉|https://example.com/3.jpg\n群辉|背景壁纸|card\n群辉|背景壁纸列表|card\nLucky|card'
                                                                 }
                                                             }
                                                         ]
@@ -1117,6 +1141,38 @@ class MsgNotify(_PluginBase):
                                                             {
                                                                 'component': 'span',
                                                                 'text': 'Lucky|card'
+                                                            }
+                                                        ]
+                                                    }
+                                                    ,
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'text-body-2 mt-2 ml-8'
+                                                        },
+                                                        'text': '使用MoviePilot登陆页背景壁纸：'
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'text-body-2 ml-8'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'span',
+                                                                'text': '群辉|背景壁纸|card'
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {
+                                                            'class': 'text-body-2 ml-8'
+                                                        },
+                                                        'content': [
+                                                            {
+                                                                'component': 'span',
+                                                                'text': '群辉|背景壁纸列表|card'
                                                             }
                                                         ]
                                                     }
