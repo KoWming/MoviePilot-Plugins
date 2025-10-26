@@ -32,7 +32,7 @@ class GroupChatZone(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png"
     # 插件版本
-    plugin_version = "2.1.9"
+    plugin_version = "2.2.0"
     # 插件作者
     plugin_author = "KoWming,madrays"
     # 作者主页
@@ -91,6 +91,21 @@ class GroupChatZone(_PluginBase):
     _current_retry_count: int = 0      # 当前重试次数
     _next_retry_time: Optional[datetime] = None       # 下次重试的精确时间
     _retry_lock: Optional[threading.Lock] = None  # 重试任务锁
+    _failed_messages_max: int = 100  # 失败消息最大保留条数，防止内存增长
+
+    def _prune_failed_messages(self) -> None:
+        """
+        失败消息内存清理：超过最大阈值时，仅保留最新的 100 条。
+        """
+        try:
+            if isinstance(self._failed_messages, list):
+                total = len(self._failed_messages)
+                if total > self._failed_messages_max:
+                    drop = total - self._failed_messages_max
+                    self._failed_messages = self._failed_messages[-self._failed_messages_max:]
+                    logger.warning(f"失败消息过多，已清理较早的 {drop} 条，仅保留最近 {self._failed_messages_max} 条")
+        except Exception as e:
+            logger.error(f"清理失败消息时发生异常: {str(e)}")
 
     def init_plugin(self, config: Optional[dict] = None):
         self._lock = threading.Lock()
@@ -132,18 +147,22 @@ class GroupChatZone(_PluginBase):
                     self._last_zm_execution_time = datetime.fromisoformat(self._last_zm_execution_time)
                 except ValueError:
                     self._last_zm_execution_time = None
-            self._zm_execution_cooldown = int(config.get("zm_execution_cooldown", 3600))
+            self._zm_execution_cooldown = int(config.get("zm_execution_cooldown", 600))
             self._zm_mail_retry_count = int(config.get("zm_mail_retry_count", 0))
             self._max_zm_mail_retries = int(config.get("max_zm_mail_retries", 3))
             
             # 恢复重试相关状态
             self._failed_messages = config.get("failed_messages", [])
+            # 清理超量的失败消息，避免历史数据过大
+            self._prune_failed_messages()
             self._current_retry_count = int(config.get("current_retry_count", 0))
             next_retry_time_str = config.get("next_retry_time")
             if next_retry_time_str:
                 try:
                     # 确保从字符串转换回带时区的datetime对象
-                    self._next_retry_time = datetime.fromisoformat(next_retry_time_str).replace(tzinfo=pytz.timezone(settings.TZ))
+                    tz = pytz.timezone(settings.TZ)
+                    parsed = datetime.fromisoformat(next_retry_time_str)
+                    self._next_retry_time = parsed if parsed.tzinfo else tz.localize(parsed)
                 except (ValueError, TypeError):
                     self._next_retry_time = None
             else:
@@ -166,6 +185,9 @@ class GroupChatZone(_PluginBase):
             if self._onlyonce:
                 try:
                     logger.info("群聊区服务启动，立即运行一次")
+
+                    # 清除织梦冷却时间，确保本次立即执行不受冷却限制
+                    self._last_zm_execution_time = None
 
                     # 先启动织梦站点任务
                     if self._zm_independent:
@@ -361,26 +383,27 @@ class GroupChatZone(_PluginBase):
             # 添加织梦定时任务
             if self._zm_mail_time:
                 try:
-                    # 将存储的时间字符串转换为datetime对象
+                    tz = pytz.timezone(settings.TZ)
+                    # 将存储的时间字符串转换为 aware datetime（带时区）
                     mail_time = datetime.strptime(self._zm_mail_time, "%Y-%m-%d %H:%M:%S")
-                    # 计算24小时后的时间
+                    if mail_time.tzinfo is None:
+                        mail_time = tz.localize(mail_time)
+                    # 计算24小时后的时间（aware）
                     next_time = mail_time + timedelta(hours=24)
-                    # 获取当前时间
-                    now = datetime.now()
-                    # 计算时间差
-                    time_diff = next_time - now
-                    # 如果时间差小于0,说明已经超过24小时,立即执行
-                    if time_diff.total_seconds() <= 0:
-                        hours = 0
-                        minutes = 0
-                        seconds = 0
+                    # 获取当前 aware 时间
+                    now = datetime.now(tz=tz)
+                    # 若已过期，则顺延到当前+3秒
+                    if (next_time - now).total_seconds() <= 0:
                         logger.info("距离上次邮件已超过24小时,将立即执行")
+                        next_time = now + timedelta(seconds=3)
+                        hours = minutes = seconds = 0
                     else:
-                        # 转换为小时、分钟、秒
-                        hours = int(time_diff.total_seconds() // 3600)
-                        minutes = int((time_diff.total_seconds() % 3600) // 60)
-                        seconds = int(time_diff.total_seconds() % 60)
-                        logger.info(f"距离下次执行还有 {hours}小时 {minutes}分钟 {seconds}秒")         
+                        # 转换为小时、分钟、秒（仅用于日志显示）
+                        diff_seconds = int((next_time - now).total_seconds())
+                        hours = diff_seconds // 3600
+                        minutes = (diff_seconds % 3600) // 60
+                        seconds = diff_seconds % 60
+                        logger.info(f"距离下次执行还有 {hours}小时 {minutes}分钟 {seconds}秒")
                 except Exception as e:
                     logger.error(f"计算织梦定时任务时间参数失败: {str(e)}")
                     # 立即获取邮件时间
@@ -411,15 +434,13 @@ class GroupChatZone(_PluginBase):
                 services.append({
                     "id": "GroupChatZoneZm",
                     "name": "群聊区 - 织梦定时任务",
-                    "trigger": "interval", 
+                    "trigger": "date",
                     "func": self.send_zm_site_messages,
                     "kwargs": {
-                        "hours": hours,
-                        "minutes": minutes,
-                        "seconds": seconds
+                        "run_date": next_time
                     }
                 })
-                logger.info("已添加织梦定时任务")
+                logger.info(f"已添加织梦定时任务（date）：将在 {next_time.strftime('%Y-%m-%d %H:%M:%S')} 运行")
             else:
                 if has_zm_site:
                     logger.info("有织梦站点但未开启独立织梦喊话开关，不添加织梦定时任务")
@@ -433,8 +454,9 @@ class GroupChatZone(_PluginBase):
                 "name": f"群聊区 - 重试任务 (第{self._current_retry_count + 1}次)",
                 "trigger": "date",
                 "func": self._execute_retry,
-                "kwargs": {},
-                "run_date": self._next_retry_time
+                "kwargs": {
+                    "run_date": self._next_retry_time
+                }
             })
             logger.info(f"已注册重试任务，将在 {self._next_retry_time.strftime('%Y-%m-%d %H:%M:%S')} 执行")
 
@@ -800,7 +822,8 @@ class GroupChatZone(_PluginBase):
                     "feedback": site_feedback
                 }
 
-            # 保存配置以持久化失败消息
+            # 保存配置以持久化失败消息（保存前先清理）
+            self._prune_failed_messages()
             self.__update_config()
             
             # 先发送任务完成通知
@@ -995,10 +1018,11 @@ class GroupChatZone(_PluginBase):
                     # 如果是织梦站点并且有最新邮件时间，则显示
                     if handler and is_zm_site and hasattr(handler, '_latest_message_time') and handler._latest_message_time:
                         # 将时间字符串转换为datetime对象
-                        latest_time = datetime.strptime(handler._latest_message_time, "%Y-%m-%d %H:%M:%S")
-                        # 计算距离下次执行的时间差
-                        now = datetime.now()
-                        seconds_diff = 24 * 3600 - (now - latest_time).total_seconds()
+                        tz = pytz.timezone(settings.TZ)
+                        latest_time = tz.localize(datetime.strptime(handler._latest_message_time, "%Y-%m-%d %H:%M:%S"))
+                        # 计算距离下次执行的时间差（统一使用 aware 时间）
+                        now = datetime.now(tz=tz)
+                        seconds_diff = 24 * 3600 - int((now - latest_time).total_seconds())
                         hours = int(seconds_diff // 3600)
                         minutes = int((seconds_diff % 3600) // 60)
                         seconds = int(seconds_diff % 60)
@@ -1170,14 +1194,19 @@ class GroupChatZone(_PluginBase):
         try:
             # 检查冷却时间
             if self._last_zm_execution_time:
-                time_since_last = datetime.now() - self._last_zm_execution_time
+                tz = pytz.timezone(settings.TZ)
+                last = self._last_zm_execution_time
+                if last.tzinfo is None:
+                    last = tz.localize(last)
+                time_since_last = datetime.now(tz=tz) - last
                 if time_since_last.total_seconds() < self._zm_execution_cooldown:
                     remaining_time = self._zm_execution_cooldown - time_since_last.total_seconds()
                     logger.info(f"织梦站点执行冷却中，距离下次可执行还有 {remaining_time:.0f} 秒")
                     return
             
             # 记录执行时间
-            self._last_zm_execution_time = datetime.now()
+            tz = pytz.timezone(settings.TZ)
+            self._last_zm_execution_time = datetime.now(tz=tz)
             self._running = True
             
             # 清空之前的失败消息列表
@@ -1398,31 +1427,12 @@ class GroupChatZone(_PluginBase):
         self.__update_config()
         
         logger.info(f"已创建重试任务，将在 {next_retry_time.strftime('%Y-%m-%d %H:%M:%S')} 执行第 {self._current_retry_count + 1} 次重试")
-        
-        # 使用插件内部调度器动态添加一次性重试任务
-        try:
-            # 确保插件调度器已初始化
-            if not self._scheduler or not self._scheduler.running:
-                self._scheduler = BackgroundScheduler(timezone=settings.TZ)
-                self._scheduler.start()
 
-            # 添加一次性的重试任务
-            self._scheduler.add_job(
-                id="GroupChatZoneRetry",
-                name=f"群聊区 - 内部重试 (第{self._current_retry_count + 1}次)",
-                func=self._execute_retry,
-                trigger="date",
-                run_date=next_retry_time,
-                replace_existing=True
-            )
-            logger.info(f"已成功添加内部重试任务，将在 {next_retry_time.strftime('%Y-%m-%d %H:%M:%S')} 执行")
-
-            # 发送重试通知（如果开关开启）
-            if self._retry_notify:
-                self._send_retry_notification(next_retry_time)
-
-        except Exception as e:
-            logger.error(f"添加内部重试任务失败: {e}")
+        # 发送重试通知（如果开关开启）
+        if self._retry_notify:
+            self._send_retry_notification(next_retry_time)
+        # 触发插件重新注册，让外部调度拾取新的重试任务
+        self.reregister_plugin()
 
     def _execute_retry(self):
         """
@@ -1524,7 +1534,8 @@ class GroupChatZone(_PluginBase):
             # 增加重试次数
             self._current_retry_count += 1
             
-            # 保存配置以持久化失败消息和重试状态
+            # 保存配置以持久化失败消息和重试状态（保存前先清理）
+            self._prune_failed_messages()
             self.__update_config()
             
             # 清理当前执行的重试任务时间点
@@ -1548,14 +1559,6 @@ class GroupChatZone(_PluginBase):
                 if self._notify:
                     self._send_final_retry_notification(retry_results)
 
-                # 关闭内部调度器
-                if self._scheduler and self._scheduler.running:
-                    # 检查是否还有其他任务，如果没有，则关闭
-                    if not self._scheduler.get_jobs():
-                        logger.info("所有重试任务完成，关闭空闲的内部调度器。")
-                        # 使用 wait=False 避免在当前线程中等待自己
-                        self._scheduler.shutdown(wait=False)
-                        self._scheduler = None    
         except Exception as e:
             logger.error(f"执行重试任务时发生异常: {str(e)}")
         finally:
@@ -1663,8 +1666,9 @@ class GroupChatZone(_PluginBase):
             # 如果重试次数过多，使用默认间隔
             if self._zm_mail_retry_count >= self._max_zm_mail_retries:
                 logger.warning(f"邮件时间获取失败次数过多（{self._zm_mail_retry_count}次），使用默认24小时间隔")
-                # 设置一个默认的邮件时间（24小时前）
-                self._zm_mail_time = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+                # 将邮件时间设置为当前时间，从而下次执行时间为 当前时间 + 24 小时
+                tz = pytz.timezone(settings.TZ)
+                self._zm_mail_time = datetime.now(tz=tz).strftime("%Y-%m-%d %H:%M:%S")
                 self._zm_mail_retry_count = 0  # 重置重试计数
                 self.__update_config()
                 return True
