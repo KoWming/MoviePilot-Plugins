@@ -15,7 +15,7 @@ from app.plugins import _PluginBase
 from app.schemas import MessageChannel, Notification, NotificationType
 from app.utils.http import RequestUtils
 from app.chain.message import MessageChain
-from app.helper.wallpaper import WallpaperHelper
+from app.helper.image import WallpaperHelper
 
 class NotifyRequest(BaseModel):
     title: str
@@ -29,7 +29,7 @@ class MsgNotify(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/MsgNotify.png"
     # 插件版本
-    plugin_version = "1.4.2"
+    plugin_version = "1.4.3"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
