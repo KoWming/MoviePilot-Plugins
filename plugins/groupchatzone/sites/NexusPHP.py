@@ -2,6 +2,7 @@ from typing import Dict, Optional, Tuple
 from urllib.parse import urljoin
 from lxml import etree
 import re
+import time
 
 from app.log import logger
 from app.utils.string import StringUtils
@@ -56,6 +57,11 @@ class NexusPHPHandler(ISiteHandler):
             if not username:
                 return result
                 
+            # 如果是藏宝阁站点，等待60秒再获取消息
+            if "藏宝阁" in self.site_name:
+                logger.info(f"站点: {self.site_name}, 等待65秒获取反馈消息...")
+                time.sleep(65)
+
             # 获取最新10条消息
             response = self._send_get_request(self.shoutbox_url)
             if not response:
