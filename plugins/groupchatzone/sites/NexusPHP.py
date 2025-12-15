@@ -2,7 +2,6 @@ from typing import Dict, Optional, Tuple
 from urllib.parse import urljoin
 from lxml import etree
 import re
-import time
 
 from app.log import logger
 from app.utils.string import StringUtils
@@ -25,20 +24,10 @@ class NexusPHPHandler(ISiteHandler):
         """
         判断是否为通用NexusPHP站点
         """
-        # 如果站点名包含"织梦",则不是通用NexusPHP站点
-        if "织梦" in self.site_name.lower():
+        # 排除已经有特定适配的站点
+        excluded_sites = ["织梦", "象站", "青蛙", "LongPT", "藏宝阁", "Moment", "13City", "好学", "PTS", "天枢"]
+        if any(site in self.site_name for site in excluded_sites):
             return False
-        # 如果站点名包含"象站",则不是通用NexusPHP站点
-        if "象站" in self.site_name.lower():
-            return False
-        # 如果站点名包含"青蛙",则不是通用NexusPHP站点
-        if "青蛙" in self.site_name.lower():
-            return False
-        # 如果站点名包含"LongPT",则不是通用NexusPHP站点
-        if "LongPT" in self.site_name.lower():
-            return False
-        
-        # 如果其他特定站点处理器都不匹配，则使用此通用处理器
         return True
         
     def send_messagebox(self, message: str = None, callback=None) -> Tuple[bool, str]:
@@ -56,11 +45,6 @@ class NexusPHPHandler(ISiteHandler):
             username = self.get_username()
             if not username:
                 return result
-                
-            # 如果是藏宝阁站点，等待60秒再获取消息
-            if "藏宝阁" in self.site_name:
-                logger.info(f"站点: {self.site_name}, 等待65秒获取反馈消息...")
-                time.sleep(65)
 
             # 获取最新10条消息
             response = self._send_get_request(self.shoutbox_url)
