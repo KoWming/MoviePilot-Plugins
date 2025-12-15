@@ -1,5 +1,5 @@
 from typing import Tuple
-from loguru import logger
+from app.log import logger
 import re
 from .NexusPHP import NexusPHPHandler
 from . import ISiteHandler
