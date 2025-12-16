@@ -25,7 +25,7 @@ class NexusPHPHandler(ISiteHandler):
         判断是否为通用NexusPHP站点
         """
         # 排除已经有特定适配的站点
-        excluded_sites = ["织梦", "象站", "青蛙", "LongPT", "藏宝阁", "Moment", "13City", "好学", "PTS", "天枢"]
+        excluded_sites = ["织梦", "象站", "青蛙", "LongPT", "藏宝阁", "Moment", "13City", "好学", "PTS", "天枢", "LuckPT", "幸运"]
         if any(site in self.site_name for site in excluded_sites):
             return False
         return True

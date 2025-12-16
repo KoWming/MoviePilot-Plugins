@@ -2,7 +2,6 @@ from typing import Tuple
 from app.log import logger
 import re
 from .NexusPHP import NexusPHPHandler
-from . import ISiteHandler
 
 class PtskitHandler(NexusPHPHandler):
     """
@@ -17,33 +16,38 @@ class PtskitHandler(NexusPHPHandler):
         return "PTS" in self.site_name
 
     def send_messagebox(self, message: str = None, callback=None) -> Tuple[bool, str]:
-    """
-    发送消息并获取反馈，专门处理 alert 弹窗
-    """
-    def parse_alert(response):
-        content = response.text
-        match = re.search(r"(?:window\.|)alert\((['\"])(.*?)\1\)", content)
-
-        if match:
-            return match.group(2)
-
-        # 如果没找到 alert，尝试回退到标准解析
+        """
+        发送消息并获取反馈，专门处理 alert 弹窗
+        """
         try:
-            from lxml import etree
-            html = etree.HTML(content)
-            text = " ".join(html.xpath("//tr[1]/td//text()")).strip()
-            if text:
-                return text
-        except:
-            pass
+            # 构造请求参数
+            params = {
+                'shbox_text': message,
+                'sent': 'yes',
+                'type': 'shoutbox'
+            }
+            
+            # 发送 GET 请求
+            response = self._send_get_request(self.shoutbox_url, params=params)
+            
+            if not response:
+                return False, "请求失败"
+                
+            content = response.text
+            
+            # 解析 alert 弹窗内容
+            match = re.search(r"alert\s*\(\s*(['\"])(.*?)\1\s*\)", content, re.DOTALL | re.IGNORECASE)
+            
+            if match:
+                feedback = match.group(2)
+                feedback = feedback.replace("\\'", "'").replace('\\"', '"').replace("\\n", "\n")
+                
+                if callback:
+                    callback(True, feedback)
+                return True, feedback
+            
+            return True, "消息已发送 (无弹窗反馈)"
 
-        logger.warning(f"Ptskit: 未在响应中找到 alert 弹窗。响应片段: {content[:100]}")
-        return "发送成功，但无法解析反馈 (未发现弹窗)"
-
-    try:
-        # 关键字参数传递，避免参数重复赋值
-        return ISiteHandler.send_messagebox(self, message=message, callback=callback, rt_method=parse_alert)
-
-    except Exception as e:
-        logger.error(f"Ptskit 发送消息失败: {str(e)}")
-        return False, str(e)
+        except Exception as e:
+            logger.error(f"Ptskit 发送消息失败: {str(e)}")
+            return False, str(e)
