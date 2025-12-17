@@ -23,6 +23,7 @@ class PtskitHandler(NexusPHPHandler):
             # 构造请求参数
             params = {
                 'shbox_text': message,
+                'shout': '我喊',
                 'sent': 'yes',
                 'type': 'shoutbox'
             }
@@ -35,18 +36,27 @@ class PtskitHandler(NexusPHPHandler):
                 
             content = response.text
             
-            # 解析 alert 弹窗内容
-            match = re.search(r"alert\s*\(\s*(['\"])(.*?)\1\s*\)", content, re.DOTALL | re.IGNORECASE)
+            # 匹配 alert 弹窗内容
+            match = re.search(r"alert\s*\(\s*(['\"])(.*?)\1\s*\)", content)
             
             if match:
                 feedback = match.group(2)
+                # 处理转义字符
                 feedback = feedback.replace("\\'", "'").replace('\\"', '"').replace("\\n", "\n")
                 
+                self._last_message_result = feedback
                 if callback:
                     callback(True, feedback)
                 return True, feedback
             
-            return True, "消息已发送 (无弹窗反馈)"
+            # 检查发送成功标识
+            if 'document.getElementById("hbsubmit").disabled=false' in content:
+                msg = "消息已发送 (未检测到反馈弹窗)"
+                self._last_message_result = msg
+                logger.info(f"Ptskit {msg}")
+                return True, msg
+
+            return True, "消息已发送 (无明显反馈)"
 
         except Exception as e:
             logger.error(f"Ptskit 发送消息失败: {str(e)}")

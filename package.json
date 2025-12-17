@@ -53,13 +53,14 @@
     "name": "群聊区",
     "description": "执行站点喊话、获取反馈、定时任务。",
     "labels": "站点",
-    "version": "2.2.5",
+    "version": "2.2.6",
     "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png",
     "author": "KoWming,madrays",
     "level": 2,
     "v2": true,
     "release": true,
     "history": {
+      "v2.2.6": "修复ptskit正确获取反馈消息。",
       "v2.2.5": "修复ptskit无站点处理器问题、适配幸运反馈消息获取。",
       "v1.3.0": "感谢@madrays大佬添加喊话反馈功能！"
     }
