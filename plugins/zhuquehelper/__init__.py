@@ -24,7 +24,7 @@ class ZhuqueHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/zhuquehelper.png"
     # 插件版本
-    plugin_version = "1.3.2"
+    plugin_version = "1.3.3"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -1334,7 +1334,7 @@ class ZhuqueHelper(_PluginBase):
                                                 'show': True
                                             },
                                             'y': {
-                                                'formatter': lambda val: f"{val:.2f} 灵石"
+                                                'formatter': "function(val) { return Number(val).toFixed(2) + ' 灵石' }"
                                             }
                                         }
                                     },
