@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional
 from lxml import etree
 
 from app.log import logger
@@ -15,6 +15,26 @@ class ThirteenCityHandler(NexusPHPHandler):
         判断是否为13City站点
         """
         return "13City" in self.site_name
+
+    def get_feedback(self, message: str = None) -> Optional[dict]:
+        """
+        获取消息反馈
+        :param message: 消息内容
+        :return: 反馈信息字典
+        """
+        try:
+            # 调用父类方法处理反馈结果
+            result = super().get_feedback(message)
+            
+            # 补充处理 "啤酒瓶" 奖励类型
+            if result and "rewards" in result and self._last_message_result:
+                if "啤酒瓶" in self._last_message_result:
+                    result["rewards"][0]["type"] = "啤酒瓶"
+            
+            return result
+        except Exception as e:
+            logger.error(f"解析反馈消息失败: {str(e)}")
+            return None
 
     def send_messagebox(self, message: str = None, callback=None) -> Tuple[bool, str]:
         """

@@ -1,6 +1,6 @@
 from typing import Dict, Optional, Tuple
 import json
-
+import re
 from app.log import logger
 from app.utils.string import StringUtils
 from app.db.site_oper import SiteOper
@@ -92,8 +92,12 @@ class LongPTHandler(ISiteHandler):
         """
         # 如果有最后一次消息发送结果,使用它
         if self._last_message_result:
+            # 清理消息内容，去除 ,[emXXX] 格式的标签代码
+            clean_message = re.sub(r',\[em\d+\]', '', self._last_message_result)
+            clean_message = clean_message.strip()
+            
             # 分析反馈消息内容,确定奖励类型
-            feedback_text = self._last_message_result.lower()
+            feedback_text = clean_message.lower()
             reward_type = "raw_feedback"  # 默认类型
             
             # 根据关键词匹配奖励类型
@@ -103,19 +107,13 @@ class LongPTHandler(ISiteHandler):
                 reward_type = "上传量"
             elif any(keyword in feedback_text for keyword in ["下载"]):
                 reward_type = "下载量"
-            elif any(keyword in feedback_text for keyword in ["工分"]):
-                reward_type = "工分"
-            elif any(keyword in feedback_text for keyword in ["vip"]):
-                reward_type = "VIP"
-            elif any(keyword in feedback_text for keyword in ["彩虹id"]):
-                reward_type = "彩虹ID"
                 
             return {
                 "site": self.site_name,
                 "message": message,
                 "rewards": [{
                     "type": reward_type,
-                    "description": self._last_message_result,
+                    "description": clean_message,
                     "amount": "",
                     "unit": "",
                     "is_negative": False

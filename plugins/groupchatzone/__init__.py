@@ -32,7 +32,7 @@ class GroupChatZone(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png"
     # 插件版本
-    plugin_version = "2.2.6"
+    plugin_version = "2.2.7"
     # 插件作者
     plugin_author = "KoWming,madrays"
     # 作者主页
@@ -810,8 +810,10 @@ class GroupChatZone(_PluginBase):
                         })
 
                     if i < len(messages) - 1:
-                        logger.info(f"等待 {self._interval_cnt} 秒后继续发送下一条消息...")
-                        time.sleep(self._interval_cnt)
+                        # 如果是Moment、天枢站点，使用默认30秒间隔
+                        interval = 30 if "Moment" in site_name or "天枢" in site_name else self._interval_cnt
+                        logger.info(f"等待 {interval} 秒后继续发送下一条消息...")
+                        time.sleep(interval)
                 logger.debug(f"站点 {site_name} 消息处理完成，成功消息数: {success_count}")
 
                 site_results[site_name] = {
@@ -979,7 +981,7 @@ class GroupChatZone(_PluginBase):
                                 reward_type = reward.get("type", "")
                                 icon = NotificationIcons.get(reward_type)
                                 
-                                if reward_type in ["raw_feedback","上传量", "下载量", "魔力值", "工分", "VIP", "彩虹ID", "电力", "象草", "青蛙"]:
+                                if reward_type in ["raw_feedback","上传量", "下载量", "魔力值", "工分", "VIP", "彩虹ID", "电力", "象草", "青蛙", "火花", "啤酒瓶"]:
                                     notification_text += f"  {icon} {reward.get('description', '')}\n"
                     
                     # 处理跳过的消息
@@ -1732,6 +1734,8 @@ class NotificationIcons:
     FROG = "🐸"
     VIP = "👑"
     RAINBOW = "🌈"
+    SPARK = "🔥"
+    BEER = "🍺"
     FEEDBACK = "📝"
     DEFAULT = "📌"
     
@@ -1750,6 +1754,8 @@ class NotificationIcons:
             "青蛙": cls.FROG,
             "VIP": cls.VIP,
             "彩虹ID": cls.RAINBOW,
+            "火花": cls.SPARK,
+            "啤酒瓶": cls.BEER,
             "raw_feedback": cls.FEEDBACK
         }
         return icon_map.get(reward_type, cls.DEFAULT)

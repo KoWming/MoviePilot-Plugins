@@ -1,4 +1,4 @@
-from typing import Tuple, Optional, Dict
+from typing import Tuple
 from lxml import etree
 
 from app.log import logger

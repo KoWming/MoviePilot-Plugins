@@ -43,6 +43,8 @@ class PtskitHandler(NexusPHPHandler):
                 feedback = match.group(2)
                 # 处理转义字符
                 feedback = feedback.replace("\\'", "'").replace('\\"', '"').replace("\\n", "\n")
+                # 清理冗余后缀
+                feedback = feedback.replace("，请刷新页面更新魔力值", "")
                 
                 self._last_message_result = feedback
                 if callback:
