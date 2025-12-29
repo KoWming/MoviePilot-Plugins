@@ -36,5 +36,18 @@
             "v1.0.1": "修复咪咕视频封面图片加载错误",
             "v1.0": "初始版本。"
         }
+    },
+    "MagicFrame": {
+        "name": "Vue-好学农场",
+        "description": "支持一键收获、种植、养殖，定时自动化任务。",
+        "labels": "站点",
+        "version": "1.0.0",
+        "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/magicfram.png",
+        "author": "KoWming",
+        "level": 2,
+        "release": true,
+        "history": {
+            "v1.0": "初始版本。"
+        }
     }
 }
