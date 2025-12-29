@@ -452,7 +452,8 @@ def form(site_options) -> list:
                                                         'label': '自定义消息',
                                                         'rows': 7,
                                                         'placeholder': '每一行一个配置，配置方式：\n'
-                                                                        '站点名称|消息内容1|消息内容2|消息内容3|...\n'
+                                                                        '站点名称|消息内容1|消息内容2|...|60s\n'
+                                                                        '末尾支持自定义间隔时间(如60s)，不填则使用默认间隔。\n'
                                                                         '同名站点消息配置多行支持消息合并。\n'
                                                                         '织梦站点消息配置建议将求电力放到最后面：\n'
                                                                         '织梦|消息内容1|消息内容2|...|皮总，求电力\n'
@@ -904,7 +905,7 @@ def form(site_options) -> list:
                                                                 'color': 'success',
                                                                 'class': 'mt-1 mr-2'
                                                             },
-                                                            'text': 'mdi-gift'
+                                                            'text': 'mdi-timer-cog'
                                                         },
                                                         {
                                                             'component': 'div',
@@ -912,7 +913,7 @@ def form(site_options) -> list:
                                                                 'class': 'text-subtitle-1 font-weight-regular mb-1',
                                                                 'style': 'color: #444;'
                                                             },
-                                                            'text': '青蛙每日福利功能'
+                                                            'text': '自定义消息间隔说明'
                                                         }
                                                     ]
                                                 },
@@ -924,7 +925,7 @@ def form(site_options) -> list:
                                                     'content': [
                                                         {
                                                             'component': 'span',
-                                                            'text': '🎁 开启后会自动执行任务购买青蛙站点的每日福利（1蝌蚪兑换1000蝌蚪）'
+                                                            'text': '⏱️ 支持为每一行消息单独设置发送等待间隔（单位：秒）'
                                                         }
                                                     ]
                                                 },
@@ -936,7 +937,7 @@ def form(site_options) -> list:
                                                     'content': [
                                                         {
                                                             'component': 'span',
-                                                            'text': '📅 每日限购1次，系统会自动检查是否已购买，避免重复购买'
+                                                            'text': '💡 配置格式：在消息行末尾添加竖线和时间，例如：站点名|消息内容|60s'
                                                         }
                                                     ]
                                                 },
@@ -948,7 +949,7 @@ def form(site_options) -> list:
                                                     'content': [
                                                         {
                                                             'component': 'span',
-                                                            'text': '💡 购买结果会在通知消息中显示，包括成功或失败的状态'
+                                                            'text': '⚠️ 优先级说明：自定义间隔 > 织梦独立间隔 > 全局默认间隔'
                                                         }
                                                     ]
                                                 },
@@ -960,7 +961,7 @@ def form(site_options) -> list:
                                                     'content': [
                                                         {
                                                             'component': 'span',
-                                                            'text': '⚠️ 需要确保青蛙站点已正确配置且用户有足够的蝌蚪余额'
+                                                            'text': '🔄 重试机制：消息发送失败重试时，也会优先使用该自定义间隔'
                                                         }
                                                     ]
                                                 }

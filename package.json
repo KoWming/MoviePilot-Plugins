@@ -53,13 +53,14 @@
     "name": "群聊区",
     "description": "执行站点喊话、获取反馈、定时任务。",
     "labels": "站点",
-    "version": "2.2.7",
+    "version": "2.2.8",
     "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png",
     "author": "KoWming,madrays",
     "level": 2,
     "v2": true,
     "release": true,
     "history": {
+      "v2.2.8": "新增在自定义消息配置末尾添加消息发送间隔，具体设置请查看设置页面下方【自定义消息间隔说明】。",
       "v2.2.7": "修复好学正确获取反馈消息，优化部分站点通知输出样式。",
       "v1.3.0": "感谢@madrays大佬添加喊话反馈功能！"
     }

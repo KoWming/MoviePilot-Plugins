@@ -32,7 +32,7 @@ class GroupChatZone(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png"
     # 插件版本
-    plugin_version = "2.2.7"
+    plugin_version = "2.2.8"
     # 插件作者
     plugin_author = "KoWming,madrays"
     # 作者主页
@@ -794,6 +794,7 @@ class GroupChatZone(_PluginBase):
                                 "site_name": site_name,
                                 "site_id": site.get("id"),
                                 "message": message_info.get("content"),
+                                "interval": message_info.get("interval"),
                                 "error": msg
                             })
                             
@@ -806,13 +807,20 @@ class GroupChatZone(_PluginBase):
                             "site_name": site_name,
                             "site_id": site.get("id"),
                             "message": message_info.get("content"),
+                            "interval": message_info.get("interval"),
                             "error": str(e)
                         })
 
                     if i < len(messages) - 1:
-                        # 如果是Moment、天枢站点，使用默认30秒间隔
-                        interval = 30 if "Moment" in site_name or "天枢" in site_name else self._interval_cnt
-                        logger.info(f"等待 {interval} 秒后继续发送下一条消息...")
+                        # 优先使用配置的自定义间隔
+                        msg_interval = message_info.get("interval")
+                        if msg_interval is not None:
+                            interval = msg_interval
+                            logger.info(f"使用自定义间隔: 等待 {interval} 秒后继续发送下一条消息...")
+                        else:
+                            # 如果是Moment、天枢站点，使用默认30秒间隔
+                            interval = 30 if "Moment" in site_name or "天枢" in site_name else self._interval_cnt
+                            logger.info(f"等待 {interval} 秒后继续发送下一条消息...")
                         time.sleep(interval)
                 logger.debug(f"站点 {site_name} 消息处理完成，成功消息数: {success_count}")
 
@@ -1073,6 +1081,15 @@ class GroupChatZone(_PluginBase):
                 site_name = parts[0].strip()
                 messages = []
                 
+                # 检查最后一个部分是否为时间间隔设定 (如 60s)
+                custom_interval = None
+                if len(parts) > 2:
+                    last_part = parts[-1].strip()
+                    if last_part.lower().endswith('s') and last_part[:-1].isdigit():
+                        custom_interval = int(last_part[:-1])
+                        # 移除最后一个部分，它不是消息内容
+                        parts = parts[:-1]
+                
                 # 解析消息内容
                 for msg in parts[1:]:
                     msg = msg.strip()
@@ -1087,10 +1104,15 @@ class GroupChatZone(_PluginBase):
                     elif "求彩虹id" in msg_lower:
                         msg_type = "rainbow"
                         
-                    messages.append({
+                    msg_data = {
                         "content": msg,
                         "type": msg_type
-                    })
+                    }
+                    # 如果有自定义间隔，加入到消息数据中
+                    if custom_interval is not None:
+                        msg_data["interval"] = custom_interval
+                        
+                    messages.append(msg_data)
                 
                 if not messages:
                     logger.warning(f"第{line_num}行 [{site_name}] 没有有效消息内容")
@@ -1321,6 +1343,7 @@ class GroupChatZone(_PluginBase):
                                 "site_name": site_name,
                                 "site_id": site.get("id"),
                                 "message": message_info.get("content"),
+                                "interval": message_info.get("interval"),
                                 "error": msg
                             })
                             
@@ -1333,12 +1356,20 @@ class GroupChatZone(_PluginBase):
                             "site_name": site_name,
                             "site_id": site.get("id"),
                             "message": message_info.get("content"),
+                            "interval": message_info.get("interval"),
                             "error": str(e)
                         })
 
                     if i < len(messages) - 1:
-                        logger.info(f"等待 {self._zm_interval} 秒后继续发送下一条消息...")
-                        time.sleep(self._zm_interval)
+                        # 优先使用配置的自定义间隔
+                        msg_interval = message_info.get("interval")
+                        if msg_interval is not None:
+                            interval = msg_interval
+                            logger.info(f"使用自定义间隔: 等待 {interval} 秒后继续发送下一条消息...")
+                        else:
+                            interval = self._zm_interval
+                            logger.info(f"等待 {interval} 秒后继续发送下一条消息...")
+                        time.sleep(interval)
                 
                 # 获取最新邮件时间
                 try:
@@ -1473,7 +1504,7 @@ class GroupChatZone(_PluginBase):
                 failure_count = 0
                 site_new_failed_messages = []
                 
-                for failed_msg in failed_msgs:
+                for i, failed_msg in enumerate(failed_msgs):
                     try:
                         site_id = failed_msg["site_id"]
                         message = failed_msg["message"]
@@ -1501,7 +1532,11 @@ class GroupChatZone(_PluginBase):
                             continue
                         
                         # 重新发送消息
-                        success, msg = handler.send_messagebox(message)
+                        if "织梦" in site_name:
+                            # 尝试获取统计信息（这里简单处理，可能为空）
+                            success, msg = handler.send_messagebox(message)
+                        else:
+                            success, msg = handler.send_messagebox(message)
                         
                         if success:
                             success_count += 1
@@ -1517,18 +1552,17 @@ class GroupChatZone(_PluginBase):
                         logger.error(f"重试异常: {site_name} - {failed_msg['message']} - {str(e)}")
                         # 记录新的失败消息
                         site_new_failed_messages.append(failed_msg)
-                
-                retry_results[site_name] = {
-                    "success_count": success_count,
-                    "failure_count": failure_count
-                }
-                
-                # 将新的失败消息添加到列表中
-                new_failed_messages.extend(site_new_failed_messages)
-                
-                # 等待间隔
-                if len(failed_msgs) > 1:
-                    time.sleep(self._interval_cnt)
+                    
+                    if i < len(failed_msgs) - 1:
+                        # 优先使用消息中的自定义间隔
+                        msg_interval = failed_msg.get("interval")
+                        if msg_interval is not None:
+                            interval = msg_interval
+                            logger.info(f"重试使用自定义间隔: 等待 {interval} 秒...")
+                        else:
+                            interval = self._interval_cnt
+                            logger.info(f"重试等待 {interval} 秒...")
+                        time.sleep(interval)
             
             # 更新失败消息列表
             self._failed_messages = new_failed_messages
