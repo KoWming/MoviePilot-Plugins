@@ -41,12 +41,13 @@
         "name": "Vue-好学农场",
         "description": "支持一键收获、种植、养殖，定时自动化任务。",
         "labels": "站点",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/magicfram.png",
         "author": "KoWming",
         "level": 2,
         "release": true,
         "history": {
+            "v1.0.1": "优化页面UI显示。",
             "v1.0": "初始版本。"
         }
     }

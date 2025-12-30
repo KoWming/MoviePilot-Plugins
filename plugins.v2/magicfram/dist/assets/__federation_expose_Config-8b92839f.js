@@ -1,7 +1,7 @@
 import { importShared } from './__federation_fn_import-054b33c3.js';
 import { _ as _export_sfc } from './_plugin-vue_export-helper-c4c0bc37.js';
 
-const Config_vue_vue_type_style_index_0_scoped_aba56753_lang = '';
+const Config_vue_vue_type_style_index_0_scoped_c93bcb72_lang = '';
 
 const {resolveComponent:_resolveComponent,createVNode:_createVNode,createElementVNode:_createElementVNode,withCtx:_withCtx,toDisplayString:_toDisplayString,createTextVNode:_createTextVNode,openBlock:_openBlock,createBlock:_createBlock,createCommentVNode:_createCommentVNode,Transition:_Transition,vModelCheckbox:_vModelCheckbox,withDirectives:_withDirectives,createElementBlock:_createElementBlock} = await importShared('vue');
 
@@ -479,7 +479,9 @@ return (_ctx, _cache) => {
                 _createVNode(_component_v_btn, {
                   color: "white",
                   onClick: switchToPage,
-                  size: "small"
+                  size: "small",
+                  "min-width": "40",
+                  class: "px-0 px-sm-3"
                 }, {
                   default: _withCtx(() => [
                     _createVNode(_component_v_icon, {
@@ -495,7 +497,9 @@ return (_ctx, _cache) => {
                   color: "white",
                   onClick: resetConfig,
                   disabled: saving.value,
-                  size: "small"
+                  size: "small",
+                  "min-width": "40",
+                  class: "px-0 px-sm-3"
                 }, {
                   default: _withCtx(() => [
                     _createVNode(_component_v_icon, {
@@ -511,7 +515,9 @@ return (_ctx, _cache) => {
                   color: "white",
                   onClick: saveConfig,
                   loading: saving.value,
-                  size: "small"
+                  size: "small",
+                  "min-width": "40",
+                  class: "px-0 px-sm-3"
                 }, {
                   default: _withCtx(() => [
                     _createVNode(_component_v_icon, {
@@ -526,7 +532,9 @@ return (_ctx, _cache) => {
                 _createVNode(_component_v_btn, {
                   color: "white",
                   onClick: closePlugin,
-                  size: "small"
+                  size: "small",
+                  "min-width": "40",
+                  class: "px-0 px-sm-3"
                 }, {
                   default: _withCtx(() => [
                     _createVNode(_component_v_icon, {
@@ -1204,6 +1212,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const ConfigComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-aba56753"]]);
+const ConfigComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-c93bcb72"]]);
 
 export { ConfigComponent as default };

@@ -84465,7 +84465,7 @@ use(installUniversalTransition);
 // })
 use(installLabelLayout);
 
-const Page_vue_vue_type_style_index_0_scoped_53c4597f_lang = '';
+const Page_vue_vue_type_style_index_0_scoped_927bad14_lang = '';
 
 const Page_vue_vue_type_style_index_1_lang = '';
 
@@ -84474,9 +84474,9 @@ const {resolveComponent:_resolveComponent,createVNode:_createVNode,createTextVNo
 
 const _hoisted_1 = { class: "magicfram-page" };
 const _hoisted_2 = { style: {"position":"absolute","top":"0","left":"0","right":"0","z-index":"50","padding":"0 10px 10px 10px"} };
-const _hoisted_3 = { class: "d-flex align-center mt-1" };
-const _hoisted_4 = { class: "d-flex align-center mt-1" };
-const _hoisted_5 = { class: "d-flex align-center mt-1" };
+const _hoisted_3 = { class: "d-flex align-center justify-center mt-1" };
+const _hoisted_4 = { class: "d-flex align-center justify-center mt-1" };
+const _hoisted_5 = { class: "d-flex align-center justify-center mt-1" };
 const _hoisted_6 = ["title"];
 const _hoisted_7 = {
   key: 1,
@@ -84790,6 +84790,7 @@ const renderChart = () => {
           legend: {
               data: seriesNames,
               bottom: 0,
+              type: 'scroll',
               icon: 'roundRect',
               itemWidth: 10,
               itemHeight: 10,
@@ -85369,16 +85370,16 @@ return (_ctx, _cache) => {
                               align: "center"
                             }, {
                               default: _withCtx(() => [
-                                _createVNode(_component_v_col, { cols: "4" }, {
+                                _createVNode(_component_v_col, { cols: "3" }, {
                                   default: _withCtx(() => [
-                                    _cache[15] || (_cache[15] = _createElementVNode("div", { class: "text-caption text-grey" }, "插件状态", -1)),
+                                    _cache[15] || (_cache[15] = _createElementVNode("div", { class: "text-caption text-grey text-center" }, "插件状态", -1)),
                                     _createElementVNode("div", _hoisted_3, [
                                       _createVNode(_component_v_icon, {
-                                        icon: pluginStatus.enabled ? 'mdi-check-circle' : 'mdi-close-circle',
+                                        icon: "mdi-play-circle-outline",
                                         color: pluginStatus.enabled ? 'success' : 'grey',
                                         size: "small",
                                         class: "mr-1"
-                                      }, null, 8, ["icon", "color"]),
+                                      }, null, 8, ["color"]),
                                       _createElementVNode("span", {
                                         class: _normalizeClass(pluginStatus.enabled ? 'text-success' : 'text-grey')
                                       }, _toDisplayString(pluginStatus.enabled ? '已启用' : '已禁用'), 3)
@@ -85388,14 +85389,14 @@ return (_ctx, _cache) => {
                                 }),
                                 _createVNode(_component_v_col, { cols: "4" }, {
                                   default: _withCtx(() => [
-                                    _cache[16] || (_cache[16] = _createElementVNode("div", { class: "text-caption text-grey" }, "代理状态", -1)),
+                                    _cache[16] || (_cache[16] = _createElementVNode("div", { class: "text-caption text-grey text-center" }, "代理状态", -1)),
                                     _createElementVNode("div", _hoisted_4, [
                                       _createVNode(_component_v_icon, {
-                                        icon: pluginStatus.use_proxy ? 'mdi-shield-check' : 'mdi-shield-off',
+                                        icon: "mdi-earth",
                                         color: pluginStatus.use_proxy ? 'info' : 'grey',
                                         size: "small",
                                         class: "mr-1"
-                                      }, null, 8, ["icon", "color"]),
+                                      }, null, 8, ["color"]),
                                       _createElementVNode("span", {
                                         class: _normalizeClass(pluginStatus.use_proxy ? 'text-info' : 'text-grey')
                                       }, _toDisplayString(pluginStatus.use_proxy ? '已启用' : '未启用'), 3)
@@ -85403,9 +85404,9 @@ return (_ctx, _cache) => {
                                   ]),
                                   _: 1
                                 }),
-                                _createVNode(_component_v_col, { cols: "4" }, {
+                                _createVNode(_component_v_col, { cols: "5" }, {
                                   default: _withCtx(() => [
-                                    _cache[17] || (_cache[17] = _createElementVNode("div", { class: "text-caption text-grey" }, "下次执行时间", -1)),
+                                    _cache[17] || (_cache[17] = _createElementVNode("div", { class: "text-caption text-grey text-center" }, "下次执行时间", -1)),
                                     _createElementVNode("div", _hoisted_5, [
                                       _createVNode(_component_v_icon, {
                                         icon: "mdi-clock-outline",
@@ -85457,7 +85458,7 @@ return (_ctx, _cache) => {
                               default: _withCtx(() => [
                                 _createVNode(_component_v_icon, {
                                   icon: "mdi-fire",
-                                  size: "x-small",
+                                  size: "small",
                                   class: "mr-1 fire-anim",
                                   color: "deep-orange"
                                 }),
@@ -86136,6 +86137,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const PageComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-53c4597f"]]);
+const PageComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-927bad14"]]);
 
 export { PageComponent as default };
