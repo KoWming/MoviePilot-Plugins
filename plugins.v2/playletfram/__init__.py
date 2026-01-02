@@ -23,7 +23,7 @@ class PlayletFram(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/playletfram.png"
     # 插件版本
-    plugin_version = "1.0.0"
+    plugin_version = "1.0.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -1730,6 +1730,11 @@ class PlayletFram(_PluginBase):
 
         # 2. 调度下一次执行
         self._schedule_next_auto_run()
+
+    def reregister_plugin(self):
+        """重新注册插件任务"""
+        logger.info(f"{self.plugin_name}: 重新注册插件任务")
+        Scheduler().update_plugin_job(self.__class__.__name__.lower())
 
     def _schedule_next_auto_run(self):
         """计算并注册下一次智能执行时间"""
