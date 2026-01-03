@@ -18013,43 +18013,43 @@ html.overflow-y-hidden {
     float: right !important;
   }
 }
-.magicfram-page[data-v-f07ff119] {
+.magicfram-page[data-v-1d9d67a1] {
   margin: 0 auto;
   padding: 0.5rem;
 }
 
 /* 棕色渐变 - 动物养殖 */
-.bg-gradient-brown[data-v-f07ff119] {
+.bg-gradient-brown[data-v-1d9d67a1] {
   background: linear-gradient(135deg, #795548 0%, #8d6e63 100%);
   box-shadow: 0 2px 8px rgba(121, 85, 72, 0.3);
 }
-.bg-gradient-primary[data-v-f07ff119] {
+.bg-gradient-primary[data-v-1d9d67a1] {
   background: #3498db;
   box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
 }
-.bg-primary-lighten-5[data-v-f07ff119] {
+.bg-primary-lighten-5[data-v-1d9d67a1] {
   background-color: rgba(var(--v-theme-primary), 0.07);
 }
-.bg-green-lighten-5[data-v-f07ff119] {
+.bg-green-lighten-5[data-v-1d9d67a1] {
   background-color: rgba(76, 175, 80, 0.1);
 }
-.bg-brown-lighten-5[data-v-f07ff119] {
+.bg-brown-lighten-5[data-v-1d9d67a1] {
   background-color: rgba(121, 85, 72, 0.1);
 }
-.border[data-v-f07ff119] {
+.border[data-v-1d9d67a1] {
   border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
-.text-subtitle-1[data-v-f07ff119] {
+.text-subtitle-1[data-v-1d9d67a1] {
   font-size: 1.1rem !important;
   font-weight: 500;
 }
-.text-subtitle-2[data-v-f07ff119] {
+.text-subtitle-2[data-v-1d9d67a1] {
   font-size: 0.9rem !important;
   font-weight: 500;
 }
 
 /* 火花芯片动画 */
-@keyframes pulse-f07ff119 {
+@keyframes pulse-1d9d67a1 {
 0%, 100% {
     opacity: 1;
 }
@@ -18059,27 +18059,27 @@ html.overflow-y-hidden {
 }
 
 /* 横向卡片样式 */
-.horizontal-card[data-v-f07ff119] {
+.horizontal-card[data-v-1d9d67a1] {
   min-height: 70px;
   height: 100%;
 }
-.horizontal-card .d-flex[data-v-f07ff119] {
+.horizontal-card .d-flex[data-v-1d9d67a1] {
   align-items: flex-start;
 }
-.horizontal-card .text-body-2[data-v-f07ff119] {
+.horizontal-card .text-body-2[data-v-1d9d67a1] {
   line-height: 1.3;
 }
-.horizontal-card .text-caption[data-v-f07ff119] {
+.horizontal-card .text-caption[data-v-1d9d67a1] {
   font-size: 0.75rem;
   line-height: 1.3;
 }
 
 /* 火花动画 */
 /* 魔力动画 */
-.magic-anim[data-v-f07ff119] {
-  animation: magic-pulse-f07ff119 2s infinite ease-in-out;
+.magic-anim[data-v-1d9d67a1] {
+  animation: magic-pulse-1d9d67a1 2s infinite ease-in-out;
 }
-@keyframes magic-pulse-f07ff119 {
+@keyframes magic-pulse-1d9d67a1 {
 0% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 2px rgba(156, 39, 176, 0.4));
 }
 50% { transform: scale(1.2) rotate(15deg); filter: drop-shadow(0 0 5px rgba(156, 39, 176, 0.8));
@@ -18089,130 +18089,130 @@ html.overflow-y-hidden {
 }
 
 /* 收获按钮渐变 */
-.bg-gradient-success[data-v-f07ff119] {
+.bg-gradient-success[data-v-1d9d67a1] {
   background: linear-gradient(45deg, #66bb6a, #43a047) !important;
   transition: all 0.3s ease;
 }
-.bg-gradient-success[data-v-f07ff119]:hover {
+.bg-gradient-success[data-v-1d9d67a1]:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4) !important;
 }
 
 /* 出售按钮渐变 */
-.bg-gradient-sell[data-v-f07ff119] {
+.bg-gradient-sell[data-v-1d9d67a1] {
   background: linear-gradient(45deg, #FF7043, #F4511E) !important;
   transition: all 0.3s ease;
 }
-.bg-gradient-sell[data-v-f07ff119]:hover {
+.bg-gradient-sell[data-v-1d9d67a1]:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(244, 81, 30, 0.4) !important;
 }
 
 /* Alert Animation */
-.slide-fade-enter-active[data-v-f07ff119],
-.slide-fade-leave-active[data-v-f07ff119] {
+.slide-fade-enter-active[data-v-1d9d67a1],
+.slide-fade-leave-active[data-v-1d9d67a1] {
   transition: all 0.3s ease;
 }
-.slide-fade-enter-from[data-v-f07ff119],
-.slide-fade-leave-to[data-v-f07ff119] {
+.slide-fade-enter-from[data-v-1d9d67a1],
+.slide-fade-leave-to[data-v-1d9d67a1] {
   transform: translateY(-20px);
   opacity: 0;
 }
 
 /* 深色模式适配 */
 @media (prefers-color-scheme: dark) {
-.bg-primary-lighten-5[data-v-f07ff119] {
+.bg-primary-lighten-5[data-v-1d9d67a1] {
     background-color: rgba(var(--v-theme-primary), 0.15);
 }
-.bg-purple-lighten-5[data-v-f07ff119] {
+.bg-purple-lighten-5[data-v-1d9d67a1] {
     background-color: rgba(156, 39, 176, 0.2) !important;
 }
-.bg-blue-lighten-5[data-v-f07ff119] {
+.bg-blue-lighten-5[data-v-1d9d67a1] {
     background-color: rgba(33, 150, 243, 0.2) !important;
 }
-.bg-green-lighten-5[data-v-f07ff119] {
+.bg-green-lighten-5[data-v-1d9d67a1] {
     background-color: rgba(76, 175, 80, 0.2) !important;
 }
-.bg-brown-lighten-5[data-v-f07ff119] {
+.bg-brown-lighten-5[data-v-1d9d67a1] {
     background-color: rgba(121, 85, 72, 0.2) !important;
 }
-.bg-amber-lighten-5[data-v-f07ff119] {
+.bg-amber-lighten-5[data-v-1d9d67a1] {
     background-color: rgba(255, 193, 7, 0.2) !important;
 }
-.bg-grey-lighten-5[data-v-f07ff119] {
+.bg-grey-lighten-5[data-v-1d9d67a1] {
     background-color: rgba(158, 158, 158, 0.1) !important;
 }
-.bg-light-green-lighten-5[data-v-f07ff119] {
+.bg-light-green-lighten-5[data-v-1d9d67a1] {
     background-color: rgba(139, 195, 74, 0.2) !important;
 }
-.bg-blue-grey-lighten-4[data-v-f07ff119] {
+.bg-blue-grey-lighten-4[data-v-1d9d67a1] {
     background-color: rgba(69, 90, 100, 0.5) !important;
 }
-.text-grey-darken-3[data-v-f07ff119] {
+.text-grey-darken-3[data-v-1d9d67a1] {
     color: rgb(220, 220, 220) !important;
 }
-.text-subtitle-2[data-v-f07ff119] {
+.text-subtitle-2[data-v-1d9d67a1] {
     color: rgb(220, 220, 220) !important;
 }
 }
 
 /* 深色模式适配 - 使用 data 属性选择器 */
-[data-theme="dark"] .bg-primary-lighten-5[data-v-f07ff119],
-[data-theme="purple"] .bg-primary-lighten-5[data-v-f07ff119],
-[data-theme="transparent"] .bg-primary-lighten-5[data-v-f07ff119] {
+[data-theme="dark"] .bg-primary-lighten-5[data-v-1d9d67a1],
+[data-theme="purple"] .bg-primary-lighten-5[data-v-1d9d67a1],
+[data-theme="transparent"] .bg-primary-lighten-5[data-v-1d9d67a1] {
   background-color: rgba(var(--v-theme-primary), 0.15);
 }
-[data-theme="dark"] .bg-purple-lighten-5[data-v-f07ff119],
-[data-theme="purple"] .bg-purple-lighten-5[data-v-f07ff119],
-[data-theme="transparent"] .bg-purple-lighten-5[data-v-f07ff119] {
+[data-theme="dark"] .bg-purple-lighten-5[data-v-1d9d67a1],
+[data-theme="purple"] .bg-purple-lighten-5[data-v-1d9d67a1],
+[data-theme="transparent"] .bg-purple-lighten-5[data-v-1d9d67a1] {
   background-color: rgba(156, 39, 176, 0.2) !important;
 }
-[data-theme="dark"] .bg-blue-lighten-5[data-v-f07ff119],
-[data-theme="purple"] .bg-blue-lighten-5[data-v-f07ff119],
-[data-theme="transparent"] .bg-blue-lighten-5[data-v-f07ff119] {
+[data-theme="dark"] .bg-blue-lighten-5[data-v-1d9d67a1],
+[data-theme="purple"] .bg-blue-lighten-5[data-v-1d9d67a1],
+[data-theme="transparent"] .bg-blue-lighten-5[data-v-1d9d67a1] {
   background-color: rgba(33, 150, 243, 0.2) !important;
 }
-[data-theme="dark"] .bg-green-lighten-5[data-v-f07ff119],
-[data-theme="purple"] .bg-green-lighten-5[data-v-f07ff119],
-[data-theme="transparent"] .bg-green-lighten-5[data-v-f07ff119] {
+[data-theme="dark"] .bg-green-lighten-5[data-v-1d9d67a1],
+[data-theme="purple"] .bg-green-lighten-5[data-v-1d9d67a1],
+[data-theme="transparent"] .bg-green-lighten-5[data-v-1d9d67a1] {
   background-color: rgba(76, 175, 80, 0.2) !important;
 }
-[data-theme="dark"] .bg-brown-lighten-5[data-v-f07ff119],
-[data-theme="purple"] .bg-brown-lighten-5[data-v-f07ff119],
-[data-theme="transparent"] .bg-brown-lighten-5[data-v-f07ff119] {
+[data-theme="dark"] .bg-brown-lighten-5[data-v-1d9d67a1],
+[data-theme="purple"] .bg-brown-lighten-5[data-v-1d9d67a1],
+[data-theme="transparent"] .bg-brown-lighten-5[data-v-1d9d67a1] {
   background-color: rgba(121, 85, 72, 0.2) !important;
   color: rgb(220, 220, 220) !important;
 }
-[data-theme="dark"] .bg-amber-lighten-5[data-v-f07ff119],
-[data-theme="purple"] .bg-amber-lighten-5[data-v-f07ff119],
-[data-theme="transparent"] .bg-amber-lighten-5[data-v-f07ff119] {
+[data-theme="dark"] .bg-amber-lighten-5[data-v-1d9d67a1],
+[data-theme="purple"] .bg-amber-lighten-5[data-v-1d9d67a1],
+[data-theme="transparent"] .bg-amber-lighten-5[data-v-1d9d67a1] {
   background-color: rgba(255, 193, 7, 0.2) !important;
 }
-[data-theme="dark"] .bg-light-green-lighten-5[data-v-f07ff119],
-[data-theme="purple"] .bg-light-green-lighten-5[data-v-f07ff119],
-[data-theme="transparent"] .bg-light-green-lighten-5[data-v-f07ff119] {
+[data-theme="dark"] .bg-light-green-lighten-5[data-v-1d9d67a1],
+[data-theme="purple"] .bg-light-green-lighten-5[data-v-1d9d67a1],
+[data-theme="transparent"] .bg-light-green-lighten-5[data-v-1d9d67a1] {
   background-color: rgba(139, 195, 74, 0.2) !important;
 }
-[data-theme="dark"] .bg-grey-lighten-5[data-v-f07ff119],
-[data-theme="purple"] .bg-grey-lighten-5[data-v-f07ff119],
-[data-theme="transparent"] .bg-grey-lighten-5[data-v-f07ff119] {
+[data-theme="dark"] .bg-grey-lighten-5[data-v-1d9d67a1],
+[data-theme="purple"] .bg-grey-lighten-5[data-v-1d9d67a1],
+[data-theme="transparent"] .bg-grey-lighten-5[data-v-1d9d67a1] {
   background-color: rgba(158, 158, 158, 0.1) !important;
 }
-[data-theme="dark"] .bg-blue-grey-lighten-4[data-v-f07ff119],
-[data-theme="purple"] .bg-blue-grey-lighten-4[data-v-f07ff119],
-[data-theme="transparent"] .bg-blue-grey-lighten-4[data-v-f07ff119] {
+[data-theme="dark"] .bg-blue-grey-lighten-4[data-v-1d9d67a1],
+[data-theme="purple"] .bg-blue-grey-lighten-4[data-v-1d9d67a1],
+[data-theme="transparent"] .bg-blue-grey-lighten-4[data-v-1d9d67a1] {
   background-color: rgba(69, 90, 100, 0.5) !important;
 }
-[data-theme="dark"] .text-grey-darken-3[data-v-f07ff119],
-[data-theme="purple"] .text-grey-darken-3[data-v-f07ff119],
-[data-theme="transparent"] .text-grey-darken-3[data-v-f07ff119] {
+[data-theme="dark"] .text-grey-darken-3[data-v-1d9d67a1],
+[data-theme="purple"] .text-grey-darken-3[data-v-1d9d67a1],
+[data-theme="transparent"] .text-grey-darken-3[data-v-1d9d67a1] {
   color: rgb(220, 220, 220) !important;
 }
 
 /* 深色模式文字适配 */
-[data-theme="dark"] .text-subtitle-2[data-v-f07ff119],
-[data-theme="purple"] .text-subtitle-2[data-v-f07ff119],
-[data-theme="transparent"] .text-subtitle-2[data-v-f07ff119] {
+[data-theme="dark"] .text-subtitle-2[data-v-1d9d67a1],
+[data-theme="purple"] .text-subtitle-2[data-v-1d9d67a1],
+[data-theme="transparent"] .text-subtitle-2[data-v-1d9d67a1] {
   color: rgb(220, 220, 220) !important;
 }
 

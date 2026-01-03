@@ -84465,7 +84465,7 @@ use(installUniversalTransition);
 // })
 use(installLabelLayout);
 
-const Page_vue_vue_type_style_index_0_scoped_f07ff119_lang = '';
+const Page_vue_vue_type_style_index_0_scoped_1d9d67a1_lang = '';
 
 const Page_vue_vue_type_style_index_1_lang = '';
 
@@ -84561,26 +84561,25 @@ const _hoisted_36 = { key: 0 };
 const _hoisted_37 = { class: "text-center" };
 const _hoisted_38 = { class: "text-center" };
 const _hoisted_39 = { class: "text-center" };
-const _hoisted_40 = { class: "text-center" };
-const _hoisted_41 = {
+const _hoisted_40 = {
   key: 1,
   class: "text-center text-grey py-4"
 };
-const _hoisted_42 = { class: "text-center text-grey" };
-const _hoisted_43 = { class: "text-center font-weight-bold" };
-const _hoisted_44 = { class: "text-center" };
-const _hoisted_45 = {
+const _hoisted_41 = { class: "text-center text-grey" };
+const _hoisted_42 = { class: "text-center font-weight-bold" };
+const _hoisted_43 = { class: "text-center" };
+const _hoisted_44 = {
   key: 1,
   class: "text-grey"
 };
-const _hoisted_46 = { class: "text-center text-grey" };
-const _hoisted_47 = { class: "text-center font-weight-bold" };
-const _hoisted_48 = { class: "text-center" };
+const _hoisted_45 = { class: "text-center text-grey" };
+const _hoisted_46 = { class: "text-center font-weight-bold" };
+const _hoisted_47 = { class: "text-center" };
+const _hoisted_48 = {
+  key: 1,
+  class: "text-grey"
+};
 const _hoisted_49 = {
-  key: 1,
-  class: "text-grey"
-};
-const _hoisted_50 = {
   key: 1,
   class: "text-center text-grey py-4"
 };
@@ -85956,8 +85955,7 @@ return (_ctx, _cache) => {
                                 _createElementVNode("tr", null, [
                                   _createElementVNode("th", null, "物品名称"),
                                   _createElementVNode("th", { class: "text-center" }, "数量"),
-                                  _createElementVNode("th", { class: "text-center" }, "收获时间"),
-                                  _createElementVNode("th", { class: "text-center" }, "剩余时间"),
+                                  _createElementVNode("th", { class: "text-center" }, "过期时间"),
                                   _createElementVNode("th", { class: "text-center" }, "操作")
                                 ])
                               ], -1)),
@@ -85968,13 +85966,12 @@ return (_ctx, _cache) => {
                                   }, [
                                     _createElementVNode("td", null, _toDisplayString(item.name), 1),
                                     _createElementVNode("td", _hoisted_37, _toDisplayString(item.quantity), 1),
-                                    _createElementVNode("td", _hoisted_38, _toDisplayString(item.harvest_time), 1),
-                                    _createElementVNode("td", _hoisted_39, [
+                                    _createElementVNode("td", _hoisted_38, [
                                       _createElementVNode("span", {
                                         class: _normalizeClass({'text-red': item.remaining_time && item.remaining_time.includes('分') && !item.remaining_time.includes('小时')})
                                       }, _toDisplayString(item.remaining_time), 3)
                                     ]),
-                                    _createElementVNode("td", _hoisted_40, [
+                                    _createElementVNode("td", _hoisted_39, [
                                       _createVNode(_component_v_btn, {
                                         size: "small",
                                         color: "error",
@@ -85995,7 +85992,7 @@ return (_ctx, _cache) => {
                             _: 1
                           })
                         ]))
-                      : (_openBlock(), _createElementBlock("div", _hoisted_41, " 暂无物品 "))
+                      : (_openBlock(), _createElementBlock("div", _hoisted_40, " 暂无物品 "))
                   ]),
                   _: 1
                 })
@@ -86050,15 +86047,15 @@ return (_ctx, _cache) => {
                                           key: 'market-crop-'+i
                                         }, [
                                           _createElementVNode("td", null, _toDisplayString(item.name), 1),
-                                          _createElementVNode("td", _hoisted_42, _toDisplayString(item.last_price || '-'), 1),
-                                          _createElementVNode("td", _hoisted_43, _toDisplayString(item.price), 1),
-                                          _createElementVNode("td", _hoisted_44, [
+                                          _createElementVNode("td", _hoisted_41, _toDisplayString(item.last_price || '-'), 1),
+                                          _createElementVNode("td", _hoisted_42, _toDisplayString(item.price), 1),
+                                          _createElementVNode("td", _hoisted_43, [
                                             (parseFloat(item.last_price || 0) > 0)
                                               ? (_openBlock(), _createElementBlock("span", {
                                                   key: 0,
                                                   class: _normalizeClass((parseFloat(item.price) - parseFloat(item.last_price)) > 0 ? 'text-red' : ((parseFloat(item.price) - parseFloat(item.last_price)) < 0 ? 'text-green' : 'text-grey'))
                                                 }, _toDisplayString((parseFloat(item.price) - parseFloat(item.last_price)) > 0 ? '+' : '') + _toDisplayString(((parseFloat(item.price) - parseFloat(item.last_price)) / parseFloat(item.last_price) * 100).toFixed(2)) + "% ", 3))
-                                              : (_openBlock(), _createElementBlock("span", _hoisted_45, "-"))
+                                              : (_openBlock(), _createElementBlock("span", _hoisted_44, "-"))
                                           ])
                                         ]))
                                       }), 128))
@@ -86091,15 +86088,15 @@ return (_ctx, _cache) => {
                                           key: 'market-animal-'+i
                                         }, [
                                           _createElementVNode("td", null, _toDisplayString(item.name), 1),
-                                          _createElementVNode("td", _hoisted_46, _toDisplayString(item.last_price || '-'), 1),
-                                          _createElementVNode("td", _hoisted_47, _toDisplayString(item.price), 1),
-                                          _createElementVNode("td", _hoisted_48, [
+                                          _createElementVNode("td", _hoisted_45, _toDisplayString(item.last_price || '-'), 1),
+                                          _createElementVNode("td", _hoisted_46, _toDisplayString(item.price), 1),
+                                          _createElementVNode("td", _hoisted_47, [
                                             (parseFloat(item.last_price || 0) > 0)
                                               ? (_openBlock(), _createElementBlock("span", {
                                                   key: 0,
                                                   class: _normalizeClass((parseFloat(item.price) - parseFloat(item.last_price)) > 0 ? 'text-red' : ((parseFloat(item.price) - parseFloat(item.last_price)) < 0 ? 'text-green' : 'text-grey'))
                                                 }, _toDisplayString((parseFloat(item.price) - parseFloat(item.last_price)) > 0 ? '+' : '') + _toDisplayString(((parseFloat(item.price) - parseFloat(item.last_price)) / parseFloat(item.last_price) * 100).toFixed(2)) + "% ", 3))
-                                              : (_openBlock(), _createElementBlock("span", _hoisted_49, "-"))
+                                              : (_openBlock(), _createElementBlock("span", _hoisted_48, "-"))
                                           ])
                                         ]))
                                       }), 128))
@@ -86113,7 +86110,7 @@ return (_ctx, _cache) => {
                           ]),
                           _: 1
                         }))
-                      : (_openBlock(), _createElementBlock("div", _hoisted_50, " 暂无价格信息 "))
+                      : (_openBlock(), _createElementBlock("div", _hoisted_49, " 暂无价格信息 "))
                   ]),
                   _: 1
                 })
@@ -86131,6 +86128,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const PageComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-f07ff119"]]);
+const PageComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-1d9d67a1"]]);
 
 export { PageComponent as default };
