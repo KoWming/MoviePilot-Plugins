@@ -55,12 +55,13 @@
         "name": "Vue-开心农场",
         "description": "支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务。",
         "labels": "站点",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/playletfram.png",
         "author": "KoWming",
         "level": 2,
         "release": true,
         "history": {
+            "v1.0.3": "调整图表刷新显示逻辑。",
             "v1.0.2": "修复仓库显示错误、智能调度注册失败问题，增强代码健壮性。",
             "v1.0.1": "修复自动任务调度失败的问题。",
             "v1.0.0": "初始版本。"

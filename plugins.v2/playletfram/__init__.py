@@ -25,7 +25,7 @@ class PlayletFram(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/playletfram.png"
     # 插件版本
-    plugin_version = "1.0.2"
+    plugin_version = "1.0.3"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -494,7 +494,7 @@ class PlayletFram(_PluginBase):
                     logs['expiry_sell'].extend(expiry_logs)
 
             # 4. 更新状态数据
-            data = self.get_farm_data()
+            data = self.get_farm_data(force_record_trend=True)
             if data:
                 self.save_data("farm_status", data)
                 
@@ -794,8 +794,10 @@ class PlayletFram(_PluginBase):
                 
         return data
 
-    def get_farm_data(self):
-        """获取农场数据 (用于前端展示)"""
+    def get_farm_data(self, force_record_trend: bool = False):
+        """获取农场数据 (用于前端展示)
+        :param force_record_trend: 是否强制记录价格趋势(定时任务调用时为True)
+        """
         site_url, _ = self._get_site_info()
         if not site_url:
             site_url = "https://playletpt.xyz"
@@ -948,28 +950,17 @@ class PlayletFram(_PluginBase):
                              
                              if not item_list:
                                  should_append = True
+                             elif force_record_trend:
+                                  # 定时任务执行时强制记录
+                                  should_append = True
+
                              else:
+                                  # 非定时任务: 仅价格变化时记录
                                  last_item = item_list[-1]
                                  last_price = last_item.get("price")
-                                 last_time_str = last_item.get("time", "")
                                  
                                  if str(last_price) != str(price):
                                      should_append = True
-                                 else:
-                                     try:
-                                         if "-" in last_time_str:
-                                             last_dt = datetime.strptime(last_time_str, '%m-%d %H:%M')
-                                             last_dt = last_dt.replace(year=now_obj.year)
-                                         else:
-                                             temp_time = datetime.strptime(last_time_str, '%H:%M')
-                                             last_dt = now_obj.replace(hour=temp_time.hour, minute=temp_time.minute, second=0)
-                                         
-                                         diff_seconds = (now_obj - last_dt).total_seconds()
-                                         if diff_seconds > 14400 or diff_seconds < 0:
-                                             should_append = True
-                                     except Exception:
-                                         should_append = True
-                             
                              if should_append:
                                  item_list.append({
                                      "time": current_time,
