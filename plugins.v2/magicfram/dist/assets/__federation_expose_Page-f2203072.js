@@ -84465,7 +84465,7 @@ use(installUniversalTransition);
 // })
 use(installLabelLayout);
 
-const Page_vue_vue_type_style_index_0_scoped_927bad14_lang = '';
+const Page_vue_vue_type_style_index_0_scoped_424a758b_lang = '';
 
 const Page_vue_vue_type_style_index_1_lang = '';
 
@@ -84553,24 +84553,28 @@ const _hoisted_34 = { class: "text-center" };
 const _hoisted_35 = { class: "text-center" };
 const _hoisted_36 = { class: "text-center" };
 const _hoisted_37 = {
+  key: 0,
+  class: "d-flex justify-center mt-2"
+};
+const _hoisted_38 = {
   key: 1,
   class: "text-center text-grey py-4"
 };
-const _hoisted_38 = { class: "text-center text-grey" };
-const _hoisted_39 = { class: "text-center font-weight-bold" };
-const _hoisted_40 = { class: "text-center" };
-const _hoisted_41 = {
+const _hoisted_39 = { class: "text-center text-grey" };
+const _hoisted_40 = { class: "text-center font-weight-bold" };
+const _hoisted_41 = { class: "text-center" };
+const _hoisted_42 = {
   key: 1,
   class: "text-grey"
 };
-const _hoisted_42 = { class: "text-center text-grey" };
-const _hoisted_43 = { class: "text-center font-weight-bold" };
-const _hoisted_44 = { class: "text-center" };
-const _hoisted_45 = {
-  key: 1,
-  class: "text-grey"
-};
+const _hoisted_43 = { class: "text-center text-grey" };
+const _hoisted_44 = { class: "text-center font-weight-bold" };
+const _hoisted_45 = { class: "text-center" };
 const _hoisted_46 = {
+  key: 1,
+  class: "text-grey"
+};
+const _hoisted_47 = {
   key: 1,
   class: "text-center text-grey py-4"
 };
@@ -84581,6 +84585,8 @@ const {ref,reactive,onMounted,computed,watch,nextTick,onUnmounted} = await impor
 const PLUGIN_ID = 'MagicFram';
 
 // 创建默认 API 实现（用于插件模式）
+const itemsPerPage = 10;
+
 
 const _sfc_main = {
   __name: 'Page',
@@ -84968,7 +84974,7 @@ const plantAll = async (type) => {
 };
 
 // 仓库排序
-const sortOrder = ref('default'); // default, asc, desc
+const sortOrder = ref('asc'); // asc, desc
 
 // 解析剩余时间字符串为分钟数
 const parseTime = (timeStr) => {
@@ -85014,6 +85020,25 @@ const sortedWarehouse = computed(() => {
       return timeB - timeA;
     }
   });
+});
+
+// 分页相关
+const page = ref(1);
+const paginatedWarehouse = computed(() => {
+  const start = (page.value - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  return sortedWarehouse.value.slice(start, end);
+});
+
+const pageCount = computed(() => {
+  return Math.ceil(sortedWarehouse.value.length / itemsPerPage);
+});
+
+// 数据变化时重置页码
+watch(() => sortedWarehouse.value, () => {
+    // 只有当当前页超出范围时才重置，或者是排序变化可能需要重置？
+    // 为了简单体验，列表刷新或重新排序后回到第一页通常是合理的
+    page.value = 1;
 });
 
 // 出售物品
@@ -85161,6 +85186,7 @@ return (_ctx, _cache) => {
   const _component_v_list = _resolveComponent("v-list");
   const _component_v_menu = _resolveComponent("v-menu");
   const _component_v_table = _resolveComponent("v-table");
+  const _component_v_pagination = _resolveComponent("v-pagination");
 
   return (_openBlock(), _createElementBlock("div", _hoisted_1, [
     _createVNode(_component_v_dialog, {
@@ -85866,7 +85892,7 @@ return (_ctx, _cache) => {
                       color: "amber",
                       size: "small"
                     }),
-                    _cache[38] || (_cache[38] = _createTextVNode(" 仓库 ", -1)),
+                    _cache[37] || (_cache[37] = _createTextVNode(" 仓库 ", -1)),
                     _createVNode(_component_v_menu, { location: "bottom end" }, {
                       activator: _withCtx(({ props }) => [
                         _createVNode(_component_v_btn, _mergeProps({
@@ -85876,7 +85902,7 @@ return (_ctx, _cache) => {
                           class: "ml-2"
                         }, props, { "prepend-icon": "mdi-sort" }), {
                           default: _withCtx(() => [
-                            _createTextVNode(_toDisplayString(sortOrder.value === 'default' ? '默认排序' : (sortOrder.value === 'asc' ? '最近过期优先' : '最远过期优先')), 1)
+                            _createTextVNode(_toDisplayString(sortOrder.value === 'asc' ? '最近过期优先' : '最远过期优先'), 1)
                           ]),
                           _: 1
                         }, 16)
@@ -85885,28 +85911,13 @@ return (_ctx, _cache) => {
                         _createVNode(_component_v_list, { density: "compact" }, {
                           default: _withCtx(() => [
                             _createVNode(_component_v_list_item, {
-                              onClick: _cache[6] || (_cache[6] = $event => (sortOrder.value = 'default')),
-                              active: sortOrder.value === 'default',
-                              color: "primary"
-                            }, {
-                              default: _withCtx(() => [
-                                _createVNode(_component_v_list_item_title, null, {
-                                  default: _withCtx(() => [...(_cache[34] || (_cache[34] = [
-                                    _createTextVNode("默认排序", -1)
-                                  ]))]),
-                                  _: 1
-                                })
-                              ]),
-                              _: 1
-                            }, 8, ["active"]),
-                            _createVNode(_component_v_list_item, {
-                              onClick: _cache[7] || (_cache[7] = $event => (sortOrder.value = 'asc')),
+                              onClick: _cache[6] || (_cache[6] = $event => (sortOrder.value = 'asc')),
                               active: sortOrder.value === 'asc',
                               color: "primary"
                             }, {
                               default: _withCtx(() => [
                                 _createVNode(_component_v_list_item_title, null, {
-                                  default: _withCtx(() => [...(_cache[35] || (_cache[35] = [
+                                  default: _withCtx(() => [...(_cache[34] || (_cache[34] = [
                                     _createTextVNode("最近过期优先", -1)
                                   ]))]),
                                   _: 1
@@ -85915,13 +85926,13 @@ return (_ctx, _cache) => {
                               _: 1
                             }, 8, ["active"]),
                             _createVNode(_component_v_list_item, {
-                              onClick: _cache[8] || (_cache[8] = $event => (sortOrder.value = 'desc')),
+                              onClick: _cache[7] || (_cache[7] = $event => (sortOrder.value = 'desc')),
                               active: sortOrder.value === 'desc',
                               color: "primary"
                             }, {
                               default: _withCtx(() => [
                                 _createVNode(_component_v_list_item_title, null, {
-                                  default: _withCtx(() => [...(_cache[36] || (_cache[36] = [
+                                  default: _withCtx(() => [...(_cache[35] || (_cache[35] = [
                                     _createTextVNode("最远过期优先", -1)
                                   ]))]),
                                   _: 1
@@ -85944,7 +85955,7 @@ return (_ctx, _cache) => {
                       disabled: loading.value || warehouse.value.length === 0,
                       elevation: "1"
                     }, {
-                      default: _withCtx(() => [...(_cache[37] || (_cache[37] = [
+                      default: _withCtx(() => [...(_cache[36] || (_cache[36] = [
                         _createTextVNode(" 一键出售 ", -1)
                       ]))]),
                       _: 1
@@ -85958,7 +85969,7 @@ return (_ctx, _cache) => {
                       ? (_openBlock(), _createElementBlock("div", _hoisted_32, [
                           _createVNode(_component_v_table, { density: "compact" }, {
                             default: _withCtx(() => [
-                              _cache[40] || (_cache[40] = _createElementVNode("thead", null, [
+                              _cache[39] || (_cache[39] = _createElementVNode("thead", null, [
                                 _createElementVNode("tr", null, [
                                   _createElementVNode("th", null, "物品名称"),
                                   _createElementVNode("th", { class: "text-center" }, "数量"),
@@ -85968,7 +85979,7 @@ return (_ctx, _cache) => {
                                 ])
                               ], -1)),
                               _createElementVNode("tbody", null, [
-                                (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(sortedWarehouse.value, (item, i) => {
+                                (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(paginatedWarehouse.value, (item, i) => {
                                   return (_openBlock(), _createElementBlock("tr", {
                                     key: 'warehouse-'+i
                                   }, [
@@ -85988,7 +85999,7 @@ return (_ctx, _cache) => {
                                         onClick: $event => (sell(item.key)),
                                         loading: loading.value
                                       }, {
-                                        default: _withCtx(() => [...(_cache[39] || (_cache[39] = [
+                                        default: _withCtx(() => [...(_cache[38] || (_cache[38] = [
                                           _createTextVNode("出售", -1)
                                         ]))]),
                                         _: 1
@@ -85999,9 +86010,22 @@ return (_ctx, _cache) => {
                               ])
                             ]),
                             _: 1
-                          })
+                          }),
+                          (pageCount.value > 1)
+                            ? (_openBlock(), _createElementBlock("div", _hoisted_37, [
+                                _createVNode(_component_v_pagination, {
+                                  modelValue: page.value,
+                                  "onUpdate:modelValue": _cache[8] || (_cache[8] = $event => ((page).value = $event)),
+                                  length: pageCount.value,
+                                  "total-visible": 5,
+                                  density: "compact",
+                                  "active-color": "primary",
+                                  variant: "text"
+                                }, null, 8, ["modelValue", "length"])
+                              ]))
+                            : _createCommentVNode("", true)
                         ]))
-                      : (_openBlock(), _createElementBlock("div", _hoisted_37, " 暂无物品 "))
+                      : (_openBlock(), _createElementBlock("div", _hoisted_38, " 暂无物品 "))
                   ]),
                   _: 1
                 })
@@ -86021,8 +86045,8 @@ return (_ctx, _cache) => {
                       color: "light-green",
                       size: "small"
                     }),
-                    _cache[41] || (_cache[41] = _createTextVNode(" 菜市场 ", -1)),
-                    _cache[42] || (_cache[42] = _createElementVNode("span", {
+                    _cache[40] || (_cache[40] = _createTextVNode(" 菜市场 ", -1)),
+                    _cache[41] || (_cache[41] = _createElementVNode("span", {
                       class: "text-caption text-grey ml-2",
                       style: {"font-size":"0.7rem"}
                     }, "每日0、4、8、12、16、20点刷新 | 波动范围±50%", -1))
@@ -86039,10 +86063,10 @@ return (_ctx, _cache) => {
                               md: "6"
                             }, {
                               default: _withCtx(() => [
-                                _cache[44] || (_cache[44] = _createElementVNode("div", { class: "text-subtitle-2 mb-2" }, "农作物", -1)),
+                                _cache[43] || (_cache[43] = _createElementVNode("div", { class: "text-subtitle-2 mb-2" }, "农作物", -1)),
                                 _createVNode(_component_v_table, { density: "compact" }, {
                                   default: _withCtx(() => [
-                                    _cache[43] || (_cache[43] = _createElementVNode("thead", null, [
+                                    _cache[42] || (_cache[42] = _createElementVNode("thead", null, [
                                       _createElementVNode("tr", null, [
                                         _createElementVNode("th", null, "物品名称"),
                                         _createElementVNode("th", { class: "text-center" }, "成本价"),
@@ -86056,15 +86080,15 @@ return (_ctx, _cache) => {
                                           key: 'market-crop-'+i
                                         }, [
                                           _createElementVNode("td", null, _toDisplayString(item.name), 1),
-                                          _createElementVNode("td", _hoisted_38, _toDisplayString(item.last_price), 1),
-                                          _createElementVNode("td", _hoisted_39, _toDisplayString(item.price), 1),
-                                          _createElementVNode("td", _hoisted_40, [
+                                          _createElementVNode("td", _hoisted_39, _toDisplayString(item.last_price), 1),
+                                          _createElementVNode("td", _hoisted_40, _toDisplayString(item.price), 1),
+                                          _createElementVNode("td", _hoisted_41, [
                                             (item.change_pct !== undefined && item.change_pct !== 0)
                                               ? (_openBlock(), _createElementBlock("span", {
                                                   key: 0,
                                                   class: _normalizeClass(item.change_pct > 0 ? 'text-red' : 'text-green')
                                                 }, _toDisplayString(item.change_pct > 0 ? '+' : '') + _toDisplayString(item.change_pct) + "% ", 3))
-                                              : (_openBlock(), _createElementBlock("span", _hoisted_41, "-"))
+                                              : (_openBlock(), _createElementBlock("span", _hoisted_42, "-"))
                                           ])
                                         ]))
                                       }), 128))
@@ -86080,10 +86104,10 @@ return (_ctx, _cache) => {
                               md: "6"
                             }, {
                               default: _withCtx(() => [
-                                _cache[46] || (_cache[46] = _createElementVNode("div", { class: "text-subtitle-2 mb-2" }, "动物", -1)),
+                                _cache[45] || (_cache[45] = _createElementVNode("div", { class: "text-subtitle-2 mb-2" }, "动物", -1)),
                                 _createVNode(_component_v_table, { density: "compact" }, {
                                   default: _withCtx(() => [
-                                    _cache[45] || (_cache[45] = _createElementVNode("thead", null, [
+                                    _cache[44] || (_cache[44] = _createElementVNode("thead", null, [
                                       _createElementVNode("tr", null, [
                                         _createElementVNode("th", null, "物品名称"),
                                         _createElementVNode("th", { class: "text-center" }, "成本价"),
@@ -86097,15 +86121,15 @@ return (_ctx, _cache) => {
                                           key: 'market-animal-'+i
                                         }, [
                                           _createElementVNode("td", null, _toDisplayString(item.name), 1),
-                                          _createElementVNode("td", _hoisted_42, _toDisplayString(item.last_price), 1),
-                                          _createElementVNode("td", _hoisted_43, _toDisplayString(item.price), 1),
-                                          _createElementVNode("td", _hoisted_44, [
+                                          _createElementVNode("td", _hoisted_43, _toDisplayString(item.last_price), 1),
+                                          _createElementVNode("td", _hoisted_44, _toDisplayString(item.price), 1),
+                                          _createElementVNode("td", _hoisted_45, [
                                             (item.change_pct !== undefined && item.change_pct !== 0)
                                               ? (_openBlock(), _createElementBlock("span", {
                                                   key: 0,
                                                   class: _normalizeClass(item.change_pct > 0 ? 'text-red' : 'text-green')
                                                 }, _toDisplayString(item.change_pct > 0 ? '+' : '') + _toDisplayString(item.change_pct) + "% ", 3))
-                                              : (_openBlock(), _createElementBlock("span", _hoisted_45, "-"))
+                                              : (_openBlock(), _createElementBlock("span", _hoisted_46, "-"))
                                           ])
                                         ]))
                                       }), 128))
@@ -86119,7 +86143,7 @@ return (_ctx, _cache) => {
                           ]),
                           _: 1
                         }))
-                      : (_openBlock(), _createElementBlock("div", _hoisted_46, " 暂无价格信息 "))
+                      : (_openBlock(), _createElementBlock("div", _hoisted_47, " 暂无价格信息 "))
                   ]),
                   _: 1
                 })
@@ -86137,6 +86161,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const PageComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-927bad14"]]);
+const PageComponent = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-424a758b"]]);
 
 export { PageComponent as default };
