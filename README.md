@@ -10,8 +10,8 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 |------|----------|------|----------|------|
 | 1 | [📢 外部消息转发 (MsgNotify)](#1--外部消息转发-msgnotify) | v1.4.3 | 接收外部应用自定义消息并推送 | 消息通知 |
 | 2 | [🍀 Lucky助手 (LuckyHelper)](#2--lucky助手-luckyhelper) | v1.2.6 | 定时备份Lucky配置文件 | 备份 |
-| 3 | [💬 群聊区 (GroupChatZone)](#3--群聊区-groupchatzone) | v2.2.5 | 执行站点喊话、获取反馈、定时任务 | 站点 |
-| 4 | [🦅 朱雀助手 (ZhuqueHelper)](#4--朱雀助手-zhuquehelper) | v1.3.2 | 技能释放、一键升级、获取执行记录 | 站点 |
+| 3 | [💬 群聊区 (GroupChatZone)](#3--群聊区-groupchatzone) | v2.2.9 | 执行站点喊话、获取反馈、定时任务 | 站点 |
+| 4 | [🦅 朱雀助手 (ZhuqueHelper)](#4--朱雀助手-zhuquehelper) | v1.3.3 | 技能释放、一键升级、获取执行记录 | 站点 |
 | 5 | [☁️ Cloudflare订阅 (CloudflaresSubscribe)](#5-%EF%B8%8F-cloudflare订阅-cloudflaressubscribe) | v1.0.5 | 自动订阅Cloudflare免费DNS服务 | 网络 |
 | 6 | [📥 本地插件安装 (LocalPluginInstall)](#6--本地插件安装-localplugininstall) | v1.2 | 上传本地ZIP插件包进行安装 | 工具 |
 | 7 | [🎮 ~~象岛传说竞技场 (VicomoVS)~~](#7--象岛传说竞技场-vicomovs) | v1.2.6 | 象岛传说竞技场，对战boss | 站点 |
@@ -20,8 +20,8 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 | 10 | [🌐 NAT类型检测 (NATdetect)](#10--nat类型检测-natdetect) | v2.1 | 检测MP所在环境的网络NAT类型 | 站点 |
 | 11 | [🌾 ~~Vue-象岛农场 (VicomoFarm)~~](#11--vue-象岛农场-vicomofarm) | v1.3.0 | 监听象岛农场相关信息，我在PT学卖菜 | 站点 |
 | 12 | [🔍 资源探索集合 (ExploreServices)](#12--资源探索集合-exploreservices) | v1.0.2 | 统一管理和配置所有探索数据源插件 | 探索 |
-| 13 | [🌾 Vue-好学农场 (MagicFram)](#13--vue-好学农场-magicfram) | v1.0.0 | 支持一键收获、种植、养殖，定时自动化任务 | 站点 |
-| 14 | [🌾 Vue-开心农场 (PlayletFram)](#14--vue-开心农场-playletfram) | v1.0.0 | 支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务 | 站点 |
+| 13 | [🌾 Vue-好学农场 (MagicFram)](#13--vue-好学农场-magicfram) | v1.0.2 | 支持一键收获、种植、养殖，定时自动化任务 | 站点 |
+| 14 | [🌾 Vue-开心农场 (PlayletFram)](#14--vue-开心农场-playletfram) | v1.0.3 | 支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务 | 站点 |
 
 ### 1. 📢 外部消息转发 (MsgNotify)
 - 版本：v1.4.3
@@ -79,7 +79,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   </details>
 
 ### 3. 💬 群聊区 (GroupChatZone)
-- 版本：v2.2.5
+- 版本：v2.2.9
 - 功能：执行站点喊话、获取反馈、定时任务
 - 标签：站点
 - 特点：
@@ -92,12 +92,15 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v2.2.9: 优化Ptskit站点获取反馈消息逻辑。
+  - v2.2.8: 新增在自定义消息配置末尾添加消息发送间隔，具体设置请查看设置页面下方【自定义消息间隔说明】。
+  - v2.2.7: 修复好学正确获取反馈消息，优化部分站点通知输出样式。
   - v2.2.5: 修复ptskit无站点处理器问题、适配幸运反馈消息获取。
   - v1.3.0: 感谢@madrays大佬添加喊话反馈功能！
   </details>
 
 ### 4. 🦅 朱雀助手 (ZhuqueHelper)
-- 版本：v1.3.2
+- 版本：v1.3.3
 - 功能：技能释放、一键升级、获取执行记录
 - 标签：站点
 - 特点：
@@ -111,6 +114,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.3.3: 修复新版本MP无法显示数据详情页面的问题。
   - v1.3.2: 新增使用代理开关，新增使用站点Cookie开关，优化推送消息输出格式，优化配置UI新增定时框根据版本动态切换
   - v1.3.1: 修复用户信息获取失败问题
   - v1.3.0: 简化移动端图表显示
@@ -281,7 +285,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   </details>
 
 ### 13. 🌾 Vue-好学农场 (MagicFram)
-- 版本：v1.0.0
+- 版本：v1.0.2
 - 功能：支持一键收获、种植、养殖，定时自动化任务。
 - 标签：站点
 - 特点：
@@ -293,11 +297,13 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.0.2: 优化仓库排序方法、添加分页阅览。
+  - v1.0.1: 优化页面UI显示。
   - v1.0.0: 初始版本。
   </details>
 
 ### 14. 🌾 Vue-开心农场 (PlayletFram)
-- 版本：v1.0.0
+- 版本：v1.0.3
 - 功能：支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务。
 - 标签：站点
 - 特点：
@@ -309,6 +315,9 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.0.3: 调整图表刷新显示逻辑。
+  - v1.0.2: 修复仓库显示错误、智能调度注册失败问题，增强代码健壮性。
+  - v1.0.1: 修复自动任务调度失败的问题。
   - v1.0.0: 初始版本。
   </details>
 
