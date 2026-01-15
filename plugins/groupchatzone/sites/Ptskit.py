@@ -1,12 +1,11 @@
 from typing import Tuple
 from app.log import logger
-import re
+from lxml import etree
 from .NexusPHP import NexusPHPHandler
 
 class PtskitHandler(NexusPHPHandler):
     """
     Ptskit (PTS) 站点处理器
-    反馈消息通过 JavaScript alert() 弹窗返回
     """
 
     def match(self) -> bool:
@@ -17,7 +16,7 @@ class PtskitHandler(NexusPHPHandler):
 
     def send_messagebox(self, message: str = None, callback=None) -> Tuple[bool, str]:
         """
-        发送消息并获取反馈，专门处理 alert 弹窗
+        发送消息并获取反馈
         """
         try:
             # 构造请求参数
@@ -35,30 +34,48 @@ class PtskitHandler(NexusPHPHandler):
                 return False, "请求失败"
                 
             content = response.text
+            username = self.get_username()
             
-            # 匹配 alert 弹窗内容
-            match = re.search(r"alert\s*\(\s*(['\"])(.*?)\1\s*\)", content)
-            
-            if match:
-                feedback = match.group(2)
-                # 处理转义字符
-                feedback = feedback.replace("\\'", "'").replace('\\"', '"').replace("\\n", "\n")
-                # 清理冗余后缀
-                feedback = feedback.replace("，请刷新页面更新魔力值", "")
+            # 解析 HTML
+            try:
+                html = etree.HTML(content)
+                if html is None:
+                    return False, "页面解析失败"
+                    
+                # 提取所有消息行
+                rows = html.xpath("//table//tr/td[contains(@class, 'shoutrow')]")
                 
-                self._last_message_result = feedback
-                if callback:
-                    callback(True, feedback)
-                return True, feedback
-            
-            # 检查发送成功标识
-            if 'document.getElementById("hbsubmit").disabled=false' in content:
-                msg = "消息已发送 (未检测到反馈弹窗)"
-                self._last_message_result = msg
-                logger.info(f"Ptskit {msg}")
-                return True, msg
+                for row in rows:
+                    row_text = "".join(row.xpath(".//text()[not(ancestor::span[@class='date'])]")).strip()
+                    
+                    # 1. 检查是否包含系统奖励信息 (针对当前用户)
+                    if username and f"用户「{username}」" in row_text:
+                        if "获得" in row_text and "魔力值" in row_text:
+                            feedback = row_text.replace("[系统]", "").strip()
+                            self._last_message_result = feedback
+                            if callback:
+                                callback(True, feedback)
+                            return True, feedback
 
-            return True, "消息已发送 (无明显反馈)"
+                        if "今日已领取过" in row_text:
+                            feedback = row_text.replace("[系统]", "").strip()
+                            self._last_message_result = feedback
+                            if callback:
+                                callback(True, feedback)
+                            return True, feedback
+
+                    # 2. 检查是否包含自己发送的消息
+                    if username and username in row_text and message and message in row_text:
+                        return True, "消息已发送"
+
+                if 'name="shbox_text"' in content or 'id="shbox_text"' in content:
+                     return True, "消息已发送 (未检测到特定反馈)"
+                     
+            except Exception as e:
+                logger.error(f"Ptskit 解析HTML失败: {str(e)}")
+                return True, "消息已发送 (解析反馈失败)"
+
+            return True, "消息已发送 (未获得反馈)"
 
         except Exception as e:
             logger.error(f"Ptskit 发送消息失败: {str(e)}")
