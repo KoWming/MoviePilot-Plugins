@@ -32,7 +32,7 @@ class GroupChatZone(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png"
     # 插件版本
-    plugin_version = "2.2.9"
+    plugin_version = "2.3.0"
     # 插件作者
     plugin_author = "KoWming,madrays"
     # 作者主页
@@ -237,7 +237,17 @@ class GroupChatZone(_PluginBase):
         # 添加retry_interval到site_info中
         site_info["retry_interval"] = self._retry_interval
         
+        # 补充render字段，确保从数据库获取最新状态
+        if site_info.get("id"):
+            try:
+                site = self.siteoper.get(site_info.get("id"))
+                if site:
+                    site_info["render"] = site.render
+            except Exception as e:
+                logger.error(f"获取站点渲染状态失败: {str(e)}")
+
         for handler_class in self._site_handlers:
+
             if (inspect.isclass(handler_class) and 
                 issubclass(handler_class, ISiteHandler) and 
                 handler_class != ISiteHandler):

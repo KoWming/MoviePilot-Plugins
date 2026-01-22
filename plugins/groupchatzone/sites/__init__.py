@@ -10,11 +10,22 @@ from app.db.site_oper import SiteOper
 from app.core.config import settings
 from app.log import logger
 from app.utils.string import StringUtils
+from app.helper.browser import PlaywrightHelper
+
 
 class ISiteHandler(metaclass=ABCMeta):
     """
     站点处理基类
     """
+    
+    
+    class MockResponse:
+        """
+        模拟Requests Response对象
+        """
+        def __init__(self, text):
+            self.text = text
+            self.status_code = 200
     
     def __init__(self, site_info: dict):
         """
@@ -25,6 +36,7 @@ class ISiteHandler(metaclass=ABCMeta):
         self.site_name = site_info.get("name", "").strip()
         self.site_cookie = site_info.get("cookie", "").strip()
         self.ua = site_info.get("ua", "").strip()
+        self.render = site_info.get("render", False)
         self.use_proxy = site_info.get("use_proxy", True)
         self.proxies = settings.PROXY if (site_info.get("proxy") and self.use_proxy) else None
         
@@ -67,6 +79,82 @@ class ISiteHandler(metaclass=ABCMeta):
             session.proxies = self.proxies
         return session
 
+    def _get_page_source_via_browser(self, url: str, ua: str = None) -> Optional[str]:
+        """通过PlaywrightHelper获取页面源码 (支持 FlareSolverr/Playwright)"""
+        # 构造代理配置
+        proxies = None
+        if self.use_proxy and hasattr(settings, 'PROXY') and settings.PROXY:
+            try:
+                proxy_url = None
+                if isinstance(settings.PROXY, dict):
+                    proxy_url = settings.PROXY.get('http') or settings.PROXY.get('https')
+                elif isinstance(settings.PROXY, str):
+                    proxy_url = settings.PROXY
+                
+                if proxy_url:
+                    proxies = {"server": proxy_url}
+            except Exception as e:
+                logger.warning(f"解析代理配置失败: {e}")
+
+        try:
+            return PlaywrightHelper().get_page_source(
+                url=url,
+                cookies=self.site_cookie,
+                ua=ua,
+                proxies=proxies
+            )
+        except Exception as e:
+            logger.error(f"BrowserHelper 请求异常: {e}")
+            return None
+
+    def _post_via_browser(self, url: str, data: dict = None) -> Optional[str]:
+        """通过PlaywrightHelper执行POST请求"""
+        # 构造代理配置
+        proxies = None
+        if self.use_proxy and hasattr(settings, 'PROXY') and settings.PROXY:
+            try:
+                proxy_url = None
+                if isinstance(settings.PROXY, dict):
+                    proxy_url = settings.PROXY.get('http') or settings.PROXY.get('https')
+                elif isinstance(settings.PROXY, str):
+                    proxy_url = settings.PROXY
+                
+                if proxy_url:
+                    proxies = {"server": proxy_url}
+            except Exception as e:
+                logger.warning(f"解析代理配置失败: {e}")
+
+        def post_action(page):
+            js_data = data if data else {}
+            return page.evaluate("""
+                async (data) => {
+                    const formData = new URLSearchParams();
+                    for (const [key, value] of Object.entries(data)) {
+                        formData.append(key, value);
+                    }
+                    const response = await fetch(window.location.href, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: formData
+                    });
+                    return await response.text();
+                }
+            """, js_data)
+
+        try:
+            return PlaywrightHelper().action(
+                url=url,
+                callback=post_action,
+                cookies=self.site_cookie,
+                ua=self.ua,
+                proxies=proxies
+            )
+        except Exception as e:
+            logger.error(f"BrowserHelper POST请求异常: {e}")
+            return None
+
+
+
     def _send_get_request(self, url: str, params: dict = None, rt_method: callable = None) -> Optional[requests.Response]:
         """
         发送GET请求
@@ -76,6 +164,16 @@ class ISiteHandler(metaclass=ABCMeta):
         :return: 处理后的响应结果
         """
         try:
+            # 优先尝试 BrowserHelper
+            if self.render:
+                html_text = self._get_page_source_via_browser(url, self.ua)
+                if html_text:
+                    response = self.MockResponse(html_text)
+                    # 如果有响应处理方法,则使用该方法处理响应
+                    if rt_method:
+                        return rt_method(response)
+                    return response
+
             response = self.session.get(url, params=params, timeout=(3.05, 10))
             response.raise_for_status()
             
@@ -97,6 +195,16 @@ class ISiteHandler(metaclass=ABCMeta):
         :return: 处理后的响应结果
         """
         try:
+            # 优先尝试 BrowserHelper
+            if self.render:
+                html_text = self._post_via_browser(url, data)
+                if html_text:
+                    response = self.MockResponse(html_text)
+                    # 如果有响应处理方法,则使用该方法处理响应
+                    if rt_method:
+                        return rt_method(response)
+                    return response
+
             response = self.session.post(url, data=data, timeout=(3.05, 10))
             response.raise_for_status()
             
