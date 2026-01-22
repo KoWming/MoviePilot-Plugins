@@ -10,7 +10,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 |------|----------|------|----------|------|
 | 1 | [📢 外部消息转发 (MsgNotify)](#1--外部消息转发-msgnotify) | v1.4.3 | 接收外部应用自定义消息并推送 | 消息通知 |
 | 2 | [🍀 Lucky助手 (LuckyHelper)](#2--lucky助手-luckyhelper) | v1.2.6 | 定时备份Lucky配置文件 | 备份 |
-| 3 | [💬 群聊区 (GroupChatZone)](#3--群聊区-groupchatzone) | v2.2.9 | 执行站点喊话、获取反馈、定时任务 | 站点 |
+| 3 | [💬 群聊区 (GroupChatZone)](#3--群聊区-groupchatzone) | v2.3.0 | 执行站点喊话、获取反馈、定时任务 | 站点 |
 | 4 | [🦅 朱雀助手 (ZhuqueHelper)](#4--朱雀助手-zhuquehelper) | v1.3.3 | 技能释放、一键升级、获取执行记录 | 站点 |
 | 5 | [☁️ Cloudflare订阅 (CloudflaresSubscribe)](#5-%EF%B8%8F-cloudflare订阅-cloudflaressubscribe) | v1.0.5 | 自动订阅Cloudflare免费DNS服务 | 网络 |
 | 6 | [📥 本地插件安装 (LocalPluginInstall)](#6--本地插件安装-localplugininstall) | v1.2 | 上传本地ZIP插件包进行安装 | 工具 |
@@ -22,6 +22,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 | 12 | [🔍 资源探索集合 (ExploreServices)](#12--资源探索集合-exploreservices) | v1.0.2 | 统一管理和配置所有探索数据源插件 | 探索 |
 | 13 | [🌾 Vue-好学农场 (MagicFram)](#13--vue-好学农场-magicfram) | v1.0.2 | 支持一键收获、种植、养殖，定时自动化任务 | 站点 |
 | 14 | [🌾 Vue-开心农场 (PlayletFram)](#14--vue-开心农场-playletfram) | v1.0.3 | 支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务 | 站点 |
+| 15 | [🏅 Vue-勋章墙Pro (MedalWallPro)](#15--vue-勋章墙pro-medalwallpro) | v1.0 | 站点勋章购买提醒、统计、展示 | 站点 |
 
 ### 1. 📢 外部消息转发 (MsgNotify)
 - 版本：v1.4.3
@@ -79,7 +80,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   </details>
 
 ### 3. 💬 群聊区 (GroupChatZone)
-- 版本：v2.2.9
+- 版本：v2.3.0
 - 功能：执行站点喊话、获取反馈、定时任务
 - 标签：站点
 - 特点：
@@ -92,6 +93,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v2.3.0: 新增适配 FlareSolverr，支持开启渲染的站点绕过 Cloudflare 验证（需在站点编辑中开启浏览器仿真）。
   - v2.2.9: 优化Ptskit站点获取反馈消息逻辑。
   - v2.2.8: 新增在自定义消息配置末尾添加消息发送间隔，具体设置请查看设置页面下方【自定义消息间隔说明】。
   - v2.2.7: 修复好学正确获取反馈消息，优化部分站点通知输出样式。
@@ -319,6 +321,23 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   - v1.0.2: 修复仓库显示错误、智能调度注册失败问题，增强代码健壮性。
   - v1.0.1: 修复自动任务调度失败的问题。
   - v1.0.0: 初始版本。
+  </details>
+
+### 15. 🏅 Vue-勋章墙Pro (MedalWallPro)
+- 版本：v1.0
+- 功能：站点勋章购买提醒、统计、展示。
+- 标签：站点
+- 特点：
+  - 🔔 勋章购买提醒
+  - 📊 勋章统计展示
+  - ⏰ 定时任务自动执行
+  - 🔄 支持多站点管理
+  - 📱 移动端优化显示
+- 更新说明：
+  <details>
+  <summary>点击查看更新历史</summary>
+  
+  - v1.0: 初始版本。
   </details>
 
 ## 📖 使用说明
