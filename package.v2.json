@@ -67,5 +67,18 @@
             "v1.0.1": "修复自动任务调度失败的问题。",
             "v1.0.0": "初始版本。"
         }
+    },
+    "MedalWallPro": {
+        "name": "Vue-勋章墙Pro",
+        "description": "站点勋章购买提醒、统计、展示。",
+        "labels": "站点",
+        "version": "1.0",
+        "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Medal.png",
+        "author": "KoWming",
+        "level": 2,
+        "release": true,
+        "history": {
+            "v1.0": "初始版本。"
+        }
     }
 }
