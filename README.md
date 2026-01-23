@@ -23,6 +23,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 | 13 | [🌾 Vue-好学农场 (MagicFram)](#13--vue-好学农场-magicfram) | v1.0.2 | 支持一键收获、种植、养殖，定时自动化任务 | 站点 |
 | 14 | [🌾 Vue-开心农场 (PlayletFram)](#14--vue-开心农场-playletfram) | v1.0.3 | 支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务 | 站点 |
 | 15 | [🏅 Vue-勋章墙Pro (MedalWallPro)](#15--vue-勋章墙pro-medalwallpro) | v1.0 | 站点勋章购买提醒、统计、展示 | 站点 |
+| 16 | [🌞 Sun-Panel助手 (SpanelHelper)](#16--sun-panel助手-spanelhelper) | v1.0 | 同步MP中已启用的站点到Sun-Panel指定分组 | 工具 |
 
 ### 1. 📢 外部消息转发 (MsgNotify)
 - 版本：v1.4.3
@@ -333,6 +334,21 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   - ⏰ 定时任务自动执行
   - 🔄 支持多站点管理
   - 📱 移动端优化显示
+- 更新说明：
+  <details>
+  <summary>点击查看更新历史</summary>
+  
+  - v1.0: 初始版本。
+  </details>
+
+### 16. 🌞 Sun-Panel助手 (SpanelHelper)
+- 版本：v1.0
+- 功能：同步MP中已启用的站点到Sun-Panel指定分组。
+- 标签：工具
+- 特点：
+  - 🔄 一键同步站点
+  - 📂 指定分组管理
+  - 🔗 支持站点链接跳转
 - 更新说明：
   <details>
   <summary>点击查看更新历史</summary>
