@@ -192,5 +192,19 @@
       "v2.0": "重构检测方法，不在依赖Lucky请求。优化界面显示。",
       "v1.0": "初始版本。"
     }
+  },
+  "SpanelHelper": {
+    "name": "Sun-Panel助手",
+    "description": "同步MP中已启用的站点到Sun-Panel指定分组",
+    "labels": "工具",
+    "version": "1.0",
+    "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/sun-panel.png",
+    "author": "KoWming",
+    "level": 1,
+    "v2": true,
+    "release": true,
+    "history": {
+      "v1.0": "初始版本。"
+    }
   }
 }
