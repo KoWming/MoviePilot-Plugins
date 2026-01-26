@@ -32,7 +32,7 @@ class GroupChatZone(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png"
     # 插件版本
-    plugin_version = "2.3.0"
+    plugin_version = "2.3.1"
     # 插件作者
     plugin_author = "KoWming,madrays"
     # 作者主页
@@ -84,7 +84,7 @@ class GroupChatZone(_PluginBase):
     _retry_count: int = 2          # 喊话失败重试次数
     _retry_interval: int = 10      # 喊话失败重试间隔(分钟)
     _zm_interval: int = 60      # 独立织梦喊话间隔(秒)
-    _retry_notify: bool = True     # 是否发送重试通知
+    _retry_notify: bool = False     # 是否发送重试通知
     
     # 重试相关属性
     _failed_messages: List[Dict] = []  # 存储失败消息的详细信息
@@ -136,7 +136,7 @@ class GroupChatZone(_PluginBase):
             self._longpt_daily_lottery = bool(config.get("longpt_daily_lottery", False))
             self._retry_count = int(config.get("retry_count", 2))
             self._retry_interval = int(config.get("retry_interval", 10))
-            self._retry_notify = bool(config.get("retry_notify", True))
+            self._retry_notify = bool(config.get("retry_notify", False))
             self._zm_interval = int(config.get("zm_interval", 60))
             self._zm_mail_time = config.get("zm_mail_time")
             
