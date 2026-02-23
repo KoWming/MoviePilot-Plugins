@@ -26,7 +26,7 @@ class SpanelHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/sun-panel.png"
     # 插件版本
-    plugin_version = "1.0"
+    plugin_version = "1.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -38,11 +38,6 @@ class SpanelHelper(_PluginBase):
     # 可使用的用户级别
     auth_level = 1
 
-    # 站点URL映射字典
-    SITE_URL_MAPPING = {
-        "馒头": "https://kp.m-team.cc/",
-    }
-    
     # 域名/站点名别名映射
     ICON_ALIAS_MAPPING = {
         "totheglory": "ttg",
@@ -56,6 +51,7 @@ class SpanelHelper(_PluginBase):
 
     # 私有属性
     _enabled = False
+    _custom_domains = ""
     _cron = "0 0 * * *"
     _spanel_url = ""
     _spanel_token = ""
@@ -82,6 +78,7 @@ class SpanelHelper(_PluginBase):
             self._notify = config.get("notify")
             self._force_update = config.get("force_update")
             self._icon_repo_url = config.get("icon_repo_url")
+            self._custom_domains = config.get("custom_domains") or ""
 
         # 确保数据目录存在
         self._data_path = Path(settings.CONFIG_PATH) / "plugins" / "spanelhelper"
@@ -111,6 +108,7 @@ class SpanelHelper(_PluginBase):
                 "notify": self._notify,
                 "force_update": self._force_update,
                 "icon_repo_url": self._icon_repo_url,
+                "custom_domains": self._custom_domains,
             })
 
     def get_service(self) -> List[Dict[str, Any]]:
@@ -183,6 +181,9 @@ class SpanelHelper(_PluginBase):
                                     {'component': 'VCol', 'props': {'cols': 12, 'md': 6}, 'content': [{'component': 'VTextField', 'props': {'model': 'icon_repo_url', 'label': '图标库URL', 'placeholder': 'https://example.com/icons.zip'}}]},
                                     {'component': 'VCol', 'props': {'cols': 12, 'md': 3}, 'content': [{'component': cron_field_component, 'props': {'model': 'cron', 'label': '同步周期', 'placeholder': '0 * * * *'}}]},
                                     {'component': 'VCol', 'props': {'cols': 12, 'md': 3}, 'content': [{'component': 'VSelect', 'props': {'model': 'force_update', 'label': '强制更新', 'items': [{'title': '关闭', 'value': False}, {'title': '开启', 'value': True}]}}]}
+                                ]},
+                                {'component': 'VRow', 'content': [
+                                    {'component': 'VCol', 'props': {'cols': 12}, 'content': [{'component': 'VTextarea', 'props': {'model': 'custom_domains', 'label': '自定义域名设置', 'rows': 3, 'placeholder': '格式：站点名称|域名URL\n例如：馒头|https://kp.m-team.cc/\n用于替换站点URL映射字典功能'}}]}
                                 ]}
                             ]}
                         ]
@@ -317,7 +318,8 @@ class SpanelHelper(_PluginBase):
             "use_proxy": True,
             "notify": True,
             "force_update": False,
-            "icon_repo_url": ""
+            "icon_repo_url": "",
+            "custom_domains": ""
         }
 
     def get_page(self) -> List[dict]:
@@ -376,8 +378,18 @@ class SpanelHelper(_PluginBase):
             fail_count = 0
             total_count = len(sites)
             
+            custom_mapping = {}
+            if self._custom_domains:
+                for line in self._custom_domains.splitlines():
+                    line = line.strip()
+                    if not line or '|' not in line:
+                        continue
+                    parts = line.split('|', 1)
+                    if len(parts) == 2:
+                        custom_mapping[parts[0].strip()] = parts[1].strip()
+            
             for site in sites:
-                if self.__sync_site_item(site, group_id, group_only_name):
+                if self.__sync_site_item(site, group_id, group_only_name, custom_mapping):
                     success_count += 1
                 else:
                     fail_count += 1
@@ -615,19 +627,19 @@ class SpanelHelper(_PluginBase):
         return ""
 
 
-    def __sync_site_item(self, site, group_id, group_only_name) -> bool:
+    def __sync_site_item(self, site, group_id, group_only_name, custom_mapping: dict = None) -> bool:
         """
         同步单个站点
         """
         # 使用 MP 站点ID作为唯一标识的一部分，确保唯一性
         item_only_name = f"mp_site_{site.id}"
         
-        # URL 替换逻辑：如果是 API 站点，尝试使用映射 URL
+        # URL 替换逻辑：使用自定义域名配置
         site_url = site.url
-        if site_url and "api." in site_url:
-            if site.name in self.SITE_URL_MAPPING:
-                logger.info(f"替换API站点URL: {site.name} {site_url} -> {self.SITE_URL_MAPPING[site.name]}")
-                site_url = self.SITE_URL_MAPPING[site.name]
+        custom_mapping = custom_mapping or {}
+        if site.name in custom_mapping:
+            logger.info(f"使用自定义域名: {site.name} {site_url} -> {custom_mapping[site.name]}")
+            site_url = custom_mapping[site.name]
         
         # 移除末尾斜杠以更好对比
         site_url = site_url.rstrip('/') if site_url else ""
