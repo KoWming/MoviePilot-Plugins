@@ -42,7 +42,26 @@ class PtskitHandler(NexusPHPHandler):
                 if html is None:
                     return False, "页面解析失败"
                     
-                # 提取所有消息行
+                # 1. 检查顶部系统奖励信息
+                system_msgs = html.xpath("//div[contains(@class, 'magic-reward-top') and contains(@class, 'system-msg')]")
+                for msg_node in system_msgs:
+                    msg_text = "".join(msg_node.xpath(".//text()[not(ancestor::span[@class='date'])]")).strip()
+                    if username and f"用户「{username}」" in msg_text:
+                        if "获得" in msg_text and "魔力值" in msg_text:
+                            feedback = msg_text.replace("[系统]", "").strip()
+                            self._last_message_result = feedback
+                            if callback:
+                                callback(True, feedback)
+                            return True, feedback
+
+                        if "今日已领取过" in msg_text:
+                            feedback = msg_text.replace("[系统]", "").strip()
+                            self._last_message_result = feedback
+                            if callback:
+                                callback(True, feedback)
+                            return True, feedback
+
+                # 2. 提取所有消息行
                 rows = html.xpath("//table//tr/td[contains(@class, 'shoutrow')]")
                 
                 for row in rows:
