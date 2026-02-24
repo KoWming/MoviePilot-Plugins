@@ -73,12 +73,13 @@
         "name": "Vue-勋章墙Pro",
         "description": "站点勋章购买提醒、统计、展示。",
         "labels": "站点",
-        "version": "1.0",
+        "version": "1.1",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Medal.png",
         "author": "KoWming",
         "level": 2,
         "release": true,
         "history": {
+            "v1.1": "修复了部分站点勋章数据无法完全获取的问题。",
             "v1.0": "初始版本。"
         }
     }
