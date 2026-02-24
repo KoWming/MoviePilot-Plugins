@@ -3,7 +3,7 @@ from app.core.config import settings
 from app.log import logger
 from app.utils.http import RequestUtils
 from datetime import datetime
-from typing import List
+from typing import List, Dict
 from cachetools import cached, TTLCache
 
 class Option:
@@ -34,19 +34,73 @@ def get_api(master_plugin):
         }
     ]
 
-@cached(cache=TTLCache(maxsize=32, ttl=1800))
-def __request():
+def __fetch_raw_bangumi_data() -> List[dict] | None:
     api_url = "https://api.bgm.tv/calendar"
     headers = {
-        "User-Agent": settings.USER_AGENT,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "Referer": "https://api.bgm.tv/",
     }
-    res = RequestUtils(headers=headers).get_res(api_url)
-    if res is None:
-        raise Exception("无法连接Bangumi每日放送，请检查网络连接！")
-    if not res.ok:
-        raise Exception(f"请求Bangumi每日放送 API失败：{res.text}")
-    return res.json()
+    try:
+        res = RequestUtils(headers=headers).get_res(api_url)
+        if res is None:
+            logger.error("无法连接Bangumi每日放送，请检查网络连接！")
+            return None
+        if not res.ok:
+            logger.error(f"请求Bangumi每日放送 API失败：{res.text}")
+            return None
+        return res.json()
+    except Exception as e:
+        logger.error(f"请求Bangumi数据时发生异常: {str(e)}")
+        return None
+
+def __convert_to_media_info(series_info: dict) -> MediaInfo:
+    rating_info = series_info.get("rating", {})
+    title = series_info.get("name_cn") or series_info.get("name", "")
+    images = series_info.get("images", {}) or {}
+
+    return MediaInfo(
+        type="电视剧",
+        source="bangumi",
+        title=title,
+        mediaid_prefix="bangumidaily",
+        media_id=str(series_info.get("id", "")),
+        bangumi_id=series_info.get("id", None),
+        poster_path=images.get("large", ""),
+        vote_average=rating_info.get("score", 0),
+        first_air_date=series_info.get("air_date", ""),
+    )
+
+@cached(cache=TTLCache(maxsize=1, ttl=1800))
+def __get_processed_bangumi_data() -> Dict[str, List[MediaInfo]] | None:
+    raw_data = __fetch_raw_bangumi_data()
+    if not raw_data:
+        return None
+
+    processed_data: Dict[str, List[MediaInfo]] = {
+        str(day[0]): [] for day in weekdays
+    }
+
+    all_items = []
+
+    for day_entry in raw_data:
+        weekday_id_num = day_entry.get("weekday", {}).get("id")
+        if weekday_id_num is None:
+            continue
+
+        weekday_id = str(weekday_id_num)
+
+        converted_items = [
+            __convert_to_media_info(item)
+            for item in day_entry.get("items", [])
+        ]
+
+        if weekday_id in processed_data:
+            processed_data[weekday_id].extend(converted_items)
+
+        all_items.extend(converted_items)
+
+    processed_data["0"] = all_items
+    return processed_data
 
 def bangumidaily_discover(
     weekday: str = "0",
@@ -56,46 +110,20 @@ def bangumidaily_discover(
     """
     获取Bangumi每日放送探索数据
     """
-    def __series_to_media(series_info: dict) -> MediaInfo:
-        vote_average = None
-        rating_info = series_info.get("rating", None)
-        if rating_info is not None:
-            vote_average = rating_info.get("score", None)
-        title = series_info.get("name_cn") or series_info.get("name")
-        return MediaInfo(
-            type="电视剧",
-            source="bangumi",
-            title=title,
-            mediaid_prefix="bangumidaily",
-            media_id=series_info.get("id"),
-            bangumi_id=series_info.get("id"),
-            poster_path=series_info.get("images", {}).get("large"),
-            vote_average=vote_average,
-            first_air_date=series_info.get("air_date", None)
-        )
     try:
-        result = __request()
-    except Exception as err:
-        logger.error(str(err))
+        processed_data = __get_processed_bangumi_data()
+        if not processed_data:
+            return []
+
+        results = processed_data.get(str(weekday), [])
+
+        start_idx = (page - 1) * count
+        end_idx = start_idx + count
+        return results[start_idx:end_idx]
+
+    except Exception as e:
+        logger.error(f"获取Bangumi每日放送数据失败: {str(e)}", exc_info=True)
         return []
-    if not result:
-        return []
-    results = []
-    for day_entry in result:
-        if str(weekday) == "0":
-            for item in day_entry["items"]:
-                results.append(__series_to_media(item))
-        else:
-            if str(day_entry["weekday"]["id"]) == str(weekday):
-                for item in day_entry["items"]:
-                    results.append(__series_to_media(item))
-            else:
-                continue
-    if page * count <= len(results):
-        last_num = page * count
-    else:
-        last_num = len(results)
-    return results[(page - 1) * count : last_num]
 
 def bangumidaily_filter_ui():
     today_weekday = datetime.today().weekday() + 1

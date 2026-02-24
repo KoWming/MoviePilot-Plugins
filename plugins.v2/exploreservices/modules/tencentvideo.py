@@ -23,7 +23,7 @@ PARAMS = {
 }
 
 HEADERS = {
-    "User-Agent": settings.USER_AGENT,
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "Referer": "https://v.qq.com/",
 }
 
@@ -31,6 +31,8 @@ HEADERS = {
 BASE_UI = None
 
 def get_api(master_plugin):
+    if "puui.qpic.cn" not in settings.SECURITY_IMAGE_DOMAINS:
+        settings.SECURITY_IMAGE_DOMAINS.append("puui.qpic.cn")
     _ = master_plugin
     return [
         {
@@ -229,7 +231,7 @@ def tencentvideo_discover(
             title=movie_info.get("title"),
             year=movie_info.get("year"),
             title_year=f"{movie_info.get('title')} ({movie_info.get('year')})",
-            mediaid_prefix="tencentvideo",
+            mediaid_prefix="tencentvideodiscover",
             media_id=str(movie_info.get("cid")),
             poster_path=poster_url,
         )
@@ -252,7 +254,7 @@ def tencentvideo_discover(
             title=series_info.get("title"),
             year=series_info.get("year"),
             title_year=f"{series_info.get('title')} ({series_info.get('year')})",
-            mediaid_prefix="tencentvideo",
+            mediaid_prefix="tencentvideodiscover",
             media_id=str(series_info.get("cid")),
             poster_path=poster_url,
         )
@@ -341,7 +343,7 @@ def discover_source(master_plugin, event_data):
     _ = master_plugin
     tencentvideo_source = DiscoverMediaSource(
         name="腾讯视频",
-        mediaid_prefix="tencentvideo",
+        mediaid_prefix="tencentvideodiscover",
         api_path=f"plugin/ExploreServices/tencentvideo_discover?apikey={settings.API_TOKEN}",
         filter_params={
             "mtype": "tv",

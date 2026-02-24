@@ -3,8 +3,31 @@ from app.core.config import settings
 from app.log import logger
 from app.utils.http import RequestUtils
 from cachetools import cached, TTLCache
-from typing import List, Dict
+from typing import List, Dict, Any
+from dataclasses import dataclass
 import re
+
+@dataclass
+class VideoAlbum:
+    sc: str
+    image: str
+    fc: str
+    id: str
+    image2: str
+    title: str
+    vsetid: str
+    vset_cs: str
+    channel: str
+    image3: str
+
+@dataclass
+class VideoAlbumListData:
+    total: int
+    list: List[VideoAlbum]
+
+@dataclass
+class VideoAlbumList:
+    data: VideoAlbumListData
 
 _base_api = "https://api.cntv.cn/newVideoset/getCboxVideoAlbumList"
 
@@ -33,15 +56,34 @@ def __request(page_num: int, page_size: int, **kwargs) -> Dict:
     if kwargs:
         params.update(kwargs)
     headers = {
-        "User-Agent": settings.USER_AGENT,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "Referer": "https://app.cctv.com/",
     }
     res = RequestUtils(headers=headers).get_res(api_url, params=params)
     if res is None:
-        raise Exception("无法连接CCTV，请检查网络连接！")
+        raise ConnectionError("无法连接CCTV，请检查网络连接！")
     if not res.ok:
-        raise Exception(f"请求CCTV API失败：{res.text}")
-    return res.json()
+        raise ValueError(f"请求CCTV API失败：{res.text}")
+
+    data_body = res.json().get("data", {})
+    albums = [
+        VideoAlbum(
+            sc=item.get("sc", ""),
+            image=item.get("image", ""),
+            fc=item.get("fc", ""),
+            id=item.get("id", ""),
+            image2=item.get("image2", ""),
+            title=item.get("title", ""),
+            vsetid=item.get("vsetid", ""),
+            vset_cs=item.get("vset_cs", ""),
+            channel=item.get("channel", ""),
+            image3=item.get("image3", ""),
+        )
+        for item in data_body.get("list", [])
+    ]
+    return VideoAlbumList(
+        data=VideoAlbumListData(total=data_body.get("total", 0), list=albums)
+    )
 
 def cctv_discover(
     fc: str = "电视剧",
@@ -53,24 +95,21 @@ def cctv_discover(
     page: int = 1,
     count: int = 30,
 ) -> List[MediaInfo]:
-    def _parse_response(data: Dict) -> List[Dict]:
-        data_body = data.get("data", {})
-        return data_body.get("list", [])
-    def __movie_to_media(movie_info: dict) -> MediaInfo:
+    def __movie_to_media(movie_info: VideoAlbum) -> MediaInfo:
         return MediaInfo(
             type="电影",
-            title=re.sub("[《》]", "", movie_info.get("title", "")),
+            title=re.sub("[《》]", "", movie_info.title),
             mediaid_prefix="cctv",
-            media_id=movie_info.get("id", ""),
-            poster_path=movie_info.get("image", ""),
+            media_id=movie_info.id,
+            poster_path=movie_info.image,
         )
-    def __series_to_media(series_info: dict) -> MediaInfo:
+    def __series_to_media(series_info: VideoAlbum) -> MediaInfo:
         return MediaInfo(
             type="电视剧",
-            title=re.sub("[《》]", "", series_info.get("title", "")),
+            title=re.sub("[《》]", "", series_info.title),
             mediaid_prefix="cctv",
-            media_id=series_info.get("id", ""),
-            poster_path=series_info.get("image", ""),
+            media_id=series_info.id,
+            poster_path=series_info.image,
         )
     try:
         params = {"fc": fc}
@@ -83,13 +122,12 @@ def cctv_discover(
     except Exception as err:
         logger.error(str(err))
         return []
-    items = _parse_response(result)
-    if not items:
+    if not result:
         return []
     if fc == "电影":
-        results = [__movie_to_media(movie) for movie in items]
+        results = [__movie_to_media(movie) for movie in result.data.list[:]]
     else:
-        results = [__series_to_media(series) for series in items]
+        results = [__series_to_media(series) for series in result.data.list[:]]
     return results
 
 @staticmethod

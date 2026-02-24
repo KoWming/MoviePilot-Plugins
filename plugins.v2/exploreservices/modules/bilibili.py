@@ -21,8 +21,8 @@ def get_api(master_plugin):
             "path": "/bilibili_discover",
             "endpoint": bilibili_discover,
             "methods": ["GET"],
-            "summary": "Bilibili探索数据源",
-            "description": "获取Bilibili探索数据",
+            "summary": "哔哩哔哩探索数据源",
+            "description": "获取哔哩哔哩探索数据",
         }
     ]
 
@@ -30,7 +30,7 @@ def get_api(master_plugin):
 def __request(mtype: str, page_num: int, page_size: int, **kwargs) -> List[dict]:
     api_url = "https://api.bilibili.com/pgc/season/index/result"
     headers = {
-        "User-Agent": settings.USER_AGENT,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "Referer": "https://www.bilibili.com",
     }
     params = {
@@ -44,9 +44,9 @@ def __request(mtype: str, page_num: int, page_size: int, **kwargs) -> List[dict]
         params.update(kwargs)
     res = RequestUtils(headers=headers).get_res(api_url, params=params)
     if res is None:
-        raise Exception("无法连接哔哩哔哩，请检查网络连接！")
+        raise ConnectionError("无法连接哔哩哔哩，请检查网络连接！")
     if not res.ok:
-        raise Exception(f"请求哔哩哔哩 API失败：{res.text}")
+        raise ValueError(f"请求哔哩哔哩 API失败：{res.text}")
     return res.json().get("data", {}).get("list", [])
 
 def bilibili_discover(
@@ -68,7 +68,12 @@ def bilibili_discover(
     count: int = 20,
 ) -> List[MediaInfo]:
     def __movie_to_media(movie_info: dict) -> MediaInfo:
-        vote_average = movie_info.get("score") if movie_info.get("score") else None
+        """
+        电影数据转换为MediaInfo
+        """
+        vote_average = None
+        if movie_info.get("score"):
+            vote_average = movie_info.get("score")
         return MediaInfo(
             type="电影",
             title=movie_info.get("title"),
@@ -78,7 +83,12 @@ def bilibili_discover(
             vote_average=vote_average,
         )
     def __series_to_media(series_info: dict) -> MediaInfo:
-        vote_average = series_info.get("score") if series_info.get("score") else None
+        """
+        电视剧数据转换为MediaInfo
+        """
+        vote_average = None
+        if series_info.get("score"):
+            vote_average = series_info.get("score")
         return MediaInfo(
             type="电视剧",
             title=series_info.get("title"),
@@ -89,19 +99,32 @@ def bilibili_discover(
         )
     try:
         params = {}
-        if year: params["year"] = year
-        if release_date: params["release_date"] = release_date
-        if sort: params["sort"] = sort
-        if season_status: params["season_status"] = season_status
-        if style_id: params["style_id"] = style_id
-        if season_month: params["season_month"] = season_month
-        if _copyright: params["copyright"] = _copyright
-        if is_finish: params["is_finish"] = is_finish
-        if area: params["area"] = area
-        if spoken_language_type: params["spoken_language_type"] = spoken_language_type
-        if season_version: params["season_version"] = season_version
-        if order: params["order"] = order
-        if producer_id: params["producer_id"] = producer_id
+        if year:
+            params["year"] = year
+        if release_date:
+            params["release_date"] = release_date
+        if sort:
+            params["sort"] = sort
+        if season_status:
+            params["season_status"] = season_status
+        if style_id:
+            params["style_id"] = style_id
+        if season_month:
+            params["season_month"] = season_month
+        if _copyright:
+            params["copyright"] = _copyright
+        if is_finish:
+            params["is_finish"] = is_finish
+        if area:
+            params["area"] = area
+        if spoken_language_type:
+            params["spoken_language_type"] = spoken_language_type
+        if season_version:
+            params["season_version"] = season_version
+        if order:
+            params["order"] = order
+        if producer_id:
+            params["producer_id"] = producer_id
         result = __request(mtype, page, count, **params)
     except Exception as err:
         logger.error(str(err))

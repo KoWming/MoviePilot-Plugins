@@ -17,6 +17,8 @@ MIGU_MTYPES = [
 ]
 
 def get_api(master_plugin):
+    if "https://wapx.cmvideo.cn" not in settings.SECURITY_IMAGE_DOMAINS:
+        settings.SECURITY_IMAGE_DOMAINS.append("https://wapx.cmvideo.cn")
     _ = master_plugin
     return [
         {
@@ -33,14 +35,14 @@ def __request(**params) -> List[dict]:
     api_url = _BASE_API
     params.setdefault("copyrightTerminal", 3)
     headers = {
-        "User-Agent": settings.USER_AGENT,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "Referer": "https://www.miguvideo.com/",
     }
     res = RequestUtils(headers=headers).get_res(api_url, params=params)
     if res is None:
-        raise Exception("无法连接咪咕视频，请检查网络连接！")
+        raise ConnectionError("无法连接咪咕视频，请检查网络连接！")
     if not res.ok:
-        raise Exception(f"请求咪咕视频 API失败：{res.text}")
+        raise ValueError(f"请求咪咕视频 API失败：{res.text}")
     return res.json().get("body", {}).get("data", [])
 
 def migu_discover(
@@ -65,7 +67,7 @@ def migu_discover(
             title=movie_info.get("name"),
             year=movie_info.get("year"),
             title_year=f"{movie_info.get('name')} ({movie_info.get('year')})",
-            mediaid_prefix="migu",
+            mediaid_prefix="migudiscover",
             media_id=str(movie_info.get("pID")),
             poster_path=poster,
             vote_average=movie_info.get("score"),
@@ -81,7 +83,7 @@ def migu_discover(
             title=series_info.get("name"),
             year=series_info.get("year"),
             title_year=f"{series_info.get('name')} ({series_info.get('year')})",
-            mediaid_prefix="migu",
+            mediaid_prefix="migudiscover",
             media_id=str(series_info.get("pID")),
             release_date=series_info.get("publishTime"),
             poster_path=poster,
@@ -712,7 +714,7 @@ def discover_source(master_plugin, event_data):
     _ = master_plugin
     migu_source = DiscoverMediaSource(
         name="咪咕视频",
-        mediaid_prefix="migu",
+        mediaid_prefix="migudiscover",
         api_path=f"plugin/ExploreServices/migu_discover?apikey={settings.API_TOKEN}",
         filter_params={
             "mtype": "电视剧",

@@ -16,13 +16,15 @@ CHANNEL_PARAMS = {
 }
 
 HEADERS = {
-    "User-Agent": settings.USER_AGENT,
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "Referer": "https://www.mgtv.com",
 }
 
 BASE_UI = None
 
 def get_api(master_plugin):
+    if "hitv.com" not in settings.SECURITY_IMAGE_DOMAINS:
+        settings.SECURITY_IMAGE_DOMAINS.append("hitv.com")
     _ = master_plugin
     return [
         {
@@ -101,9 +103,9 @@ def __request(**kwargs) -> List[dict]:
     api_url = "https://pianku.api.mgtv.com/rider/list/pcweb/v3"
     res = RequestUtils(headers=HEADERS).get_res(api_url, params=kwargs)
     if res is None:
-        raise Exception("无法连接芒果TV，请检查网络连接！")
+        raise ConnectionError("无法连接芒果TV，请检查网络连接！")
     if not res.ok:
-        raise Exception(f"请求芒果TV API失败：{res.text}")
+        raise ValueError(f"请求芒果TV API失败：{res.text}")
     return res.json().get("data", {}).get("hitDocs", [])
 
 def mangguo_discover(
@@ -128,7 +130,7 @@ def mangguo_discover(
             title=movie_info.get("title"),
             year=movie_info.get("year"),
             title_year=f"{movie_info.get('title')} ({movie_info.get('year')})",
-            mediaid_prefix="mangguo",
+            mediaid_prefix="mangguodiscover",
             media_id=str(movie_info.get("clipId")),
             poster_path=movie_info.get("img"),
         )
@@ -138,7 +140,7 @@ def mangguo_discover(
             title=series_info.get("title"),
             year=series_info.get("year"),
             title_year=f"{series_info.get('title')} ({series_info.get('year')})",
-            mediaid_prefix="mangguo",
+            mediaid_prefix="mangguodiscover",
             media_id=str(series_info.get("clipId")),
             poster_path=series_info.get("img"),
         )
@@ -219,7 +221,7 @@ def discover_source(master_plugin, event_data):
     _ = master_plugin
     mangguo_source = DiscoverMediaSource(
         name="芒果TV",
-        mediaid_prefix="mangguo",
+        mediaid_prefix="mangguodiscover",
         api_path=f"plugin/ExploreServices/mangguo_discover?apikey={settings.API_TOKEN}",
         filter_params={
             "mtype": "电视剧",
