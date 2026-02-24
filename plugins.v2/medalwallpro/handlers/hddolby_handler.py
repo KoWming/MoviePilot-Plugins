@@ -163,8 +163,8 @@ class HddolbyMedalHandler(BaseMedalSiteHandler):
             # 使用lxml解析HTML
             html = etree.HTML(res.text)
             
-            # 获取所有勋章行 (在购买、赠送勋章表格中)
-            medal_rows = html.xpath("//table[@border='1']//tbody/tr[position()>1]")
+            # 获取所有勋章行 (在购买、赠送勋章表格中)，兼容包含 thead 的情况
+            medal_rows = html.xpath("//table[@border='1']//tr[td and not(td[contains(@class, 'colhead')])]")
             
             if not medal_rows:
                 logger.warning(f"没有找到勋章数据")
