@@ -31,11 +31,37 @@ class BaseMedalSiteHandler(ABC):
         """获取用户已拥有的勋章数据"""
         return []
 
+    def purchase_medal(self, site, medal: Dict) -> Dict:
+        """购买勋章，默认不支持"""
+        return {
+            "success": False,
+            "message": f"站点 {getattr(site, 'name', '')} 暂不支持直接购买"
+        }
+
+    def wear_medal(self, site, medal: Dict) -> Dict:
+        """佩戴勋章，默认不支持"""
+        return {
+            "success": False,
+            "message": f"站点 {getattr(site, 'name', '')} 暂不支持佩戴勋章"
+        }
+
+    def unwear_medal(self, site, medal: Dict) -> Dict:
+        """取下勋章，默认不支持"""
+        return {
+            "success": False,
+            "message": f"站点 {getattr(site, 'name', '')} 暂不支持取下勋章"
+        }
+
+    def should_append_unmatched_user_medals(self) -> bool:
+        """未匹配到商店勋章的用户勋章是否追加到结果中"""
+        return True
+
     @cached(region="medalwallpro_request", ttl=1800, skip_none=True)
     def _request_with_retry(self, url: str, cookies: str = None, **kwargs) -> Optional[Dict]:
         """带重试机制的请求方法"""
         # 提取 ua 参数
         ua = kwargs.pop('ua', None)
+        headers = kwargs.pop('headers', None)
         
         req_kwargs = {
             'timeout': self._timeout,
@@ -43,6 +69,9 @@ class BaseMedalSiteHandler(ABC):
                 'User-Agent': ua if ua else 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
         }
+
+        if headers:
+            req_kwargs['headers'].update(headers)
         
         # 只在明确需要代理时使用
         if self._use_proxy and hasattr(settings, 'PROXY'):
@@ -75,6 +104,7 @@ class BaseMedalSiteHandler(ABC):
     def _format_medal_data(self, medal: Dict) -> Dict:
         """统一格式化勋章数据"""
         return {
+            'medal_id': medal.get('medal_id', ''),   # 勋章ID
             'name': medal.get('name', ''),           # 勋章名称
             'description': medal.get('description', ''),  # 勋章描述
             'imageSmall': medal.get('imageSmall', ''),   # 勋章图片
@@ -92,4 +122,5 @@ class BaseMedalSiteHandler(ABC):
             'currency': medal.get('currency', '魔力'), # 货币单位
             'group': medal.get('group', ''),         # 勋章分组
             'new_time': medal.get('new_time', ''),   # 上新时间
+            'wear_status': medal.get('wear_status', ''),   # 佩戴状态
         } 

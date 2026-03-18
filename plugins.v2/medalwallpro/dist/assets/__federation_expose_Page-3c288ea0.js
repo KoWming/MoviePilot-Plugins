@@ -47,56 +47,79 @@ const _hoisted_15 = { class: "mr-2" };
 const _hoisted_16 = { class: "mr-2" };
 const _hoisted_17 = {
   key: 0,
+  class: "medal-corner-ribbon medal-corner-ribbon-owned"
+};
+const _hoisted_18 = {
+  key: 1,
   class: "medal-corner-ribbon"
 };
-const _hoisted_18 = ["onClick"];
-const _hoisted_19 = { class: "d-flex align-center justify-center fill-height bg-transparent" };
-const _hoisted_20 = ["onClick"];
-const _hoisted_21 = { class: "text-truncate text-caption text-center px-1 font-weight-bold text-grey-darken-1" };
-const _hoisted_22 = {
+const _hoisted_19 = ["onClick"];
+const _hoisted_20 = { class: "d-flex align-center justify-center fill-height bg-transparent" };
+const _hoisted_21 = ["onClick"];
+const _hoisted_22 = { class: "text-truncate text-caption text-center px-1 font-weight-bold text-grey-darken-1" };
+const _hoisted_23 = {
   key: 0,
   class: "px-2 pt-4 pb-2 bg-grey-lighten-5 rounded-lg mt-2 mx-2"
 };
-const _hoisted_23 = {
+const _hoisted_24 = {
   class: "d-flex flex-column justify-center flex-grow-1 overflow-hidden",
   style: { "min-width": "0" }
 };
-const _hoisted_24 = { class: "d-flex align-center justify-space-between mb-1" };
-const _hoisted_25 = { class: "d-flex align-center overflow-hidden flex-grow-1 mr-2" };
-const _hoisted_26 = ["title"];
-const _hoisted_27 = { class: "d-flex flex-shrink-0 align-center" };
-const _hoisted_28 = { class: "d-flex align-center mb-1" };
-const _hoisted_29 = { class: "text-primary font-weight-bold text-caption" };
-const _hoisted_30 = { style: { "font-size": "0.65rem" } };
-const _hoisted_31 = ["title"];
-const _hoisted_32 = {
+const _hoisted_25 = { class: "d-flex align-center justify-space-between mb-1" };
+const _hoisted_26 = { class: "d-flex align-center overflow-hidden flex-grow-1 mr-2" };
+const _hoisted_27 = ["title"];
+const _hoisted_28 = { class: "d-flex flex-shrink-0 align-center" };
+const _hoisted_29 = { class: "d-flex align-center mb-1" };
+const _hoisted_30 = { class: "text-primary font-weight-bold text-caption" };
+const _hoisted_31 = { style: { "font-size": "0.65rem" } };
+const _hoisted_32 = ["title"];
+const _hoisted_33 = {
   class: "text-caption text-grey-darken-1 d-flex flex-column mt-1",
   style: { "font-size": "0.7rem !important", "line-height": "1.4" }
 };
-const _hoisted_33 = {
+const _hoisted_34 = {
   key: 0,
   class: "d-flex align-center"
 };
-const _hoisted_34 = {
+const _hoisted_35 = {
   key: 1,
   class: "d-flex align-center"
 };
-const _hoisted_35 = {
+const _hoisted_36 = {
   key: 2,
   class: "d-flex align-center"
 };
-const _hoisted_36 = {
+const _hoisted_37 = {
   key: 3,
   class: "d-flex align-center"
 };
-const _hoisted_37 = {
+const _hoisted_38 = {
   key: 4,
   class: "d-flex align-center"
 };
-const _hoisted_38 = {
+const _hoisted_39 = {
   key: 5,
   class: "mt-1"
 };
+const _hoisted_40 = {
+  key: 0,
+  class: "mt-2 d-flex justify-end"
+};
+const _hoisted_41 = {
+  key: 1,
+  class: "mt-2 d-flex justify-end"
+};
+const _hoisted_42 = { class: "neo-dialog-icon neo-dialog-icon-primary" };
+const _hoisted_43 = { class: "neo-dialog-highlight" };
+const _hoisted_44 = { class: "neo-dialog-price" };
+const _hoisted_45 = { class: "neo-dialog-message" };
+const _hoisted_46 = { class: "font-weight-bold" };
+const _hoisted_47 = { class: "neo-dialog-highlight neo-dialog-highlight-flat" };
+const _hoisted_48 = { class: "neo-dialog-feedback-message" };
+const _hoisted_49 = { class: "text-subtitle-1 font-weight-bold" };
+const _hoisted_50 = { class: "neo-dialog-highlight" };
+const _hoisted_51 = { class: "neo-dialog-name" };
+const _hoisted_52 = { class: "neo-dialog-message" };
 const {ref,onMounted,computed} = await importShared('vue');
 
 const _sfc_main = /* @__PURE__ */ _defineComponent({
@@ -118,6 +141,16 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
     const clearingCache = ref(false);
     const successMessage = ref("");
     const errorMessage = ref("");
+    const purchaseDialog = ref(false);
+    const purchaseFeedbackDialog = ref(false);
+    const purchaseLoading = ref(false);
+    const purchaseFeedbackType = ref("success");
+    const purchaseFeedbackTitle = ref("");
+    const purchaseFeedbackMessage = ref("");
+    const selectedMedal = ref(null);
+    const wearLoading = ref(false);
+    const wearDialog = ref(false);
+    const wearAction = ref("wear");
     const totalMedals = computed(() => medals.value.length);
     const siteCount = computed(() => {
       const sites = new Set(medals.value.map((m) => m.site));
@@ -252,6 +285,122 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
       } else {
         errorMessage.value = message;
         setTimeout(() => errorMessage.value = "", 3e3);
+      }
+    }
+    function canPurchase(medal) {
+      const status = (medal.purchase_status || "").trim();
+      return status === "购买" && checkTimeValidity(medal.saleBeginTime, medal.saleEndTime) && !!medal.medal_id;
+    }
+    function canToggleWear(medal) {
+      return isOwned(medal) && !!medal.medal_id;
+    }
+    function isWorn(medal) {
+      return (medal.wear_status || "").trim() === "已佩戴";
+    }
+    function openPurchaseDialog(medal) {
+      selectedMedal.value = medal;
+      purchaseDialog.value = true;
+    }
+    function closePurchaseDialog() {
+      purchaseDialog.value = false;
+      selectedMedal.value = null;
+    }
+    function openWearDialog(medal, action) {
+      selectedMedal.value = medal;
+      wearAction.value = action;
+      wearDialog.value = true;
+    }
+    function closeWearDialog() {
+      wearDialog.value = false;
+      selectedMedal.value = null;
+    }
+    function showPurchaseFeedback(title, message, type) {
+      purchaseFeedbackTitle.value = title;
+      purchaseFeedbackMessage.value = message;
+      purchaseFeedbackType.value = type;
+      purchaseFeedbackDialog.value = true;
+    }
+    async function confirmPurchase() {
+      if (!selectedMedal.value)
+        return;
+      const siteId = getSiteIdByName(selectedMedal.value.site);
+      if (!siteId) {
+        showPurchaseFeedback("购买失败", "未找到对应站点ID", "error");
+        return;
+      }
+      purchaseLoading.value = true;
+      try {
+        const res = await props.api.post("plugin/MedalWallPro/purchase_medal", {
+          site_id: siteId,
+          medal: selectedMedal.value
+        });
+        purchaseDialog.value = false;
+        if (res && res.success) {
+          showPurchaseFeedback(
+            "购买成功",
+            res.message || `已成功购买 ${selectedMedal.value.name}`,
+            "success"
+          );
+          showNotification(res.message || `已成功购买 ${selectedMedal.value.name}`, "success");
+          await fetchMedals();
+        } else {
+          showPurchaseFeedback(
+            "购买失败",
+            res?.message || `购买 ${selectedMedal.value.name} 失败`,
+            "error"
+          );
+          showNotification(res?.message || `购买 ${selectedMedal.value.name} 失败`, "error");
+        }
+      } catch (e) {
+        purchaseDialog.value = false;
+        showPurchaseFeedback("购买失败", e?.message || "未知错误", "error");
+        showNotification(`购买失败: ${e?.message || "未知错误"}`, "error");
+      } finally {
+        purchaseLoading.value = false;
+      }
+    }
+    async function confirmWearAction() {
+      if (!selectedMedal.value)
+        return;
+      const targetMedal = selectedMedal.value;
+      const siteId = getSiteIdByName(selectedMedal.value.site);
+      if (!siteId) {
+        showPurchaseFeedback("操作失败", "未找到对应站点ID", "error");
+        return;
+      }
+      wearLoading.value = true;
+      const isWear = wearAction.value === "wear";
+      const actionTitle = isWear ? "佩戴" : "取下";
+      const apiPath = isWear ? "plugin/MedalWallPro/wear_medal" : "plugin/MedalWallPro/unwear_medal";
+      try {
+        const res = await props.api.post(apiPath, {
+          site_id: siteId,
+          medal: selectedMedal.value
+        });
+        wearDialog.value = false;
+        if (res && res.success) {
+          targetMedal.wear_status = isWear ? "已佩戴" : "未佩戴";
+          showPurchaseFeedback(
+            `${actionTitle}成功`,
+            res.message || `${targetMedal.name}${actionTitle}成功`,
+            "success"
+          );
+          showNotification(res.message || `${targetMedal.name}${actionTitle}成功`, "success");
+          await fetchMedals();
+        } else {
+          showPurchaseFeedback(
+            `${actionTitle}失败`,
+            res?.message || `${targetMedal.name}${actionTitle}失败`,
+            "error"
+          );
+          showNotification(res?.message || `${targetMedal.name}${actionTitle}失败`, "error");
+        }
+      } catch (e) {
+        wearDialog.value = false;
+        showPurchaseFeedback(`${actionTitle}失败`, e?.message || "未知错误", "error");
+        showNotification(`${actionTitle}失败: ${e?.message || "未知错误"}`, "error");
+      } finally {
+        wearLoading.value = false;
       }
     }
     function notifySwitch() {
@@ -449,9 +598,11 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
       const _component_v_tabs = _resolveComponent("v-tabs");
       const _component_v_expand_transition = _resolveComponent("v-expand-transition");
       const _component_v_card_text = _resolveComponent("v-card-text");
+      const _component_v_card_actions = _resolveComponent("v-card-actions");
+      const _component_v_dialog = _resolveComponent("v-dialog");
       return _openBlock(), _createElementBlock("div", _hoisted_1, [
-        (_openBlock(), _createElementBlock("svg", _hoisted_2, [..._cache[3] || (_cache[3] = [
-          _createStaticVNode('<defs data-v-f18b27e2><filter id="remove-black-bg" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB" data-v-f18b27e2><feColorMatrix type="luminanceToAlpha" in="SourceGraphic" result="luma" data-v-f18b27e2></feColorMatrix><feComponentTransfer in="luma" result="mask" data-v-f18b27e2><feFuncA type="linear" slope="7" intercept="-0.5" data-v-f18b27e2></feFuncA></feComponentTransfer><feComposite in="SourceGraphic" in2="mask" operator="in" data-v-f18b27e2></feComposite></filter></defs>', 1)
+        (_openBlock(), _createElementBlock("svg", _hoisted_2, [..._cache[7] || (_cache[7] = [
+          _createStaticVNode('<defs data-v-c2c4012c><filter id="remove-black-bg" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB" data-v-c2c4012c><feColorMatrix type="luminanceToAlpha" in="SourceGraphic" result="luma" data-v-c2c4012c></feColorMatrix><feComponentTransfer in="luma" result="mask" data-v-c2c4012c><feFuncA type="linear" slope="7" intercept="-0.5" data-v-c2c4012c></feFuncA></feComponentTransfer><feComposite in="SourceGraphic" in2="mask" operator="in" data-v-c2c4012c></feComposite></filter></defs>', 1)
         ])])),
         _createVNode(_component_v_card, {
           flat: "",
@@ -466,7 +617,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                   color: "white",
                   size: "small"
                 }),
-                _cache[10] || (_cache[10] = _createElementVNode("span", { class: "text-white" }, "勋章墙 Pro", -1)),
+                _cache[14] || (_cache[14] = _createElementVNode("span", { class: "text-white" }, "勋章墙 Pro", -1)),
                 _createVNode(_component_v_spacer),
                 _createVNode(_component_v_btn_group, {
                   variant: "outlined",
@@ -488,12 +639,12 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                           size: "18",
                           class: "mr-sm-1"
                         }),
-                        _cache[5] || (_cache[5] = _createElementVNode("span", { class: "btn-text d-none d-sm-inline" }, "刷新", -1)),
+                        _cache[9] || (_cache[9] = _createElementVNode("span", { class: "btn-text d-none d-sm-inline" }, "刷新", -1)),
                         _createVNode(_component_v_tooltip, {
                           activator: "parent",
                           location: "bottom"
                         }, {
-                          default: _withCtx(() => [..._cache[4] || (_cache[4] = [
+                          default: _withCtx(() => [..._cache[8] || (_cache[8] = [
                             _createTextVNode("全局刷新", -1)
                           ])]),
                           _: 1
@@ -515,12 +666,12 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                           size: "18",
                           class: "mr-sm-1"
                         }),
-                        _cache[7] || (_cache[7] = _createElementVNode("span", { class: "btn-text d-none d-sm-inline" }, "清缓存", -1)),
+                        _cache[11] || (_cache[11] = _createElementVNode("span", { class: "btn-text d-none d-sm-inline" }, "清缓存", -1)),
                         _createVNode(_component_v_tooltip, {
                           activator: "parent",
                           location: "bottom"
                         }, {
-                          default: _withCtx(() => [..._cache[6] || (_cache[6] = [
+                          default: _withCtx(() => [..._cache[10] || (_cache[10] = [
                             _createTextVNode("清理缓存", -1)
                           ])]),
                           _: 1
@@ -541,7 +692,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                           size: "18",
                           class: "mr-sm-1"
                         }),
-                        _cache[8] || (_cache[8] = _createElementVNode("span", { class: "btn-text d-none d-sm-inline" }, "设置", -1))
+                        _cache[12] || (_cache[12] = _createElementVNode("span", { class: "btn-text d-none d-sm-inline" }, "设置", -1))
                       ]),
                       _: 1
                     }),
@@ -557,7 +708,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                           icon: "mdi-close",
                           size: "18"
                         }),
-                        _cache[9] || (_cache[9] = _createElementVNode("span", { class: "btn-text d-none d-sm-inline" }, "关闭", -1))
+                        _cache[13] || (_cache[13] = _createElementVNode("span", { class: "btn-text d-none d-sm-inline" }, "关闭", -1))
                       ]),
                       _: 1
                     })
@@ -642,7 +793,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                                 _: 1
                               }),
                               _createElementVNode("div", null, [
-                                _cache[11] || (_cache[11] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "站点数量", -1)),
+                                _cache[15] || (_cache[15] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "站点数量", -1)),
                                 _createElementVNode("div", _hoisted_5, _toDisplayString(siteCount.value), 1)
                               ])
                             ]),
@@ -678,7 +829,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                                 _: 1
                               }),
                               _createElementVNode("div", null, [
-                                _cache[12] || (_cache[12] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "勋章总数", -1)),
+                                _cache[16] || (_cache[16] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "勋章总数", -1)),
                                 _createElementVNode("div", _hoisted_6, _toDisplayString(totalMedals.value), 1)
                               ])
                             ]),
@@ -714,7 +865,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                                 _: 1
                               }),
                               _createElementVNode("div", null, [
-                                _cache[13] || (_cache[13] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "已拥有", -1)),
+                                _cache[17] || (_cache[17] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "已拥有", -1)),
                                 _createElementVNode("div", _hoisted_7, _toDisplayString(ownedMedals.value), 1)
                               ])
                             ]),
@@ -750,7 +901,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                                 _: 1
                               }),
                               _createElementVNode("div", null, [
-                                _cache[14] || (_cache[14] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "可购买", -1)),
+                                _cache[18] || (_cache[18] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "可购买", -1)),
                                 _createElementVNode("div", _hoisted_8, _toDisplayString(availableMedals.value), 1)
                               ])
                             ]),
@@ -768,7 +919,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                     indeterminate: "",
                     color: "primary"
                   }),
-                  _cache[15] || (_cache[15] = _createElementVNode("span", { class: "ml-3 text-grey" }, "正在加载勋章数据...", -1))
+                  _cache[19] || (_cache[19] = _createElementVNode("span", { class: "ml-3 text-grey" }, "正在加载勋章数据...", -1))
                 ])) : _createCommentVNode("", true),
                 !loading.value && medals.value.length === 0 ? (_openBlock(), _createBlock(_component_v_empty_state, {
                   key: 1,
@@ -796,7 +947,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                             variant: "flat",
                             class: "font-weight-bold"
                           }, {
-                            default: _withCtx(() => [..._cache[16] || (_cache[16] = [
+                            default: _withCtx(() => [..._cache[20] || (_cache[20] = [
                               _createTextVNode("全收集", -1)
                             ])]),
                             _: 1
@@ -812,7 +963,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                           }, {
                             default: _withCtx(() => [
                               _createVNode(_component_v_icon, null, {
-                                default: _withCtx(() => [..._cache[17] || (_cache[17] = [
+                                default: _withCtx(() => [..._cache[21] || (_cache[21] = [
                                   _createTextVNode("mdi-refresh", -1)
                                 ])]),
                                 _: 1
@@ -821,7 +972,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                                 activator: "parent",
                                 location: "bottom"
                               }, {
-                                default: _withCtx(() => [..._cache[18] || (_cache[18] = [
+                                default: _withCtx(() => [..._cache[22] || (_cache[22] = [
                                   _createTextVNode("单站刷新", -1)
                                 ])]),
                                 _: 1
@@ -857,7 +1008,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                                   class: "medal-stack-item",
                                   style: _normalizeStyle([{ "margin": "0 4px" }, getStackItemStyle()])
                                 }, [
-                                  !isOwned(medal) ? (_openBlock(), _createElementBlock("div", _hoisted_17, " 未拥有 ")) : _createCommentVNode("", true),
+                                  isOwned(medal) ? (_openBlock(), _createElementBlock("div", _hoisted_17, " 已拥有 ")) : (_openBlock(), _createElementBlock("div", _hoisted_18, " 未拥有 ")),
                                   _createElementVNode("div", {
                                     class: "d-flex justify-center align-center pt-2 px-2",
                                     style: { "height": "100px" },
@@ -872,7 +1023,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                                       loading: "lazy"
                                     }, {
                                       placeholder: _withCtx(() => [
-                                        _createElementVNode("div", _hoisted_19, [
+                                        _createElementVNode("div", _hoisted_20, [
                                           _createVNode(_component_v_progress_circular, {
                                             indeterminate: "",
                                             color: "grey-lighten-2",
@@ -882,13 +1033,13 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                                       ]),
                                       _: 1
                                     }, 8, ["src", "class", "max-height", "max-width"])
-                                  ], 8, _hoisted_18),
+                                  ], 8, _hoisted_19),
                                   _createElementVNode("div", {
                                     class: "medal-stack-info",
                                     onClick: ($event) => toggleDetails(group.site)
                                   }, [
-                                    _createElementVNode("div", _hoisted_21, _toDisplayString(medal.name), 1)
-                                  ], 8, _hoisted_20)
+                                    _createElementVNode("div", _hoisted_22, _toDisplayString(medal.name), 1)
+                                  ], 8, _hoisted_21)
                                 ], 4)
                               ]),
                               _: 2
@@ -899,7 +1050,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                       }, 1024)),
                       _createVNode(_component_v_expand_transition, null, {
                         default: _withCtx(() => [
-                          expandedSite.value === group.site ? (_openBlock(), _createElementBlock("div", _hoisted_22, [
+                          expandedSite.value === group.site ? (_openBlock(), _createElementBlock("div", _hoisted_23, [
                             hasGroups(group.medals) ? (_openBlock(), _createBlock(_component_v_tabs, {
                               key: 0,
                               modelValue: activeTab.value,
@@ -958,15 +1109,15 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                                               loading: "lazy"
                                             }, null, 8, ["src", "max-height", "max-width", "class"])
                                           ], 4),
-                                          _createElementVNode("div", _hoisted_23, [
-                                            _createElementVNode("div", _hoisted_24, [
-                                              _createElementVNode("div", _hoisted_25, [
+                                          _createElementVNode("div", _hoisted_24, [
+                                            _createElementVNode("div", _hoisted_25, [
+                                              _createElementVNode("div", _hoisted_26, [
                                                 _createElementVNode("div", {
                                                   class: "text-subtitle-2 font-weight-bold text-truncate flex-shrink-1 text-grey-darken-1",
                                                   title: medal.name
-                                                }, _toDisplayString(medal.name), 9, _hoisted_26)
+                                                }, _toDisplayString(medal.name), 9, _hoisted_27)
                                               ]),
-                                              _createElementVNode("div", _hoisted_27, [
+                                              _createElementVNode("div", _hoisted_28, [
                                                 medal.bonus_rate ? (_openBlock(), _createBlock(_component_v_chip, {
                                                   key: 0,
                                                   size: "x-small",
@@ -1001,35 +1152,35 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                                                 }, 1032, ["color"])) : _createCommentVNode("", true)
                                               ])
                                             ]),
-                                            _createElementVNode("div", _hoisted_28, [
-                                              _createElementVNode("div", _hoisted_29, [
+                                            _createElementVNode("div", _hoisted_29, [
+                                              _createElementVNode("div", _hoisted_30, [
                                                 _createTextVNode(_toDisplayString(formatPrice(medal.price)) + " ", 1),
-                                                _createElementVNode("span", _hoisted_30, _toDisplayString(getCurrency(medal)), 1)
+                                                _createElementVNode("span", _hoisted_31, _toDisplayString(getCurrency(medal)), 1)
                                               ])
                                             ]),
                                             _createElementVNode("div", {
                                               class: "text-caption text-grey-darken-1 text-truncate mb-1",
                                               style: { "font-size": "0.65rem !important", "max-width": "100%" },
                                               title: medal.description
-                                            }, _toDisplayString(medal.description), 9, _hoisted_31),
-                                            _createElementVNode("div", _hoisted_32, [
-                                              medal.saleBeginTime ? (_openBlock(), _createElementBlock("div", _hoisted_33, [
-                                                _cache[19] || (_cache[19] = _createElementVNode("span", { class: "mr-1 font-weight-bold" }, "开售:", -1)),
+                                            }, _toDisplayString(medal.description), 9, _hoisted_32),
+                                            _createElementVNode("div", _hoisted_33, [
+                                              medal.saleBeginTime ? (_openBlock(), _createElementBlock("div", _hoisted_34, [
+                                                _cache[23] || (_cache[23] = _createElementVNode("span", { class: "mr-1 font-weight-bold" }, "开售:", -1)),
                                                 _createElementVNode("span", null, _toDisplayString(medal.saleBeginTime), 1)
                                               ])) : _createCommentVNode("", true),
-                                              medal.saleEndTime ? (_openBlock(), _createElementBlock("div", _hoisted_34, [
-                                                _cache[20] || (_cache[20] = _createElementVNode("span", { class: "mr-1 font-weight-bold" }, "截止:", -1)),
+                                              medal.saleEndTime ? (_openBlock(), _createElementBlock("div", _hoisted_35, [
+                                                _cache[24] || (_cache[24] = _createElementVNode("span", { class: "mr-1 font-weight-bold" }, "截止:", -1)),
                                                 _createElementVNode("span", null, _toDisplayString(medal.saleEndTime), 1)
                                               ])) : _createCommentVNode("", true),
-                                              medal.validity ? (_openBlock(), _createElementBlock("div", _hoisted_35, [
-                                                _cache[21] || (_cache[21] = _createElementVNode("span", { class: "mr-1 font-weight-bold" }, "有效期:", -1)),
+                                              medal.validity ? (_openBlock(), _createElementBlock("div", _hoisted_36, [
+                                                _cache[25] || (_cache[25] = _createElementVNode("span", { class: "mr-1 font-weight-bold" }, "有效期:", -1)),
                                                 _createElementVNode("span", null, _toDisplayString(medal.validity), 1)
                                               ])) : _createCommentVNode("", true),
-                                              medal.new_time ? (_openBlock(), _createElementBlock("div", _hoisted_36, [
-                                                _cache[22] || (_cache[22] = _createElementVNode("span", { class: "mr-1 font-weight-bold" }, "上新时间:", -1)),
+                                              medal.new_time ? (_openBlock(), _createElementBlock("div", _hoisted_37, [
+                                                _cache[26] || (_cache[26] = _createElementVNode("span", { class: "mr-1 font-weight-bold" }, "上新时间:", -1)),
                                                 _createElementVNode("span", null, _toDisplayString(medal.new_time), 1)
                                               ])) : _createCommentVNode("", true),
-                                              medal.stock ? (_openBlock(), _createElementBlock("div", _hoisted_37, [
+                                              medal.stock ? (_openBlock(), _createElementBlock("div", _hoisted_38, [
                                                 _createVNode(_component_v_icon, {
                                                   icon: "mdi-package-variant-closed",
                                                   size: "10",
@@ -1037,7 +1188,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                                                 }),
                                                 _createElementVNode("span", null, "库存: " + _toDisplayString(medal.stock), 1)
                                               ])) : _createCommentVNode("", true),
-                                              medal.stock_status ? (_openBlock(), _createElementBlock("div", _hoisted_38, [
+                                              medal.stock_status ? (_openBlock(), _createElementBlock("div", _hoisted_39, [
                                                 _createVNode(_component_v_chip, {
                                                   size: "x-small",
                                                   color: "orange-lighten-4",
@@ -1051,7 +1202,37 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                                                   _: 2
                                                 }, 1024)
                                               ])) : _createCommentVNode("", true)
-                                            ])
+                                            ]),
+                                            canPurchase(medal) ? (_openBlock(), _createElementBlock("div", _hoisted_40, [
+                                              _createVNode(_component_v_btn, {
+                                                size: "small",
+                                                color: "primary",
+                                                variant: "flat",
+                                                "prepend-icon": "mdi-cart",
+                                                class: "medal-action-btn",
+                                                onClick: ($event) => openPurchaseDialog(medal)
+                                              }, {
+                                                default: _withCtx(() => [..._cache[27] || (_cache[27] = [
+                                                  _createTextVNode(" 购买 ", -1)
+                                                ])]),
+                                                _: 1
+                                              }, 8, ["onClick"])
+                                            ])) : _createCommentVNode("", true),
+                                            canToggleWear(medal) ? (_openBlock(), _createElementBlock("div", _hoisted_41, [
+                                              _createVNode(_component_v_btn, {
+                                                size: "small",
+                                                color: isWorn(medal) ? "warning" : "primary",
+                                                variant: "flat",
+                                                "prepend-icon": isWorn(medal) ? "mdi-minus-circle-outline" : "mdi-check-circle-outline",
+                                                class: "medal-action-btn",
+                                                onClick: ($event) => openWearDialog(medal, isWorn(medal) ? "unwear" : "wear")
+                                              }, {
+                                                default: _withCtx(() => [
+                                                  _createTextVNode(_toDisplayString(isWorn(medal) ? "取下" : "佩戴"), 1)
+                                                ]),
+                                                _: 2
+                                              }, 1032, ["color", "prepend-icon", "onClick"])
+                                            ])) : _createCommentVNode("", true)
                                           ])
                                         ]),
                                         _: 2
@@ -1075,14 +1256,220 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
             })
           ]),
           _: 1
-        })
+        }),
+        _createVNode(_component_v_dialog, {
+          modelValue: purchaseDialog.value,
+          "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => purchaseDialog.value = $event),
+          "max-width": "440"
+        }, {
+          default: _withCtx(() => [
+            selectedMedal.value ? (_openBlock(), _createBlock(_component_v_card, {
+              key: 0,
+              class: "neo-dialog-card"
+            }, {
+              default: _withCtx(() => [
+                _createVNode(_component_v_card_title, { class: "neo-dialog-title d-flex align-center" }, {
+                  default: _withCtx(() => [
+                    _createElementVNode("div", _hoisted_42, [
+                      _createVNode(_component_v_icon, {
+                        icon: "mdi-cart-outline",
+                        size: "18"
+                      })
+                    ]),
+                    _cache[28] || (_cache[28] = _createElementVNode("div", null, [
+                      _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold" }, "确认购买"),
+                      _createElementVNode("div", { class: "neo-dialog-subtitle" }, "请确认本次勋章购买信息")
+                    ], -1))
+                  ]),
+                  _: 1
+                }),
+                _createVNode(_component_v_card_text, { class: "neo-dialog-content" }, {
+                  default: _withCtx(() => [
+                    _createElementVNode("div", _hoisted_43, [
+                      _cache[29] || (_cache[29] = _createElementVNode("span", { class: "neo-dialog-label" }, "支付金额", -1)),
+                      _createElementVNode("span", _hoisted_44, _toDisplayString(formatPrice(selectedMedal.value.price)) + " " + _toDisplayString(getCurrency(selectedMedal.value)), 1)
+                    ]),
+                    _createElementVNode("div", _hoisted_45, [
+                      _cache[30] || (_cache[30] = _createTextVNode(" 即将购买勋章 ", -1)),
+                      _createElementVNode("span", _hoisted_46, "《" + _toDisplayString(selectedMedal.value.name) + "》", 1)
+                    ])
+                  ]),
+                  _: 1
+                }),
+                _createVNode(_component_v_card_actions, { class: "neo-dialog-actions" }, {
+                  default: _withCtx(() => [
+                    _createVNode(_component_v_spacer),
+                    _createVNode(_component_v_btn, {
+                      variant: "text",
+                      class: "neo-dialog-btn neo-dialog-btn-ghost",
+                      onClick: closePurchaseDialog,
+                      disabled: purchaseLoading.value
+                    }, {
+                      default: _withCtx(() => [..._cache[31] || (_cache[31] = [
+                        _createTextVNode("取消", -1)
+                      ])]),
+                      _: 1
+                    }, 8, ["disabled"]),
+                    _createVNode(_component_v_btn, {
+                      color: "primary",
+                      variant: "flat",
+                      class: "neo-dialog-btn neo-dialog-btn-primary",
+                      onClick: confirmPurchase,
+                      loading: purchaseLoading.value
+                    }, {
+                      default: _withCtx(() => [..._cache[32] || (_cache[32] = [
+                        _createTextVNode("立即购买", -1)
+                      ])]),
+                      _: 1
+                    }, 8, ["loading"])
+                  ]),
+                  _: 1
+                })
+              ]),
+              _: 1
+            })) : _createCommentVNode("", true)
+          ]),
+          _: 1
+        }, 8, ["modelValue"]),
+        _createVNode(_component_v_dialog, {
+          modelValue: purchaseFeedbackDialog.value,
+          "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => purchaseFeedbackDialog.value = $event),
+          "max-width": "440"
+        }, {
+          default: _withCtx(() => [
+            _createVNode(_component_v_card, { class: "neo-dialog-card neo-dialog-card-flat" }, {
+              default: _withCtx(() => [
+                _createVNode(_component_v_card_title, { class: "neo-dialog-title d-flex align-center" }, {
+                  default: _withCtx(() => [
+                    _createElementVNode("div", {
+                      class: _normalizeClass(["neo-dialog-icon", purchaseFeedbackType.value === "success" ? "neo-dialog-icon-success" : "neo-dialog-icon-error"])
+                    }, [
+                      _createVNode(_component_v_icon, {
+                        icon: purchaseFeedbackType.value === "success" ? "mdi-check-circle-outline" : "mdi-alert-circle-outline",
+                        size: "18"
+                      }, null, 8, ["icon"])
+                    ], 2),
+                    _createElementVNode("div", null, [
+                      _createElementVNode("div", {
+                        class: _normalizeClass(["text-subtitle-1 font-weight-bold", purchaseFeedbackType.value === "success" ? "text-success" : "text-error"])
+                      }, _toDisplayString(purchaseFeedbackTitle.value), 3),
+                      _cache[33] || (_cache[33] = _createElementVNode("div", { class: "neo-dialog-subtitle" }, "操作结果提示", -1))
+                    ])
+                  ]),
+                  _: 1
+                }),
+                _createVNode(_component_v_card_text, { class: "neo-dialog-content" }, {
+                  default: _withCtx(() => [
+                    _createElementVNode("div", _hoisted_47, [
+                      _cache[34] || (_cache[34] = _createElementVNode("span", { class: "neo-dialog-label" }, "反馈信息", -1)),
+                      _createElementVNode("span", _hoisted_48, _toDisplayString(purchaseFeedbackMessage.value), 1)
+                    ])
+                  ]),
+                  _: 1
+                }),
+                _createVNode(_component_v_card_actions, { class: "neo-dialog-actions" }, {
+                  default: _withCtx(() => [
+                    _createVNode(_component_v_spacer),
+                    _createVNode(_component_v_btn, {
+                      color: "primary",
+                      variant: "flat",
+                      class: "neo-dialog-btn neo-dialog-btn-primary",
+                      onClick: _cache[4] || (_cache[4] = ($event) => purchaseFeedbackDialog.value = false)
+                    }, {
+                      default: _withCtx(() => [..._cache[35] || (_cache[35] = [
+                        _createTextVNode("知道了", -1)
+                      ])]),
+                      _: 1
+                    })
+                  ]),
+                  _: 1
+                })
+              ]),
+              _: 1
+            })
+          ]),
+          _: 1
+        }, 8, ["modelValue"]),
+        _createVNode(_component_v_dialog, {
+          modelValue: wearDialog.value,
+          "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => wearDialog.value = $event),
+          "max-width": "440"
+        }, {
+          default: _withCtx(() => [
+            selectedMedal.value ? (_openBlock(), _createBlock(_component_v_card, {
+              key: 0,
+              class: "neo-dialog-card"
+            }, {
+              default: _withCtx(() => [
+                _createVNode(_component_v_card_title, { class: "neo-dialog-title d-flex align-center" }, {
+                  default: _withCtx(() => [
+                    _createElementVNode("div", {
+                      class: _normalizeClass(["neo-dialog-icon", wearAction.value === "wear" ? "neo-dialog-icon-primary" : "neo-dialog-icon-warning"])
+                    }, [
+                      _createVNode(_component_v_icon, {
+                        icon: wearAction.value === "wear" ? "mdi-check-circle-outline" : "mdi-minus-circle-outline",
+                        size: "18"
+                      }, null, 8, ["icon"])
+                    ], 2),
+                    _createElementVNode("div", null, [
+                      _createElementVNode("div", _hoisted_49, "确认" + _toDisplayString(wearAction.value === "wear" ? "佩戴" : "取下"), 1),
+                      _cache[36] || (_cache[36] = _createElementVNode("div", { class: "neo-dialog-subtitle" }, "请确认本次勋章状态变更", -1))
+                    ])
+                  ]),
+                  _: 1
+                }),
+                _createVNode(_component_v_card_text, { class: "neo-dialog-content" }, {
+                  default: _withCtx(() => [
+                    _createElementVNode("div", _hoisted_50, [
+                      _cache[37] || (_cache[37] = _createElementVNode("span", { class: "neo-dialog-label" }, "目标勋章", -1)),
+                      _createElementVNode("span", _hoisted_51, "《" + _toDisplayString(selectedMedal.value.name) + "》", 1)
+                    ]),
+                    _createElementVNode("div", _hoisted_52, " 即将" + _toDisplayString(wearAction.value === "wear" ? "佩戴" : "取下") + "该勋章 ", 1)
+                  ]),
+                  _: 1
+                }),
+                _createVNode(_component_v_card_actions, { class: "neo-dialog-actions" }, {
+                  default: _withCtx(() => [
+                    _createVNode(_component_v_spacer),
+                    _createVNode(_component_v_btn, {
+                      variant: "text",
+                      class: "neo-dialog-btn neo-dialog-btn-ghost",
+                      onClick: closeWearDialog,
+                      disabled: wearLoading.value
+                    }, {
+                      default: _withCtx(() => [..._cache[38] || (_cache[38] = [
+                        _createTextVNode("取消", -1)
+                      ])]),
+                      _: 1
+                    }, 8, ["disabled"]),
+                    _createVNode(_component_v_btn, {
+                      color: "primary",
+                      variant: "flat",
+                      class: _normalizeClass(["neo-dialog-btn", wearAction.value === "wear" ? "neo-dialog-btn-primary" : "neo-dialog-btn-warning"]),
+                      onClick: confirmWearAction,
+                      loading: wearLoading.value
+                    }, {
+                      default: _withCtx(() => [
+                        _createTextVNode(" 立即" + _toDisplayString(wearAction.value === "wear" ? "佩戴" : "取下"), 1)
+                      ]),
+                      _: 1
+                    }, 8, ["class", "loading"])
+                  ]),
+                  _: 1
+                })
+              ]),
+              _: 1
+            })) : _createCommentVNode("", true)
+          ]),
+          _: 1
+        }, 8, ["modelValue"])
       ]);
     };
   }
 });
 
-const Page_vue_vue_type_style_index_0_scoped_f18b27e2_lang = '';
+const Page_vue_vue_type_style_index_0_scoped_c2c4012c_lang = '';
 
-const Page = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-f18b27e2"]]);
+const Page = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-c2c4012c"]]);
 
 export { Page as default };

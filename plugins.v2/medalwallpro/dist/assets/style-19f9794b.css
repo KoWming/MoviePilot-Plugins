@@ -18011,175 +18011,390 @@ html.overflow-y-hidden {
     float: right !important;
   }
 }
-.plugin-page[data-v-f18b27e2] {
+.plugin-page[data-v-c2c4012c] {
   padding: 0.5rem;
 }
-.bg-gradient-primary[data-v-f18b27e2] {
+.bg-gradient-primary[data-v-c2c4012c] {
   background-color: #328df5ff;
 }
-.border[data-v-f18b27e2] {
+.border[data-v-c2c4012c] {
   border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
-.text-subtitle-1[data-v-f18b27e2] {
+.text-subtitle-1[data-v-c2c4012c] {
   font-size: 1.1rem !important;
   font-weight: 500;
 }
-.medal-card[data-v-f18b27e2] {
+.medal-card[data-v-c2c4012c] {
   transition: transform 0.2s, box-shadow 0.2s;
   border-radius: 8px;
   overflow: hidden;
 }
-#medalwall-pro-page .medal-item-card[data-v-f18b27e2] {
+.medal-action-btn[data-v-c2c4012c] {
+  min-width: 66px;
+  height: 28px;
+  padding: 0 10px !important;
+  border-radius: 12px !important;
+  font-size: 0.74rem !important;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+.neo-dialog-card[data-v-c2c4012c] {
+  border-radius: 22px !important;
+  background: #f6f7fb !important;
+  box-shadow: 0 10px 28px rgba(51, 65, 85, 0.12) !important;
+  padding: 8px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+}
+.neo-dialog-card-flat[data-v-c2c4012c] {
+  background: #f7f8fc !important;
+}
+.neo-dialog-title[data-v-c2c4012c] {
+  padding: 18px 18px 8px 18px;
+  gap: 12px;
+}
+.neo-dialog-subtitle[data-v-c2c4012c] {
+  margin-top: 2px;
+  font-size: 0.77rem;
+  color: #8a90a2;
+}
+.neo-dialog-content[data-v-c2c4012c] {
+  padding: 10px 18px 8px 18px;
+}
+.neo-dialog-highlight[data-v-c2c4012c] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid #e8ecf4;
+}
+.neo-dialog-highlight-flat[data-v-c2c4012c] {
+  background: #fdfdff;
+}
+.neo-dialog-label[data-v-c2c4012c] {
+  font-size: 0.74rem;
+  color: #8e94a8;
+  font-weight: 600;
+}
+.neo-dialog-price[data-v-c2c4012c],
+.neo-dialog-name[data-v-c2c4012c] {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #5f63f2;
+}
+.neo-dialog-message[data-v-c2c4012c] {
+  margin-top: 14px;
+  font-size: 0.9rem;
+  color: #666c80;
+  line-height: 1.7;
+}
+.neo-dialog-feedback-message[data-v-c2c4012c] {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #4b5563;
+  line-height: 1.7;
+}
+.neo-dialog-actions[data-v-c2c4012c] {
+  padding: 12px 18px 18px 18px;
+  gap: 10px;
+}
+.neo-dialog-btn[data-v-c2c4012c] {
+  min-width: 88px;
+  height: 36px;
+  border-radius: 14px !important;
+  font-size: 0.8rem !important;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.neo-dialog-btn-ghost[data-v-c2c4012c] {
+  color: #7c82a0 !important;
+}
+.neo-dialog-btn-primary[data-v-c2c4012c] {
+  box-shadow: none !important;
+}
+.neo-dialog-btn-warning[data-v-c2c4012c] {
+  background: #ffb74d !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+.neo-dialog-icon[data-v-c2c4012c] {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+.neo-dialog-icon-primary[data-v-c2c4012c] {
+  background: #5f63f2;
+}
+.neo-dialog-icon-warning[data-v-c2c4012c] {
+  background: #ffb74d;
+}
+.neo-dialog-icon-success[data-v-c2c4012c] {
+  background: #66bb6a;
+}
+.neo-dialog-icon-error[data-v-c2c4012c] {
+  background: #ef5350;
+}
+#medalwall-pro-page .medal-item-card[data-v-c2c4012c] {
   background-color: #ffffff;
 }
 @media (min-width: 1280px) {
 }
-.medal-card[data-v-f18b27e2]:hover {
+.medal-card[data-v-c2c4012c]:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
-.medal-image[data-v-f18b27e2] {
+.medal-image[data-v-c2c4012c] {
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
   transition: transform 0.3s;
 }
 
 /* Circle mask for square medals (e.g., LongPT MP medal) */
-.circle-mask[data-v-f18b27e2] {
+.circle-mask[data-v-c2c4012c] {
   border-radius: 50% !important;
   overflow: hidden;
 }
 
 /* Remove black background for medals (e.g., 藏宝阁 site) */
-.remove-black-bg[data-v-f18b27e2] {
+.remove-black-bg[data-v-c2c4012c] {
   /* filter: url(#remove-black-bg); Remove aggressive filter */
   border-radius: 50% !important; /* Crop to circle to remove black corners */
 }
 
 /* For dark mode, adjust differently */
 @media (prefers-color-scheme: dark) {
-.remove-black-bg[data-v-f18b27e2] {
+.remove-black-bg[data-v-c2c4012c] {
     filter: brightness(1.1) contrast(1.02);
 }
 }
-.medal-card:hover .medal-image[data-v-f18b27e2] {
+.medal-card:hover .medal-image[data-v-c2c4012c] {
   transform: scale(1.1);
 }
-.bg-grey-lighten-4[data-v-f18b27e2] {
+.bg-grey-lighten-4[data-v-c2c4012c] {
   background-color: #f5f5f5 !important;
 }
-.bg-grey-lighten-5[data-v-f18b27e2] {
+.bg-grey-lighten-5[data-v-c2c4012c] {
   background-color: #fafafa !important;
 }
 
 /* Dark mode overrides */
 @media (prefers-color-scheme: dark) {
-.bg-grey-lighten-4[data-v-f18b27e2] {
+.bg-grey-lighten-4[data-v-c2c4012c] {
     background-color: rgba(255, 255, 255, 0.05) !important;
 }
-.bg-grey-lighten-5[data-v-f18b27e2] {
+.bg-grey-lighten-5[data-v-c2c4012c] {
     background-color: rgba(255, 255, 255, 0.02) !important;
 }
   
   /* 深色模式下勋章卡片背景 */
-.medal-item-card[data-v-f18b27e2] {
+.medal-item-card[data-v-c2c4012c] {
     background-color: rgba(255, 255, 255, 0.08) !important;
     border-color: rgba(255, 255, 255, 0.12) !important;
 }
   
   /* 深色模式下卡片悬停效果 */
-.medal-card[data-v-f18b27e2]:hover {
+.medal-card[data-v-c2c4012c]:hover {
     box-shadow: 0 4px 12px rgba(255, 255, 255, 0.15) !important;
 }
   
   /* 深色模式下轮播卡片 */
-.medal-stack-item[data-v-f18b27e2] {
+.medal-stack-item[data-v-c2c4012c] {
     background-color: rgba(255, 255, 255, 0.08) !important;
     border-color: rgba(255, 255, 255, 0.12) !important;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
 }
   
   /* 深色模式下轮播卡片底部渐变 */
-.medal-stack-info[data-v-f18b27e2] {
+.medal-stack-info[data-v-c2c4012c] {
     background: linear-gradient(to top, rgba(30,30,30,1) 20%, rgba(30,30,30,0.9) 50%, rgba(30,30,30,0) 100%) !important;
 }
   
   /* 深色模式下文字颜色调整 */
-.text-grey-darken-1[data-v-f18b27e2] {
+.text-grey-darken-1[data-v-c2c4012c] {
     color: rgba(255, 255, 255, 0.85) !important;
 }
   
   /* 深色模式下价格颜色 */
-.text-primary[data-v-f18b27e2] {
+.text-primary[data-v-c2c4012c] {
     color: #64b5f6 !important;
 }
   
   /* 深色模式下图片边框和阴影 */
-.medal-image[data-v-f18b27e2] {
+.medal-image[data-v-c2c4012c] {
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
   
   /* 深色模式下移除黑色背景的勋章 */
-.remove-black-bg[data-v-f18b27e2] {
+.remove-black-bg[data-v-c2c4012c] {
     filter: brightness(1.2) contrast(1.1);
+}
+.neo-dialog-card[data-v-c2c4012c],
+  .neo-dialog-card-flat[data-v-c2c4012c] {
+    background: linear-gradient(180deg, #1f2330 0%, #191d28 100%) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38) !important;
+}
+.neo-dialog-subtitle[data-v-c2c4012c],
+  .neo-dialog-label[data-v-c2c4012c] {
+    color: #98a2b3 !important;
+}
+.neo-dialog-highlight[data-v-c2c4012c],
+  .neo-dialog-highlight-flat[data-v-c2c4012c] {
+    background: linear-gradient(180deg, #2a3142 0%, #222838 100%) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+.neo-dialog-price[data-v-c2c4012c],
+  .neo-dialog-name[data-v-c2c4012c] {
+    color: #8ea2ff !important;
+}
+.neo-dialog-message[data-v-c2c4012c],
+  .neo-dialog-feedback-message[data-v-c2c4012c] {
+    color: #c2c9d6 !important;
+}
+.neo-dialog-btn-ghost[data-v-c2c4012c] {
+    color: #7fd0ff !important;
+}
+.neo-dialog-btn-primary[data-v-c2c4012c] {
+    background: #ffb84d !important;
+    color: #fff !important;
+}
+.neo-dialog-btn-warning[data-v-c2c4012c] {
+    background: #ffb84d !important;
+    color: #fff !important;
+}
+.neo-dialog-icon-primary[data-v-c2c4012c] {
+    background: #6c72ff;
+}
+.neo-dialog-icon-warning[data-v-c2c4012c] {
+    background: #ffb84d;
+}
+.neo-dialog-icon-success[data-v-c2c4012c] {
+    background: #4caf50;
+}
+.neo-dialog-icon-error[data-v-c2c4012c] {
+    background: #ef5350;
 }
 }
 
 /* Vuetify深色主题支持 - 使用data-theme属性选择器 */
-[data-theme="dark"] .bg-grey-lighten-4[data-v-f18b27e2],
-[data-theme="purple"] .bg-grey-lighten-4[data-v-f18b27e2],
-[data-theme="transparent"] .bg-grey-lighten-4[data-v-f18b27e2] {
+[data-theme="dark"] .bg-grey-lighten-4[data-v-c2c4012c],
+[data-theme="purple"] .bg-grey-lighten-4[data-v-c2c4012c],
+[data-theme="transparent"] .bg-grey-lighten-4[data-v-c2c4012c] {
   background-color: rgba(255, 255, 255, 0.05) !important;
 }
-[data-theme="dark"] .bg-grey-lighten-5[data-v-f18b27e2],
-[data-theme="purple"] .bg-grey-lighten-5[data-v-f18b27e2],
-[data-theme="transparent"] .bg-grey-lighten-5[data-v-f18b27e2] {
+[data-theme="dark"] .bg-grey-lighten-5[data-v-c2c4012c],
+[data-theme="purple"] .bg-grey-lighten-5[data-v-c2c4012c],
+[data-theme="transparent"] .bg-grey-lighten-5[data-v-c2c4012c] {
   background-color: rgba(255, 255, 255, 0.02) !important;
 }
-[data-theme="dark"] #medalwall-pro-page .medal-item-card[data-v-f18b27e2],
-[data-theme="purple"] #medalwall-pro-page .medal-item-card[data-v-f18b27e2],
-[data-theme="transparent"] #medalwall-pro-page .medal-item-card[data-v-f18b27e2] {
+[data-theme="dark"] #medalwall-pro-page .medal-item-card[data-v-c2c4012c],
+[data-theme="purple"] #medalwall-pro-page .medal-item-card[data-v-c2c4012c],
+[data-theme="transparent"] #medalwall-pro-page .medal-item-card[data-v-c2c4012c] {
   background-color: rgba(255, 255, 255, 0.08) !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
 }
-[data-theme="dark"] .medal-card[data-v-f18b27e2]:hover,
-[data-theme="purple"] .medal-card[data-v-f18b27e2]:hover,
-[data-theme="transparent"] .medal-card[data-v-f18b27e2]:hover {
+[data-theme="dark"] .medal-card[data-v-c2c4012c]:hover,
+[data-theme="purple"] .medal-card[data-v-c2c4012c]:hover,
+[data-theme="transparent"] .medal-card[data-v-c2c4012c]:hover {
   box-shadow: 0 4px 12px rgba(255, 255, 255, 0.15) !important;
 }
-[data-theme="dark"] .medal-stack-item[data-v-f18b27e2],
-[data-theme="purple"] .medal-stack-item[data-v-f18b27e2],
-[data-theme="transparent"] .medal-stack-item[data-v-f18b27e2] {
+[data-theme="dark"] .medal-stack-item[data-v-c2c4012c],
+[data-theme="purple"] .medal-stack-item[data-v-c2c4012c],
+[data-theme="transparent"] .medal-stack-item[data-v-c2c4012c] {
   background-color: rgba(255, 255, 255, 0.08) !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
 }
-[data-theme="dark"] .medal-stack-info[data-v-f18b27e2],
-[data-theme="purple"] .medal-stack-info[data-v-f18b27e2],
-[data-theme="transparent"] .medal-stack-info[data-v-f18b27e2] {
+[data-theme="dark"] .medal-stack-info[data-v-c2c4012c],
+[data-theme="purple"] .medal-stack-info[data-v-c2c4012c],
+[data-theme="transparent"] .medal-stack-info[data-v-c2c4012c] {
   background: linear-gradient(to top, rgba(30,30,30,1) 20%, rgba(30,30,30,0.9) 50%, rgba(30,30,30,0) 100%) !important;
 }
-[data-theme="dark"] .text-grey-darken-1[data-v-f18b27e2],
-[data-theme="purple"] .text-grey-darken-1[data-v-f18b27e2],
-[data-theme="transparent"] .text-grey-darken-1[data-v-f18b27e2] {
+[data-theme="dark"] .text-grey-darken-1[data-v-c2c4012c],
+[data-theme="purple"] .text-grey-darken-1[data-v-c2c4012c],
+[data-theme="transparent"] .text-grey-darken-1[data-v-c2c4012c] {
   color: rgba(255, 255, 255, 0.85) !important;
 }
-[data-theme="dark"] .text-primary[data-v-f18b27e2],
-[data-theme="purple"] .text-primary[data-v-f18b27e2],
-[data-theme="transparent"] .text-primary[data-v-f18b27e2] {
+[data-theme="dark"] .text-primary[data-v-c2c4012c],
+[data-theme="purple"] .text-primary[data-v-c2c4012c],
+[data-theme="transparent"] .text-primary[data-v-c2c4012c] {
   color: #64b5f6 !important;
 }
-[data-theme="dark"] .medal-image[data-v-f18b27e2],
-[data-theme="purple"] .medal-image[data-v-f18b27e2],
-[data-theme="transparent"] .medal-image[data-v-f18b27e2] {
+[data-theme="dark"] .neo-dialog-card[data-v-c2c4012c],
+[data-theme="dark"] .neo-dialog-card-flat[data-v-c2c4012c],
+[data-theme="purple"] .neo-dialog-card[data-v-c2c4012c],
+[data-theme="purple"] .neo-dialog-card-flat[data-v-c2c4012c],
+[data-theme="transparent"] .neo-dialog-card[data-v-c2c4012c],
+[data-theme="transparent"] .neo-dialog-card-flat[data-v-c2c4012c] {
+  background: linear-gradient(180deg, #1f2330 0%, #191d28 100%) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38) !important;
+}
+[data-theme="dark"] .neo-dialog-subtitle[data-v-c2c4012c],
+[data-theme="dark"] .neo-dialog-label[data-v-c2c4012c],
+[data-theme="purple"] .neo-dialog-subtitle[data-v-c2c4012c],
+[data-theme="purple"] .neo-dialog-label[data-v-c2c4012c],
+[data-theme="transparent"] .neo-dialog-subtitle[data-v-c2c4012c],
+[data-theme="transparent"] .neo-dialog-label[data-v-c2c4012c] {
+  color: #98a2b3 !important;
+}
+[data-theme="dark"] .neo-dialog-highlight[data-v-c2c4012c],
+[data-theme="dark"] .neo-dialog-highlight-flat[data-v-c2c4012c],
+[data-theme="purple"] .neo-dialog-highlight[data-v-c2c4012c],
+[data-theme="purple"] .neo-dialog-highlight-flat[data-v-c2c4012c],
+[data-theme="transparent"] .neo-dialog-highlight[data-v-c2c4012c],
+[data-theme="transparent"] .neo-dialog-highlight-flat[data-v-c2c4012c] {
+  background: linear-gradient(180deg, #2a3142 0%, #222838 100%) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme="dark"] .neo-dialog-price[data-v-c2c4012c],
+[data-theme="dark"] .neo-dialog-name[data-v-c2c4012c],
+[data-theme="purple"] .neo-dialog-price[data-v-c2c4012c],
+[data-theme="purple"] .neo-dialog-name[data-v-c2c4012c],
+[data-theme="transparent"] .neo-dialog-price[data-v-c2c4012c],
+[data-theme="transparent"] .neo-dialog-name[data-v-c2c4012c] {
+  color: #8ea2ff !important;
+}
+[data-theme="dark"] .neo-dialog-message[data-v-c2c4012c],
+[data-theme="dark"] .neo-dialog-feedback-message[data-v-c2c4012c],
+[data-theme="purple"] .neo-dialog-message[data-v-c2c4012c],
+[data-theme="purple"] .neo-dialog-feedback-message[data-v-c2c4012c],
+[data-theme="transparent"] .neo-dialog-message[data-v-c2c4012c],
+[data-theme="transparent"] .neo-dialog-feedback-message[data-v-c2c4012c] {
+  color: #c2c9d6 !important;
+}
+[data-theme="dark"] .neo-dialog-btn-ghost[data-v-c2c4012c],
+[data-theme="purple"] .neo-dialog-btn-ghost[data-v-c2c4012c],
+[data-theme="transparent"] .neo-dialog-btn-ghost[data-v-c2c4012c] {
+  color: #7fd0ff !important;
+}
+[data-theme="dark"] .neo-dialog-btn-primary[data-v-c2c4012c],
+[data-theme="purple"] .neo-dialog-btn-primary[data-v-c2c4012c],
+[data-theme="transparent"] .neo-dialog-btn-primary[data-v-c2c4012c],
+[data-theme="dark"] .neo-dialog-btn-warning[data-v-c2c4012c],
+[data-theme="purple"] .neo-dialog-btn-warning[data-v-c2c4012c],
+[data-theme="transparent"] .neo-dialog-btn-warning[data-v-c2c4012c] {
+  background: #ffb84d !important;
+  color: #fff !important;
+}
+[data-theme="dark"] .medal-image[data-v-c2c4012c],
+[data-theme="purple"] .medal-image[data-v-c2c4012c],
+[data-theme="transparent"] .medal-image[data-v-c2c4012c] {
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
-[data-theme="dark"] .remove-black-bg[data-v-f18b27e2],
-[data-theme="purple"] .remove-black-bg[data-v-f18b27e2],
-[data-theme="transparent"] .remove-black-bg[data-v-f18b27e2] {
+[data-theme="dark"] .remove-black-bg[data-v-c2c4012c],
+[data-theme="purple"] .remove-black-bg[data-v-c2c4012c],
+[data-theme="transparent"] .remove-black-bg[data-v-c2c4012c] {
   filter: brightness(1.2) contrast(1.1);
   box-shadow: 0 0 0 1px rgba(255,255,255,0.2);
 }
-.medal-stack-item[data-v-f18b27e2] {
+.medal-stack-item[data-v-c2c4012c] {
   position: relative;
   transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -18190,10 +18405,10 @@ html.overflow-y-hidden {
   flex-direction: column;
   background-color: #ffffff;
 }
-.medal-stack-item[data-v-f18b27e2]:active {
+.medal-stack-item[data-v-c2c4012c]:active {
   transform: scale(0.95);
 }
-.medal-stack-info[data-v-f18b27e2] {
+.medal-stack-info[data-v-c2c4012c] {
   position: absolute;
   bottom: 0;
   left: 0;
@@ -18203,12 +18418,12 @@ html.overflow-y-hidden {
   z-index: 2;
 }
 
-/* Corner ribbon for unowned medals */
-.medal-corner-ribbon[data-v-f18b27e2] {
+/* Corner ribbon for medals */
+.medal-corner-ribbon[data-v-c2c4012c] {
   position: absolute;
   top: 0;
   right: 0;
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  background: #f15e5e;
   color: white;
   font-size: 9px;
   font-weight: bold;
@@ -18225,7 +18440,10 @@ html.overflow-y-hidden {
   align-items: center;
   justify-content: center;
 }
-.medal-corner-ribbon[data-v-f18b27e2]::before {
+.medal-corner-ribbon-owned[data-v-c2c4012c] {
+  background: #4edb55;
+}
+.medal-corner-ribbon[data-v-c2c4012c]::before {
   content: '';
   position: absolute;
   top: 0;
@@ -18234,19 +18452,22 @@ html.overflow-y-hidden {
   height: 0;
   border-style: solid;
   border-width: 0 0 8px 8px;
-  border-color: transparent transparent #c0392b transparent;
+  border-color: transparent transparent #d96565 transparent;
   transform: translate(0, -8px);
 }
-.medal-stack-image[data-v-f18b27e2] {
+.medal-corner-ribbon-owned[data-v-c2c4012c]::before {
+  border-color: transparent transparent #1f5a24 transparent;
+}
+.medal-stack-image[data-v-c2c4012c] {
   transition: transform 0.3s;
 }
-.cursor-pointer[data-v-f18b27e2] {
+.cursor-pointer[data-v-c2c4012c] {
   cursor: pointer;
 }
-.transition-transform[data-v-f18b27e2] {
+.transition-transform[data-v-c2c4012c] {
   transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
-.rotate-90[data-v-f18b27e2] {
+.rotate-90[data-v-c2c4012c] {
   transform: rotate(90deg);
 }
 

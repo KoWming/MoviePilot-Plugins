@@ -14,6 +14,7 @@ from .playlet_handler import PlayletMedalHandler
 from .moment_handler import MomentMedalHandler
 from .hxpt_handler import HxptMedalHandler
 from .dubhe_handler import DubheMedalHandler
+from .rousipro_handler import RousiProMedalHandler
 
 
 class MedalHandlerManager:
@@ -30,6 +31,7 @@ class MedalHandlerManager:
             MomentMedalHandler(),  # 优先处理Moment站点
             HxptMedalHandler(),  # 优先处理好学站点
             DubheMedalHandler(),  # 优先处理天枢站点
+            RousiProMedalHandler(),  # 优先处理 Rousi Pro 站点
             OffMedalHandler(),  # 优先处理自由农场站点
             HHanMedalHandler(),  # 优先处理憨憨站点
             HddolbyMedalHandler(),  # 优先处理高清杜比站点

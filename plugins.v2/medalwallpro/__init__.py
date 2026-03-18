@@ -20,7 +20,7 @@ class MedalWallPro(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Medal.png"
     # 插件版本
-    plugin_version = "1.1"
+    plugin_version = "1.2.0"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -175,6 +175,27 @@ class MedalWallPro(_PluginBase):
                 "methods": ["POST"],
                 "auth": "bear",
                 "summary": "清理插件缓存"
+            },
+            {
+                "path": "/purchase_medal",
+                "endpoint": self._purchase_medal,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "购买指定勋章"
+            },
+            {
+                "path": "/wear_medal",
+                "endpoint": self._wear_medal,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "佩戴指定勋章"
+            },
+            {
+                "path": "/unwear_medal",
+                "endpoint": self._unwear_medal,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "取下指定勋章"
             }
         ]
 
@@ -398,6 +419,85 @@ class MedalWallPro(_PluginBase):
             logger.error(f"刷新单个站点失败: {str(e)}")
             return {"success": False, "message": f"刷新失败: {str(e)}"}
 
+    def _purchase_medal(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """购买指定勋章"""
+        try:
+            site_id = data.get('site_id')
+            medal = data.get('medal') or {}
+            if not site_id:
+                return {"success": False, "message": "站点ID不能为空"}
+            if not medal:
+                return {"success": False, "message": "勋章信息不能为空"}
+
+            site = self.siteoper.get(site_id)
+            if not site:
+                return {"success": False, "message": "站点不存在"}
+
+            handler = handler_manager.get_handler(site)
+            if not handler:
+                return {"success": False, "message": f"未找到站点处理器: {site.name}"}
+
+            handler._use_proxy = self._use_proxy
+            result = handler.purchase_medal(site, medal)
+
+            if result.get("success"):
+                try:
+                    self._cache.clear(region="medalwallpro_request")
+                    self._cache.clear(region="medalwallpro")
+                    medals = self.get_medal_data(site_id)
+                    self._cache.set(str(site_id), medals, region="medalwallpro")
+                except Exception as e:
+                    logger.warning(f"购买后刷新站点缓存失败: {e}")
+
+            return result
+        except Exception as e:
+            logger.error(f"购买勋章失败: {str(e)}")
+            return {"success": False, "message": f"购买勋章失败: {str(e)}"}
+
+    def _wear_medal(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """佩戴指定勋章"""
+        return self.__operate_medal(data, "wear")
+
+    def _unwear_medal(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """取下指定勋章"""
+        return self.__operate_medal(data, "unwear")
+
+    def __operate_medal(self, data: Dict[str, Any], action: str) -> Dict[str, Any]:
+        action_text = "佩戴" if action == "wear" else "取下"
+        try:
+            site_id = data.get('site_id')
+            medal = data.get('medal') or {}
+            if not site_id:
+                return {"success": False, "message": "站点ID不能为空"}
+            if not medal:
+                return {"success": False, "message": "勋章信息不能为空"}
+
+            site = self.siteoper.get(site_id)
+            if not site:
+                return {"success": False, "message": "站点不存在"}
+
+            handler = handler_manager.get_handler(site)
+            if not handler:
+                return {"success": False, "message": f"未找到站点处理器: {site.name}"}
+
+            handler._use_proxy = self._use_proxy
+            method = handler.wear_medal if action == "wear" else handler.unwear_medal
+            result = method(site, medal)
+
+            if result.get("success"):
+                try:
+                    self._cache.clear(region="medalwallpro_request")
+                    self._cache.clear(region="medalwallpro")
+                    medals = self.get_medal_data(site_id)
+                    self._cache.set(str(site_id), medals, region="medalwallpro")
+                except Exception as e:
+                    logger.warning(f"{action_text}后刷新站点缓存失败: {e}")
+
+            return result
+        except Exception as e:
+            logger.error(f"{action_text}勋章失败: {str(e)}")
+            return {"success": False, "message": f"{action_text}勋章失败: {str(e)}"}
+
 
     def __custom_sites(self) -> list:
         """获取自定义站点列表"""
@@ -556,23 +656,63 @@ class MedalWallPro(_PluginBase):
                 user_medals = handler.fetch_user_medals(site)
                 if user_medals:
                     logger.info(f"获取到 {len(user_medals)} 个用户已拥有勋章，开始合并数据...")
-                    # 创建名称到勋章的映射，方便查找
-                    user_medal_map = {m['name']: m for m in user_medals if m.get('name')}
+                    # 创建勋章ID/名称映射，兼容不同站点接口字段差异
+                    user_medal_id_map = {
+                        str(m.get('medal_id')): m
+                        for m in user_medals
+                        if m.get('medal_id') not in (None, '')
+                    }
+                    user_medal_name_map = {
+                        self.__normalize_medal_name(m.get('name')): m
+                        for m in user_medals
+                        if self.__normalize_medal_name(m.get('name'))
+                    }
                     
                     # 遍历商店勋章，更新状态
                     for medal in medals:
                         medal_name = medal.get('name')
-                        if medal_name and medal_name in user_medal_map:
+                        medal_id = medal.get('medal_id')
+                        normalized_name = self.__normalize_medal_name(medal_name)
+
+                        matched_user_medal = None
+                        if medal_id not in (None, ''):
+                            matched_user_medal = user_medal_id_map.get(str(medal_id))
+                        if not matched_user_medal and normalized_name:
+                            matched_user_medal = user_medal_name_map.get(normalized_name)
+
+                        if matched_user_medal:
                             # 更新状态为已拥有
                             medal['purchase_status'] = "已拥有"
+                            if matched_user_medal.get('medal_id') and not medal.get('medal_id'):
+                                medal['medal_id'] = matched_user_medal.get('medal_id')
+                            if matched_user_medal.get('wear_status'):
+                                medal['wear_status'] = matched_user_medal.get('wear_status')
                             
                             # 从映射中移除，标记为已匹配
-                            del user_medal_map[medal_name]
+                            matched_id = matched_user_medal.get('medal_id')
+                            matched_name = self.__normalize_medal_name(matched_user_medal.get('name'))
+                            if matched_id not in (None, ''):
+                                user_medal_id_map.pop(str(matched_id), None)
+                            if matched_name:
+                                user_medal_name_map.pop(matched_name, None)
                     
                     # 将剩余的用户勋章（商店未列出的）添加到列表
-                    if user_medal_map:
-                        logger.info(f"添加 {len(user_medal_map)} 个商店未列出的用户勋章")
-                        medals.extend(user_medal_map.values())
+                    remaining_user_medals = []
+                    processed_keys = set()
+                    for m in user_medal_id_map.values():
+                        key = str(m.get('medal_id'))
+                        if key and key not in processed_keys:
+                            remaining_user_medals.append(m)
+                            processed_keys.add(key)
+                    for name, m in user_medal_name_map.items():
+                        key = str(m.get('medal_id')) or name
+                        if key and key not in processed_keys:
+                            remaining_user_medals.append(m)
+                            processed_keys.add(key)
+
+                    if remaining_user_medals and handler.should_append_unmatched_user_medals():
+                        logger.info(f"添加 {len(remaining_user_medals)} 个商店未列出的用户勋章")
+                        medals.extend(remaining_user_medals)
                         
             except Exception as e:
                 logger.error(f"合并用户勋章数据失败: {str(e)}")
@@ -581,6 +721,13 @@ class MedalWallPro(_PluginBase):
         except Exception as e:
             logger.error(f"获取勋章数据失败: {str(e)}")
             return []
+
+    @staticmethod
+    def __normalize_medal_name(name: str) -> str:
+        """规范化勋章名称，减少接口字段格式差异导致的匹配失败"""
+        if not name:
+            return ""
+        return "".join(str(name).split()).strip().lower()
 
     def is_current_time_in_range(self, start_time, end_time):
         """
