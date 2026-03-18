@@ -20,7 +20,7 @@ class MedalWallPro(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Medal.png"
     # 插件版本
-    plugin_version = "1.2.0"
+    plugin_version = "1.2.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -33,7 +33,7 @@ class MedalWallPro(_PluginBase):
     auth_level = 2
     
     # 过滤的站点列表
-    FILTERED_SITES = ['星空', '聆音', '朱雀', '馒头', '家园', '朋友', '彩虹岛', '天空', '听听歌', '皇后']
+    FILTERED_SITES = ['星空', '聆音', '朱雀', '馒头', '家园', '朋友', '彩虹岛', '天空', '听听歌', '皇后', '猫站']
 
     # 私有属性
     _enabled: bool = False

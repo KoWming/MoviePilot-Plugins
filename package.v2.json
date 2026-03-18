@@ -73,12 +73,13 @@
         "name": "Vue-勋章墙Pro",
         "description": "站点勋章购买提醒、统计、展示。",
         "labels": "站点",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Medal.png",
         "author": "KoWming",
         "level": 2,
         "release": true,
         "history": {
+            "v1.2.1": "修复了部分站点勋章数据无法完全获取的问题，新增siqi站点勋章获取。",
             "v1.2.0": "适配新版Rousipro站点，适配该站点勋章购买佩戴取下等操作，优化页面显示。",
             "v1.1": "修复了部分站点勋章数据无法完全获取的问题。",
             "v1.0": "初始版本。"

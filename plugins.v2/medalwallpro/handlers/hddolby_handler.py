@@ -163,11 +163,24 @@ class HddolbyMedalHandler(BaseMedalSiteHandler):
             # 使用lxml解析HTML
             html = etree.HTML(res.text)
             
-            # 获取所有勋章行 (在购买、赠送勋章表格中)，兼容包含 thead 的情况
-            medal_rows = html.xpath("//table[@border='1']//tr[td and not(td[contains(@class, 'colhead')])]")
+            # 直接按勋章行特征抓取，兼容页面表格嵌套和结构调整
+            medal_rows = html.xpath(
+                "//tr["
+                "count(./td) >= 9 "
+                "and ./td[1]//img[contains(@src, 'medals/')] "
+                "and ./td[2]//h1"
+                "]"
+            )
+
+            if not medal_rows:
+                # 兜底：不限制图片路径，仅按列结构和名称抓取
+                medal_rows = html.xpath(
+                    "//tr[count(./td) >= 9 and ./td[1]//img and ./td[2]//h1]"
+                )
             
             if not medal_rows:
-                logger.warning(f"没有找到勋章数据")
+                title = ''.join(html.xpath('//title/text()')).strip()
+                logger.warning(f"没有找到勋章数据，页面标题: {title}")
                 return []
             
             logger.info(f"找到 {len(medal_rows)} 个勋章数据")
@@ -336,7 +349,7 @@ class HddolbyMedalHandler(BaseMedalSiteHandler):
             user_html = etree.HTML(user_res.text)
             
             # 查找勋章区域 (可能需要根据实际HTML结构调整)
-            medal_imgs = user_html.xpath("//img[contains(@src, '/medals/')]")
+            medal_imgs = user_html.xpath("//img[contains(@src, 'medals/')]")
             
             if not medal_imgs:
                 logger.info(f"用户暂无已拥有勋章")
