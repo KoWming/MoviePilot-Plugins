@@ -3,59 +3,27 @@ import { _ as _export_sfc } from './_plugin-vue_export-helper-c4c0bc37.js';
 
 const {defineComponent:_defineComponent} = await importShared('vue');
 
-const {resolveComponent:_resolveComponent,createVNode:_createVNode,createElementVNode:_createElementVNode,withCtx:_withCtx,createTextVNode:_createTextVNode,vModelCheckbox:_vModelCheckbox,withDirectives:_withDirectives,openBlock:_openBlock,createElementBlock:_createElementBlock,toDisplayString:_toDisplayString,mergeProps:_mergeProps,createBlock:_createBlock,createCommentVNode:_createCommentVNode} = await importShared('vue');
+const {resolveComponent:_resolveComponent,createVNode:_createVNode,createElementVNode:_createElementVNode,withCtx:_withCtx,createTextVNode:_createTextVNode,vModelCheckbox:_vModelCheckbox,withDirectives:_withDirectives,openBlock:_openBlock,createElementBlock:_createElementBlock,toDisplayString:_toDisplayString,mergeProps:_mergeProps,withModifiers:_withModifiers,createBlock:_createBlock,createCommentVNode:_createCommentVNode} = await importShared('vue');
 
 const _hoisted_1 = { class: "as-config" };
 const _hoisted_2 = { class: "as-topbar" };
 const _hoisted_3 = { class: "as-topbar__left" };
-const _hoisted_4 = { class: "as-header__icon" };
+const _hoisted_4 = { class: "as-topbar__icon" };
 const _hoisted_5 = {
   class: "as-topbar__right",
   style: { "padding": "2px" }
 };
 const _hoisted_6 = { class: "as-card" };
-const _hoisted_7 = { class: "as-config-card__header" };
-const _hoisted_8 = { class: "as-row__text" };
-const _hoisted_9 = {
+const _hoisted_7 = { class: "as-card__header" };
+const _hoisted_8 = { class: "as-card__title" };
+const _hoisted_9 = { class: "as-row__text" };
+const _hoisted_10 = {
   class: "switch",
-  style: { "--switch-checked-bg": "#8b5cf6" }
+  style: { "--switch-checked-bg": "#a78bfa" }
 };
-const _hoisted_10 = { class: "slider" };
-const _hoisted_11 = { class: "circle" };
-const _hoisted_12 = {
-  class: "cross",
-  "xml:space": "preserve",
-  style: { "enable-background": "new 0 0 512 512" },
-  viewBox: "0 0 365.696 365.696",
-  y: "0",
-  x: "0",
-  height: "6",
-  width: "6",
-  "xmlns:xlink": "http://www.w3.org/1999/xlink",
-  version: "1.1",
-  xmlns: "http://www.w3.org/2000/svg"
-};
+const _hoisted_11 = { class: "slider" };
+const _hoisted_12 = { class: "circle" };
 const _hoisted_13 = {
-  class: "checkmark",
-  "xml:space": "preserve",
-  style: { "enable-background": "new 0 0 512 512" },
-  viewBox: "0 0 24 24",
-  y: "0",
-  x: "0",
-  height: "10",
-  width: "10",
-  "xmlns:xlink": "http://www.w3.org/1999/xlink",
-  version: "1.1",
-  xmlns: "http://www.w3.org/2000/svg"
-};
-const _hoisted_14 = { class: "as-row__text" };
-const _hoisted_15 = {
-  class: "switch",
-  style: { "--switch-checked-bg": "#10b981" }
-};
-const _hoisted_16 = { class: "slider" };
-const _hoisted_17 = { class: "circle" };
-const _hoisted_18 = {
   class: "cross",
   "xml:space": "preserve",
   style: { "enable-background": "new 0 0 512 512" },
@@ -68,7 +36,7 @@ const _hoisted_18 = {
   version: "1.1",
   xmlns: "http://www.w3.org/2000/svg"
 };
-const _hoisted_19 = {
+const _hoisted_14 = {
   class: "checkmark",
   "xml:space": "preserve",
   style: { "enable-background": "new 0 0 512 512" },
@@ -77,27 +45,63 @@ const _hoisted_19 = {
   x: "0",
   height: "10",
   width: "10",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  version: "1.1",
+  xmlns: "http://www.w3.org/2000/svg"
+};
+const _hoisted_15 = { class: "as-row__text" };
+const _hoisted_16 = {
+  class: "switch",
+  style: { "--switch-checked-bg": "#34d399" }
+};
+const _hoisted_17 = { class: "slider" };
+const _hoisted_18 = { class: "circle" };
+const _hoisted_19 = {
+  class: "cross",
+  "xml:space": "preserve",
+  style: { "enable-background": "new 0 0 512 512" },
+  viewBox: "0 0 365.696 365.696",
+  y: "0",
+  x: "0",
+  height: "6",
+  width: "6",
   "xmlns:xlink": "http://www.w3.org/1999/xlink",
   version: "1.1",
   xmlns: "http://www.w3.org/2000/svg"
 };
 const _hoisted_20 = {
+  class: "checkmark",
+  "xml:space": "preserve",
+  style: { "enable-background": "new 0 0 512 512" },
+  viewBox: "0 0 24 24",
+  y: "0",
+  x: "0",
+  height: "10",
+  width: "10",
+  "xmlns:xlink": "http://www.w3.org/1999/xlink",
+  version: "1.1",
+  xmlns: "http://www.w3.org/2000/svg"
+};
+const _hoisted_21 = {
   class: "as-field",
   style: { "margin-top": "12px", "margin-bottom": "8px" }
 };
-const _hoisted_21 = { class: "as-field__label mb-1" };
-const _hoisted_22 = {
+const _hoisted_22 = { class: "as-field__label mb-1" };
+const _hoisted_23 = { class: "as-server-selected" };
+const _hoisted_24 = { class: "d-flex justify-center pa-1" };
+const _hoisted_25 = {
   class: "as-field",
   style: { "margin-top": "12px", "margin-bottom": "8px" }
 };
-const _hoisted_23 = { class: "as-card" };
-const _hoisted_24 = {
-  class: "as-config-card__header",
-  style: { "background": "rgba(var(--v-theme-info), 0.08)", "color": "rgb(var(--v-theme-info))" }
+const _hoisted_26 = { class: "as-card" };
+const _hoisted_27 = { class: "as-card__header" };
+const _hoisted_28 = {
+  class: "as-card__title",
+  style: { "color": "rgb(var(--v-theme-info))" }
 };
-const _hoisted_25 = { style: { "font-size": "13px", "line-height": "1.8", "color": "rgba(var(--v-theme-on-surface), 0.75)", "padding": "4px 0" } };
-const _hoisted_26 = { class: "d-flex align-center gap-2 mb-1" };
-const _hoisted_27 = {
+const _hoisted_29 = { style: { "font-size": "13px", "line-height": "1.8", "color": "rgba(var(--v-theme-on-surface), 0.75)", "padding": "4px 0" } };
+const _hoisted_30 = { class: "d-flex align-center gap-2 mb-1" };
+const _hoisted_31 = {
   class: "d-flex align-center",
   style: { "margin-left": "4px" }
 };
@@ -135,12 +139,56 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
       { title: "中国移动", value: "mobile", icon: "mdi-signal-5g", color: "light-blue-darken-1" },
       { title: "固定节点", value: "fixed", icon: "mdi-pin", color: "grey" }
     ];
+    const servers = ref(
+      []
+    );
+    const serversLoading = ref(false);
+    const serversLoaded = ref(false);
+    const serverOptions = ref([]);
+    async function loadServers() {
+      if (serversLoading.value)
+        return;
+      serversLoading.value = true;
+      try {
+        const res = await props.api.get("plugin/AutoSpeed/servers");
+        const list = res?.servers ?? [];
+        servers.value = list;
+        serverOptions.value = list.map((s) => ({
+          title: `${s.name} — ${s.location}, ${s.country}`,
+          subtitle: `ID: ${s.id}  |  ${s.host}`,
+          value: String(s.id)
+        }));
+        serversLoaded.value = true;
+        if (config.mode === "fixed" && !config.server_id && serverOptions.value.length > 0) {
+          config.server_id = serverOptions.value[0].value;
+        }
+      } catch (e) {
+        console.warn("[AutoSpeed] 获取节点列表失败", e);
+      } finally {
+        serversLoading.value = false;
+      }
+    }
+    watch(
+      () => config.mode,
+      (val) => {
+        if (val === "fixed") {
+          if (!serversLoaded.value) {
+            loadServers();
+          } else if (!config.server_id && serverOptions.value.length > 0) {
+            config.server_id = serverOptions.value[0].value;
+          }
+        }
+      },
+      { immediate: true }
+    );
     const saving = ref(false);
     const snackbar = reactive({ show: false, text: "", color: "success" });
     async function handleSave() {
       saving.value = true;
       try {
         emit("save", { ...config });
+        await props.api.post("plugin/AutoSpeed/config", { ...config }).catch(() => {
+        });
         snackbar.text = "配置已保存";
         snackbar.color = "success";
         snackbar.show = true;
@@ -160,9 +208,9 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
       const _component_v_row = _resolveComponent("v-row");
       const _component_v_list_item = _resolveComponent("v-list-item");
       const _component_v_select = _resolveComponent("v-select");
-      const _component_v_text_field = _resolveComponent("v-text-field");
-      const _component_v_slide_x_reverse_transition = _resolveComponent("v-slide-x-reverse-transition");
+      const _component_v_divider = _resolveComponent("v-divider");
       const _component_VCronField = _resolveComponent("VCronField");
+      const _component_v_text_field = _resolveComponent("v-text-field");
       const _component_v_snackbar = _resolveComponent("v-snackbar");
       return _openBlock(), _createElementBlock("div", _hoisted_1, [
         _createElementVNode("div", _hoisted_2, [
@@ -174,8 +222,8 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
               })
             ]),
             _cache[10] || (_cache[10] = _createElementVNode("div", null, [
-              _createElementVNode("div", { class: "as-header__title" }, "网络测速 · 配置"),
-              _createElementVNode("div", { class: "as-header__sub" }, "AutoSpeed Plugin")
+              _createElementVNode("div", { class: "as-topbar__title" }, "网络测速 · 配置"),
+              _createElementVNode("div", { class: "as-topbar__sub" }, "AutoSpeed Plugin")
             ], -1))
           ]),
           _createElementVNode("div", _hoisted_5, [
@@ -243,12 +291,14 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
         ]),
         _createElementVNode("div", _hoisted_6, [
           _createElementVNode("div", _hoisted_7, [
-            _createVNode(_component_v_icon, {
-              icon: "mdi-tune-vertical",
-              size: "18",
-              class: "mr-2"
-            }),
-            _cache[14] || (_cache[14] = _createTextVNode("基础设置 ", -1))
+            _createElementVNode("span", _hoisted_8, [
+              _createVNode(_component_v_icon, {
+                icon: "mdi-tune-vertical",
+                size: "18",
+                class: "mr-1"
+              }),
+              _cache[14] || (_cache[14] = _createTextVNode("基础设置", -1))
+            ])
           ]),
           _createVNode(_component_v_row, { class: "mt-1 mb-1" }, {
             default: _withCtx(() => [
@@ -258,25 +308,25 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                 class: "d-flex align-center justify-space-between py-1"
               }, {
                 default: _withCtx(() => [
-                  _createElementVNode("span", _hoisted_8, [
+                  _createElementVNode("span", _hoisted_9, [
                     _createVNode(_component_v_icon, {
                       icon: "mdi-power-plug",
                       size: "20",
-                      color: config.enabled ? "primary" : "grey",
+                      color: config.enabled ? "#a78bfa" : "grey",
                       class: "mr-2"
                     }, null, 8, ["color"]),
                     _cache[15] || (_cache[15] = _createTextVNode("启用插件 ", -1))
                   ]),
-                  _createElementVNode("label", _hoisted_9, [
+                  _createElementVNode("label", _hoisted_10, [
                     _withDirectives(_createElementVNode("input", {
                       "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => config.enabled = $event),
                       type: "checkbox"
                     }, null, 512), [
                       [_vModelCheckbox, config.enabled]
                     ]),
-                    _createElementVNode("div", _hoisted_10, [
-                      _createElementVNode("div", _hoisted_11, [
-                        (_openBlock(), _createElementBlock("svg", _hoisted_12, [..._cache[16] || (_cache[16] = [
+                    _createElementVNode("div", _hoisted_11, [
+                      _createElementVNode("div", _hoisted_12, [
+                        (_openBlock(), _createElementBlock("svg", _hoisted_13, [..._cache[16] || (_cache[16] = [
                           _createElementVNode("g", null, [
                             _createElementVNode("path", {
                               "data-original": "#000000",
@@ -285,7 +335,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                             })
                           ], -1)
                         ])])),
-                        (_openBlock(), _createElementBlock("svg", _hoisted_13, [..._cache[17] || (_cache[17] = [
+                        (_openBlock(), _createElementBlock("svg", _hoisted_14, [..._cache[17] || (_cache[17] = [
                           _createElementVNode("g", null, [
                             _createElementVNode("path", {
                               class: "",
@@ -307,25 +357,25 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                 class: "d-flex align-center justify-space-between py-1"
               }, {
                 default: _withCtx(() => [
-                  _createElementVNode("span", _hoisted_14, [
+                  _createElementVNode("span", _hoisted_15, [
                     _createVNode(_component_v_icon, {
                       icon: "mdi-bell-ring-outline",
                       size: "20",
-                      color: config.notify ? "success" : "grey",
+                      color: config.notify ? "#34d399" : "grey",
                       class: "mr-2"
                     }, null, 8, ["color"]),
                     _cache[18] || (_cache[18] = _createTextVNode("推送通知 ", -1))
                   ]),
-                  _createElementVNode("label", _hoisted_15, [
+                  _createElementVNode("label", _hoisted_16, [
                     _withDirectives(_createElementVNode("input", {
                       "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => config.notify = $event),
                       type: "checkbox"
                     }, null, 512), [
                       [_vModelCheckbox, config.notify]
                     ]),
-                    _createElementVNode("div", _hoisted_16, [
-                      _createElementVNode("div", _hoisted_17, [
-                        (_openBlock(), _createElementBlock("svg", _hoisted_18, [..._cache[19] || (_cache[19] = [
+                    _createElementVNode("div", _hoisted_17, [
+                      _createElementVNode("div", _hoisted_18, [
+                        (_openBlock(), _createElementBlock("svg", _hoisted_19, [..._cache[19] || (_cache[19] = [
                           _createElementVNode("g", null, [
                             _createElementVNode("path", {
                               "data-original": "#000000",
@@ -334,7 +384,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                             })
                           ], -1)
                         ])])),
-                        (_openBlock(), _createElementBlock("svg", _hoisted_19, [..._cache[20] || (_cache[20] = [
+                        (_openBlock(), _createElementBlock("svg", _hoisted_20, [..._cache[20] || (_cache[20] = [
                           _createElementVNode("g", null, [
                             _createElementVNode("path", {
                               class: "",
@@ -353,9 +403,9 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
             ]),
             _: 1
           }),
-          _cache[22] || (_cache[22] = _createElementVNode("div", { class: "as-divider" }, null, -1)),
-          _createElementVNode("div", _hoisted_20, [
-            _createElementVNode("label", _hoisted_21, [
+          _cache[23] || (_cache[23] = _createElementVNode("div", { class: "as-divider" }, null, -1)),
+          _createElementVNode("div", _hoisted_21, [
+            _createElementVNode("label", _hoisted_22, [
               _createVNode(_component_v_icon, {
                 icon: "mdi-wan",
                 size: "18",
@@ -368,8 +418,7 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
               default: _withCtx(() => [
                 _createVNode(_component_v_col, {
                   cols: "12",
-                  sm: config.mode === "fixed" ? 6 : 12,
-                  style: { "transition": "all 0.3s ease" }
+                  sm: config.mode === "fixed" ? 6 : 12
                 }, {
                   default: _withCtx(() => [
                     _createVNode(_component_v_select, {
@@ -418,23 +467,68 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
                   sm: "6"
                 }, {
                   default: _withCtx(() => [
-                    _createVNode(_component_v_slide_x_reverse_transition, { appear: "" }, {
-                      default: _withCtx(() => [
-                        _createVNode(_component_v_text_field, {
-                          modelValue: config.server_id,
-                          "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => config.server_id = $event),
-                          label: "固定节点 ID",
-                          placeholder: "例如: 3633",
-                          density: "compact",
-                          variant: "outlined",
-                          "hide-details": "auto",
-                          color: "primary",
-                          hint: "输入 Speedtest 节点数字 ID",
-                          "persistent-hint": ""
-                        }, null, 8, ["modelValue"])
+                    _createVNode(_component_v_select, {
+                      modelValue: config.server_id,
+                      "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => config.server_id = $event),
+                      items: serverOptions.value,
+                      "item-title": "title",
+                      "item-value": "value",
+                      label: "固定节点",
+                      density: "compact",
+                      variant: "outlined",
+                      "hide-details": "auto",
+                      color: "primary",
+                      loading: serversLoading.value,
+                      "no-data-text": serversLoaded.value ? "未找到匹配节点" : "节点列表加载中…",
+                      class: "as-input"
+                    }, {
+                      selection: _withCtx(({ item }) => [
+                        _createElementVNode("span", _hoisted_23, [
+                          _createVNode(_component_v_icon, {
+                            icon: "mdi-server",
+                            size: "15",
+                            color: "primary",
+                            class: "mr-1"
+                          }),
+                          _createTextVNode(" " + _toDisplayString(item.raw.title), 1)
+                        ])
+                      ]),
+                      item: _withCtx(({ props: itemProps, item }) => [
+                        _createVNode(_component_v_list_item, _mergeProps(itemProps, {
+                          title: item.raw.title,
+                          subtitle: item.raw.subtitle
+                        }), {
+                          prepend: _withCtx(() => [
+                            _createVNode(_component_v_icon, {
+                              icon: "mdi-server-network",
+                              size: "18",
+                              color: "grey",
+                              class: "mr-2"
+                            })
+                          ]),
+                          _: 1
+                        }, 16, ["title", "subtitle"])
+                      ]),
+                      "append-item": _withCtx(() => [
+                        _createVNode(_component_v_divider, { class: "mt-1 mb-1" }),
+                        _createElementVNode("div", _hoisted_24, [
+                          _createVNode(_component_v_btn, {
+                            size: "small",
+                            variant: "text",
+                            color: "primary",
+                            loading: serversLoading.value,
+                            "prepend-icon": "mdi-refresh",
+                            onClick: _withModifiers(loadServers, ["stop"])
+                          }, {
+                            default: _withCtx(() => [..._cache[22] || (_cache[22] = [
+                              _createTextVNode(" 刷新节点列表 ", -1)
+                            ])]),
+                            _: 1
+                          }, 8, ["loading"])
+                        ])
                       ]),
                       _: 1
-                    })
+                    }, 8, ["modelValue", "items", "loading", "no-data-text"])
                   ]),
                   _: 1
                 })) : _createCommentVNode("", true)
@@ -442,8 +536,8 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
               _: 1
             })
           ]),
-          _cache[23] || (_cache[23] = _createElementVNode("div", { class: "as-divider my-2" }, null, -1)),
-          _createElementVNode("div", _hoisted_22, [
+          _cache[24] || (_cache[24] = _createElementVNode("div", { class: "as-divider my-2" }, null, -1)),
+          _createElementVNode("div", _hoisted_25, [
             _createVNode(_component_v_row, null, {
               default: _withCtx(() => [
                 _createVNode(_component_v_col, {
@@ -515,37 +609,39 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
             })
           ])
         ]),
-        _createElementVNode("div", _hoisted_23, [
-          _createElementVNode("div", _hoisted_24, [
-            _createVNode(_component_v_icon, {
-              icon: "mdi-heart-outline",
-              size: "18",
-              class: "mr-2"
-            }),
-            _cache[24] || (_cache[24] = _createTextVNode("致谢 ", -1))
+        _createElementVNode("div", _hoisted_26, [
+          _createElementVNode("div", _hoisted_27, [
+            _createElementVNode("span", _hoisted_28, [
+              _createVNode(_component_v_icon, {
+                icon: "mdi-heart-outline",
+                size: "18",
+                class: "mr-1"
+              }),
+              _cache[25] || (_cache[25] = _createTextVNode("致谢 ", -1))
+            ])
           ]),
-          _createElementVNode("div", _hoisted_25, [
-            _createElementVNode("div", _hoisted_26, [
+          _createElementVNode("div", _hoisted_29, [
+            _createElementVNode("div", _hoisted_30, [
               _createVNode(_component_v_icon, {
                 icon: "mdi-star-four-points",
                 size: "14",
                 color: "warning",
                 class: "mr-1"
               }),
-              _cache[25] || (_cache[25] = _createElementVNode("span", null, [
+              _cache[26] || (_cache[26] = _createElementVNode("span", null, [
                 _createTextVNode("本插件测速核心实现参考自 "),
                 _createElementVNode("strong", null, "鱼丸粗面"),
                 _createTextVNode(" 大佬的开源项目。")
               ], -1))
             ]),
-            _createElementVNode("div", _hoisted_27, [
+            _createElementVNode("div", _hoisted_31, [
               _createVNode(_component_v_icon, {
                 icon: "mdi-github",
                 size: "16",
                 class: "mr-2",
                 style: { "opacity": "0.7" }
               }),
-              _cache[26] || (_cache[26] = _createElementVNode("a", {
+              _cache[27] || (_cache[27] = _createElementVNode("a", {
                 href: "https://github.com/yuwancumian2009/Autospeed",
                 target: "_blank",
                 rel: "noopener noreferrer",
@@ -571,8 +667,8 @@ const _sfc_main = /* @__PURE__ */ _defineComponent({
   }
 });
 
-const Config_vue_vue_type_style_index_0_scoped_4ddfd835_lang = '';
+const Config_vue_vue_type_style_index_0_scoped_d75f5fe9_lang = '';
 
-const Config = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-4ddfd835"]]);
+const Config = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-d75f5fe9"]]);
 
 export { Config as default };

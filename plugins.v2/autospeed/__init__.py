@@ -17,7 +17,7 @@ class AutoSpeed(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/AutoSpeed.png"
     # 插件版本
-    plugin_version = "1.0.0"
+    plugin_version = "1.1.0"
     # 插件作者
     plugin_author = "KoWming,鱼丸粗面"
     # 作者主页
@@ -179,11 +179,30 @@ class AutoSpeed(_PluginBase):
         """获取 Speedtest 节点列表"""
         try:
             import speedtest
-            st = speedtest.Speedtest()
-            st.get_servers()
-            # get_servers() 返回 {distance: [server_dict, ...], ...} 结构
+            speedtest.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"
+            st = speedtest.Speedtest(secure=True)
+            # 获取原生最近节点
             servers_raw = st.get_servers()
             result = []
+            
+            # 使用官方 Search 接口跨地域搜索国内三大运营商的热门节点，加入下拉菜单方便用户选择
+            import json, urllib.request, urllib.parse
+            for kw in ["China Telecom", "China Unicom", "China Mobile"]:
+                url = f"https://www.speedtest.net/api/js/servers?engine=js&search={urllib.parse.quote(kw)}&limit=10"
+                try:
+                    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'})
+                    with urllib.request.urlopen(req, timeout=5) as res:
+                        data = json.loads(res.read().decode())
+                        for srv in data:
+                            result.append({
+                                "id": str(srv.get("id", "")),
+                                "name": srv.get("sponsor", srv.get("name", "未知")),
+                                "location": srv.get("name", ""),
+                                "country": srv.get("country", "China"),
+                                "host": srv.get("host", ""),
+                            })
+                except Exception:
+                    pass
             for srv_list in servers_raw.values():
                 for srv in srv_list:
                     result.append(
@@ -210,41 +229,74 @@ class AutoSpeed(_PluginBase):
     def _get_target_server(self, mode: str, server_id: str) -> Optional[List]:
         """
         根据模式选择目标节点列表。
-        closest: 返回 None（让 speedtest 自动选最优）
-        fixed:   返回指定 ID 的节点列表（如 [12345]）
+        closest: 如果能识别当前网络运营商，则自动转化为对应运营商模式；否则返回 None 走全局最优。
+        fixed:   返回指定 ID 的节点列表
         其他:     在节点列表中按运营商关键字筛选
         """
-        if mode == "closest":
-            return None
         if mode == "fixed" and server_id:
+            servers = self._get_servers_list()
+            matched = next((s for s in servers if str(s.get("id")) == str(server_id)), None)
+            if matched:
+                host = matched.get("host", "")
+                return {
+                    "host": host,
+                    "name": matched.get("name", "Unknown"),
+                    "location": matched.get("location", ""),
+                    "country": matched.get("country", "China"),
+                    "id": str(server_id),
+                    "fixed": True,
+                }
             try:
                 return [int(server_id)]
             except ValueError:
-                logger.warning(f"{self.plugin_name}: 无效的固定节点 ID: {server_id}")
-                return None
-
-        # 按运营商关键字筛选
+                pass
+            return None
         keyword_map = {
             "telecom": ["telecom", "电信", "chinanet", "ct"],
             "unicom": ["unicom", "联通", "cucc"],
             "mobile": ["mobile", "移动", "cmcc"],
         }
-        keywords = keyword_map.get(mode, [])
-        if not keywords:
-            return None
 
         try:
             import speedtest
-            st = speedtest.Speedtest()
-            servers_raw = st.get_servers()
-            for srv_list in servers_raw.values():
-                for srv in srv_list:
-                    name = (
-                        str(srv.get("name", "")) + str(srv.get("sponsor", ""))
-                    ).lower()
-                    for kw in keywords:
-                        if kw in name:
-                            return [int(srv["id"])]
+            speedtest.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"
+            st = speedtest.Speedtest(secure=True)
+            
+            # 自动探测宽带 ISP 运营商
+            if mode == "closest":
+                client_isp = st.config.get("client", {}).get("isp", "").lower()
+                detected_mode = None
+                for k, kw_list in keyword_map.items():
+                    if any(kw in client_isp for kw in kw_list):
+                        detected_mode = k
+                        break
+                
+                if detected_mode:
+                    logger.info(f"{self.plugin_name}: 自动模式检测到宽带运营商为 '{client_isp}'，映射为 '{detected_mode}' 同网测速策略")
+                    mode = detected_mode
+                else:
+                    return None
+
+            keywords = keyword_map.get(mode, [])
+            if not keywords:
+                return None
+
+            all_servers = self._get_servers_list()
+            for srv in all_servers:
+                name = (str(srv.get("name", "")) + str(srv.get("location", ""))).lower()
+                if any(kw in name for kw in keywords):
+                    logger.info(f"{self.plugin_name}: 找到 '{mode}' 同网节点: {srv.get('name')} ({srv.get('location')}, {srv.get('country')})")
+                    return {
+                        "host": srv.get("host", ""),
+                        "name": srv.get("name", "Unknown"),
+                        "location": srv.get("location", ""),
+                        "country": srv.get("country", "China"),
+                        "id": str(srv.get("id", "")),
+                        "fixed": False,
+                    }
+
+            logger.warning(f"{self.plugin_name}: 未找到任何 '{mode}' 运营商节点，回退到全局最优")
+                
         except Exception as e:
             logger.warning(f"{self.plugin_name}: 运营商节点筛选失败: {e}")
         return None
@@ -254,21 +306,57 @@ class AutoSpeed(_PluginBase):
         执行测速。
         server_ids: None 表示自动选最优节点，否则为 [int(id)] 列表
         """
+        import traceback as _tb
         max_retries = self._retry_count
         for attempt in range(max_retries + 1):
             logger.info(f"{self.plugin_name}: 开始测速（第 {attempt + 1} 次）...")
             try:
                 import speedtest
-                st = speedtest.Speedtest()
+                speedtest.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"
+                st = speedtest.Speedtest(secure=True)
 
-                if server_ids:
-                    st.get_servers(server_ids)
+                if isinstance(server_ids, dict):
+                    host = server_ids.get("host", "")
+                    if not host:
+                        raise ValueError("固定节点 host 为空")
+                    url = f"http://{host}/speedtest/upload.php"
+                    server_dict = {
+                        "url": url,
+                        "lat": "0", "lon": "0",
+                        "name": server_ids.get("location", ""),
+                        "country": server_ids.get("country", "China"),
+                        "cc": "CN",
+                        "sponsor": server_ids.get("name", "Unknown"),
+                        "id": server_ids.get("id", ""),
+                        "host": host,
+                        "d": 0,
+                    }
+                    st._best = server_dict
+                    st.results.server = server_dict
+                    # 手动测量 TCP 握手延迟（因跳过了 get_best_server() 导致 ping=0）
+                    import socket, time
+                    host_parts = host.split(":")
+                    _host = host_parts[0]
+                    _port = int(host_parts[1]) if len(host_parts) > 1 else 8080
+                    try:
+                        _t0 = time.time()
+                        with socket.create_connection((_host, _port), timeout=5):
+                            pass
+                        st.results.ping = round((time.time() - _t0) * 1000, 2)
+                    except Exception:
+                        st.results.ping = 0
+                    is_fixed = server_ids.get("fixed", False)
+                    label = "固定节点" if is_fixed else f"自动匹配({server_ids.get('location', '')})"
+                    logger.info(f"{self.plugin_name}: 使用{label} {server_ids.get('name')} ({host})，延迟 {st.results.ping} ms")
+                elif server_ids:
+                    st.get_servers(server_ids[:10])
                     st.get_best_server()
                 else:
                     st.get_best_server()
 
-                download_mbps = round(st.download() / 1e6, 2)
-                upload_mbps = round(st.upload() / 1e6, 2)
+                # 强制多线程以突破 Python 原生环境限速，尽量还原宽带真实速度
+                download_mbps = round(st.download(threads=16) / 1e6, 2)
+                upload_mbps = round(st.upload(threads=16) / 1e6, 2)
                 ping_ms = round(st.results.ping, 2)
                 srv = st.results.dict().get("server", {})
                 server_name = f"{srv.get('sponsor', '未知')} - {srv.get('name', '未知')}"
@@ -296,7 +384,8 @@ class AutoSpeed(_PluginBase):
                 return True
 
             except Exception as e:
-                logger.warning(f"{self.plugin_name}: 第 {attempt + 1} 次测速失败: {e}")
+                err_detail = f"{repr(e)}\n{''.join(_tb.format_exc())}"
+                logger.warning(f"{self.plugin_name}: 第 {attempt + 1} 次测速失败: {err_detail}")
                 if attempt < max_retries:
                     import time
                     time.sleep(10)
@@ -445,8 +534,10 @@ class AutoSpeed(_PluginBase):
         if self._running:
             return {"success": False, "msg": "测速正在进行中，请稍后再试"}
 
-        mode = (payload or {}).get("mode") or self._mode
-        server_id = (payload or {}).get("server_id") or self._server_id
+        # 从 DB 提取最新配置，避免用户保存后由于插件实例在内存中未重启而仍是旧值
+        cfg = self.get_config() or {}
+        mode = (payload or {}).get("mode") or cfg.get("mode") or self._mode
+        server_id = str((payload or {}).get("server_id") or cfg.get("server_id") or self._server_id)
 
         def _do_run():
             self._running = True

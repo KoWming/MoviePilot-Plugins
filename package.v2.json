@@ -89,12 +89,13 @@
         "name": "Vue-网络测速",
         "description": "使用Speedtest.net定时自动测速，支持手动触发，记录历史趋势。",
         "labels": "网络",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/AutoSpeed.png",
         "author": "KoWming,鱼丸粗面",
         "level": 1,
         "release": true,
         "history": {
+            "v1.1.0": "- 修复 Speedtest.net 接口 403 问题；\n- 优化测速节点选择策略：自动模式可智能识别当前宽带运营商（联通/电信/移动）并优先选取同网节点；\n- 固定节点模式改为通过 Host 直连；\n- 修复手动触发测速不使用最新配置节点的问题；\n- 新增多线程并发上传下载测试（16线程）以突破 Python 原生环境限速；\n- 优化固定节点候选下拉框样式与默认选项。",
             "v1.0.0": "初始版本。"
         }
     }
