@@ -6,7 +6,8 @@
     "scripts": {
         "dev": "vite",
         "preview": "vite preview",
-        "build": "vite build && node build-zip.js"
+        "build:web": "vite build",
+        "build": "npm run build:web && node build-zip.js"
     },
     "dependencies": {
         "vue": "^3.3.4",
