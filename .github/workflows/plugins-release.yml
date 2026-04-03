@@ -204,6 +204,7 @@ jobs:
               rm -f "$STAGING_PLUGIN_PATH"/vite.config.*
               rm -f "$STAGING_PLUGIN_PATH"/tsconfig.*
               rm -f "$STAGING_PLUGIN_PATH"/index.html
+              rm -f "$STAGING_PLUGIN_PATH"/build*.js
               rm -f "$STAGING_PLUGIN_PATH"/.env*
               rm -f "$STAGING_PLUGIN_PATH"/.gitignore
               rm -f "$STAGING_PLUGIN_PATH"/.eslintrc*
