@@ -99,7 +99,7 @@
             "v1.0.0": "初始版本。"
         }
     },
-    "SkitFram": {
+    "SkitFarm": {
         "name": "Vue-拾刻农场",
         "description": "支持Skit站点一键收获、种植、养殖，定时自动化任务。",
         "labels": "站点",
