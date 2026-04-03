@@ -179,18 +179,12 @@ jobs:
           # 2. 根据插件类型选择打包策略
           if [ "${{ matrix.plugin.backend_worker_path }}" = "plugins.v2" ]; then
             if [ "${{ steps.detect_frontend.outputs.has_frontend_src }}" = "true" ]; then
-              # 新方式：插件含前端源码，仅打包编译后的运行时文件
-              echo "[Info] plugins.v2（含源码）：仅打包最终运行所需文件..."
+              # 新方式：插件含前端源码，打包后端以及编译后的 dist 目录（排除前端源码）
+              echo "[Info] plugins.v2（含源码）：打包后端所有组件及前端编译产物..."
 
               if [ ! -f "$FULL_SOURCE_PATH/__init__.py" ]; then
                 echo "[Error] 缺少必要文件: $FULL_SOURCE_PATH/__init__.py"
                 exit 1
-              fi
-
-              cp "$FULL_SOURCE_PATH/__init__.py" "$STAGING_PLUGIN_PATH/__init__.py"
-
-              if [ -f "$FULL_SOURCE_PATH/requirements.txt" ]; then
-                cp "$FULL_SOURCE_PATH/requirements.txt" "$STAGING_PLUGIN_PATH/requirements.txt"
               fi
 
               if [ ! -d "$FULL_SOURCE_PATH/dist" ]; then
@@ -198,7 +192,22 @@ jobs:
                 exit 1
               fi
 
-              cp -R "$FULL_SOURCE_PATH/dist" "$STAGING_PLUGIN_PATH/dist"
+              # 1. 完整拷贝整个插件源目录
+              cp -R "$FULL_SOURCE_PATH/." "$STAGING_PLUGIN_PATH/"
+
+              # 2. 清理不需要随发布包分发的前端源代码、依赖和配置文件
+              echo "[Info] 正在清理无用的前端源码及开发环境文件..."
+              rm -rf "$STAGING_PLUGIN_PATH/node_modules"
+              rm -rf "$STAGING_PLUGIN_PATH/src"
+              rm -rf "$STAGING_PLUGIN_PATH/public"
+              rm -f "$STAGING_PLUGIN_PATH"/package*.json
+              rm -f "$STAGING_PLUGIN_PATH"/vite.config.*
+              rm -f "$STAGING_PLUGIN_PATH"/tsconfig.*
+              rm -f "$STAGING_PLUGIN_PATH"/index.html
+              rm -f "$STAGING_PLUGIN_PATH"/.env*
+              rm -f "$STAGING_PLUGIN_PATH"/.gitignore
+              rm -f "$STAGING_PLUGIN_PATH"/.eslintrc*
+              rm -f "$STAGING_PLUGIN_PATH"/.prettier*
             else
               # 旧方式：插件已含构建产物，整目录打包
               echo "[Info] plugins.v2（已有产物）：整目录打包..."
