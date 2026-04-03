@@ -20,6 +20,7 @@ from app.helper.image import WallpaperHelper
 class NotifyRequest(BaseModel):
     title: str
     text: str
+    url: str = None
 
 class MsgNotify(_PluginBase):
     # 插件名称
@@ -29,7 +30,7 @@ class MsgNotify(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/MsgNotify.png"
     # 插件版本
-    plugin_version = "1.4.3"
+    plugin_version = "1.4.4"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -62,6 +63,7 @@ class MsgNotify(_PluginBase):
             self._msgtype = config.get("msgtype")
             try:
                 # 解析文本配置，支持多图片URL和样式，样式以第一行为准
+                # 支持增加 url 参数，例如：关键词|图片URL|card|http://跳转链接
                 image_mapping_dict = {}
                 config_text = config.get("image_mappings", "").strip()
                 if config_text:
@@ -72,28 +74,43 @@ class MsgNotify(_PluginBase):
                         parts = [p.strip() for p in line.split('|')]
                         if len(parts) < 2:
                             continue
+                        
                         keyword = parts[0]
-                        # 判断最后一段是否为样式
-                        style_candidate = parts[-1].lower()
-                        if style_candidate in ("card", "default"):
-                            style = style_candidate
-                            url_parts = parts[1:-1]
-                        else:
-                            style = "default"
-                            url_parts = parts[1:]
+                        style = "default"
+                        link_url = ""
+                        url_parts = []
+                        
+                        # 判断最后两段是否包含样式或url
+                        if len(parts) >= 3:
+                            if parts[-2].lower() == "card":
+                                style = "card"
+                                link_url = parts[-1]
+                                url_parts = parts[1:-2]
+                            elif parts[-1].lower() in ("card", "default"):
+                                style = parts[-1].lower()
+                                url_parts = parts[1:-1]
+                            else:
+                                url_parts = parts[1:]
+                        elif len(parts) == 2:
+                            if parts[-1].lower() in ("card", "default"):
+                                style = parts[-1].lower()
+                            else:
+                                url_parts = [parts[-1]]
+
                         # 处理图片URL，去掉/前缀
                         image_urls = []
-                        for url in url_parts:
-                            url = url.lstrip('/')
-                            if url:
+                        for u in url_parts:
+                            u = u.lstrip('/')
+                            if u:
                                 # 允许http/https以及内置占位符
-                                if url.lower().startswith('http') or url in ("背景壁纸", "背景壁纸列表"):
-                                    image_urls.append(url)
+                                if u.lower().startswith('http') or u in ("背景壁纸", "背景壁纸列表"):
+                                    image_urls.append(u)
                         # 合并
                         if keyword not in image_mapping_dict:
                             image_mapping_dict[keyword] = {
                                 "keyword": keyword,
                                 "style": style,
+                                "link_url": link_url,
                                 "image_urls": image_urls
                             }
                         else:
@@ -105,10 +122,11 @@ class MsgNotify(_PluginBase):
                 for mapping in image_mapping_dict.values():
                     mapping_obj = {
                         "keyword": mapping["keyword"],
-                        "style": mapping["style"]
+                        "style": mapping["style"],
+                        "link_url": mapping["link_url"]
                     }
-                    for i, url in enumerate(mapping["image_urls"], 1):
-                        mapping_obj[f"image_url{i}"] = url
+                    for i, u in enumerate(mapping["image_urls"], 1):
+                        mapping_obj[f"image_url{i}"] = u
                     image_mappings.append(mapping_obj)
                 self._image_mappings = image_mappings
                 logger.info("图片映射配置加载完成")
@@ -143,13 +161,13 @@ class MsgNotify(_PluginBase):
         
         return selected_url
 
-    def _get_matched_image(self, title: str, text: str) -> Tuple[str, str]:
+    def _get_matched_image(self, title: str, text: str, url: str = None) -> Tuple[str, str, str]:
         """
-        根据消息标题和内容匹配对应的图片URL和通知样式
-        返回: (图片URL, 通知样式)
+        根据消息标题和内容匹配对应的图片URL、通知样式和跳转链接
+        返回: (图片URL, 通知样式, 跳转链接)
         """
         if not self._image_mappings:
-            return None, "default"
+            return None, "default", ""
             
         for mapping in self._image_mappings:
             keyword = mapping.get("keyword", "")
@@ -160,7 +178,13 @@ class MsgNotify(_PluginBase):
             if keyword.lower() in title.lower() or keyword.lower() in text.lower():
                 # 获取通知样式,默认为default
                 style = mapping.get("style", "default")
-                logger.info(f"匹配到关键词 '{keyword}', 使用样式: {style}")
+                link_url = mapping.get("link_url", "")
+                
+                # 若配置项填的是"url"，则将其替换为调用方下发的url
+                if link_url.lower() == "url" and url:
+                    link_url = url
+
+                logger.info(f"匹配到关键词 '{keyword}', 使用样式: {style}, 链接: {link_url}")
                 
                 if style not in ["default", "card"]:
                     logger.warning(f"无效的通知样式 '{style}', 使用默认样式")
@@ -197,11 +221,11 @@ class MsgNotify(_PluginBase):
                 if resolved_urls:
                     selected_url = self._select_random_image(keyword, resolved_urls)
                     logger.info(f"为关键词 '{keyword}' 选择图片: {selected_url}, 使用样式: {style}")
-                    return selected_url, style
+                    return selected_url, style, link_url
                 else:
-                    return None, style
+                    return None, style, link_url
                     
-        return None, "default"
+        return None, "default", ""
 
     def _create_notification(self, title: str, text: str, image_url: str = None, style: str = "default") -> Notification:
         """
@@ -233,12 +257,13 @@ class MsgNotify(_PluginBase):
 
         title = request.title
         text = request.text
+        req_url = request.url
         logger.info(f"收到以下消息:\n{title}\n{text}")
         if self._enabled and self._notify:
             # 获取匹配的图片URL和通知样式
-            image_url, style = self._get_matched_image(title, text)
+            image_url, style, link_url = self._get_matched_image(title, text, req_url)
             # 保存匹配结果
-            self._last_match = (image_url, style)
+            self._last_match = (image_url, style, link_url)
 
             # 创建通知对象
             notification = self._create_notification(title, text, image_url, style)
@@ -249,7 +274,7 @@ class MsgNotify(_PluginBase):
             message="发送成功"
         )
 
-    def msg_notify_form(self, apikey: str, title: str, text: str) -> schemas.Response:
+    def msg_notify_form(self, apikey: str, title: str, text: str, url: str = None) -> schemas.Response:
         """
         get 方式发送通知
         """
@@ -259,9 +284,9 @@ class MsgNotify(_PluginBase):
         logger.info(f"收到以下消息:\n{title}\n{text}")
         if self._enabled and self._notify:
             # 获取匹配的图片URL和通知样式
-            image_url, style = self._get_matched_image(title, text)
+            image_url, style, link_url = self._get_matched_image(title, text, url)
             # 保存匹配结果
-            self._last_match = (image_url, style)
+            self._last_match = (image_url, style, link_url)
 
             # 创建通知对象
             notification = self._create_notification(title, text, image_url, style)
@@ -287,7 +312,7 @@ class MsgNotify(_PluginBase):
                 return service.instance
         return None
 
-    def _send_wecom_card(self, title: str, text: str, picurl: str = None, wechat_instance=None) -> bool:
+    def _send_wecom_card(self, title: str, text: str, picurl: str = None, wechat_instance=None, url: str = None) -> bool:
         """
         发送企业微信卡片消息（支持指定实例）
         """
@@ -311,6 +336,8 @@ class MsgNotify(_PluginBase):
             }
             if picurl:
                 article["picurl"] = picurl
+            if url:
+                article["url"] = url
 
             req_json = {
                 "touser": "@all",
@@ -348,7 +375,7 @@ class MsgNotify(_PluginBase):
             logger.error(f"企业微信文本卡片消息发送异常: {str(e)}")
             return False
 
-    def _send_wechat_message(self, service: Any, title: str, text: str, image_url: str = None, style: str = "default") -> bool:
+    def _send_wechat_message(self, service: Any, title: str, text: str, image_url: str = None, style: str = "default", url: str = None) -> bool:
         """
         发送企业微信消息的通用方法
         """
@@ -357,10 +384,12 @@ class MsgNotify(_PluginBase):
 
         wechat_instance = service.instance
         if style == "card":
-            return self._send_wecom_card(title, text, picurl=image_url, wechat_instance=wechat_instance)
+            return self._send_wecom_card(title, text, picurl=image_url, wechat_instance=wechat_instance, url=url)
         else:
             # 发送普通消息
             msg_content = f"{title}\n{text}"
+            if url:
+                msg_content = f"{msg_content}\n{url}"
             if image_url:
                 msg_content = f"{msg_content}\n[图片]"
             wechat_instance.send_msg(msg_content)
@@ -379,8 +408,15 @@ class MsgNotify(_PluginBase):
             title = getattr(message, "title", "")
             
             # 使用保存的匹配结果
+            image_url = None
+            style = "default"
+            link_url = ""
+
             if self._last_match:
-                image_url, style = self._last_match
+                if len(self._last_match) == 3:
+                    image_url, style, link_url = self._last_match
+                else:
+                    image_url, style = self._last_match
             else:
                 # 如果没有保存的结果，使用默认值
                 image_url = getattr(message, "image", None)
@@ -401,7 +437,7 @@ class MsgNotify(_PluginBase):
                 # 处理企业微信消息
                 if channel == MessageChannel.Wechat:
                     try:
-                        self._send_wechat_message(service, title, text, image_url, style)
+                        self._send_wechat_message(service, title, text, image_url, style, url=link_url)
                     except Exception as e:
                         logger.error(f"发送企业微信消息失败: {str(e)}")
 

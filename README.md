@@ -8,7 +8,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 
 | 序号 | 插件名称 | 版本 | 功能描述 | 标签 |
 |------|----------|------|----------|------|
-| 1 | [📢 外部消息转发 (MsgNotify)](#1--外部消息转发-msgnotify) | v1.4.3 | 接收外部应用自定义消息并推送 | 消息通知 |
+| 1 | [📢 外部消息转发 (MsgNotify)](#1--外部消息转发-msgnotify) | v1.4.4 | 接收外部应用自定义消息并推送 | 消息通知 |
 | 2 | [🍀 Lucky助手 (LuckyHelper)](#2--lucky助手-luckyhelper) | v1.2.6 | 定时备份Lucky配置文件 | 备份 |
 | 3 | [💬 群聊区 (GroupChatZone)](#3--群聊区-groupchatzone) | v2.3.2 | 执行站点喊话、获取反馈、定时任务 | 站点 |
 | 4 | [🦅 朱雀助手 (ZhuqueHelper)](#4--朱雀助手-zhuquehelper) | v1.3.3 | 技能释放、一键升级、获取执行记录 | 站点 |
@@ -16,17 +16,19 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 | 6 | [📥 本地插件安装 (LocalPluginInstall)](#6--本地插件安装-localplugininstall) | v1.2 | 上传本地ZIP插件包进行安装 | 工具 |
 | 7 | [🎮 ~~象岛传说竞技场 (VicomoVS)~~](#7--象岛传说竞技场-vicomovs) | v1.2.6 | 象岛传说竞技场，对战boss | 站点 |
 | 8 | [🏆 织梦勋章套装奖励 (ZmedalRwd)](#8--织梦勋章套装奖励-zmedalrwd) | v1.2.1 | 领取勋章套装奖励 | 站点 |
-| 9 | [🏅 勋章墙 (MedalWall)](#9--勋章墙-medalwall) | v1.1 | 站点勋章购买提醒、统计、展示 | 站点 |
+| 9 | [🏅 ~~勋章墙 (MedalWall)~~](#9--勋章墙-medalwall) | v1.1 | 站点勋章购买提醒、统计、展示 | 站点 |
 | 10 | [🌐 NAT类型检测 (NATdetect)](#10--nat类型检测-natdetect) | v2.1 | 检测MP所在环境的网络NAT类型 | 站点 |
 | 11 | [🌾 ~~Vue-象岛农场 (VicomoFarm)~~](#11--vue-象岛农场-vicomofarm) | v1.3.0 | 监听象岛农场相关信息，我在PT学卖菜 | 站点 |
 | 12 | [🔍 资源探索集合 (ExploreServices)](#12--资源探索集合-exploreservices) | v1.1 | 统一管理和配置所有探索数据源插件 | 探索 |
 | 13 | [🌾 Vue-好学农场 (MagicFram)](#13--vue-好学农场-magicfram) | v1.0.2 | 支持一键收获、种植、养殖，定时自动化任务 | 站点 |
 | 14 | [🌾 Vue-开心农场 (PlayletFram)](#14--vue-开心农场-playletfram) | v1.0.3 | 支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务 | 站点 |
-| 15 | [🏅 Vue-勋章墙Pro (MedalWallPro)](#15--vue-勋章墙pro-medalwallpro) | v1.1 | 站点勋章购买提醒、统计、展示 | 站点 |
+| 15 | [🏅 Vue-勋章墙Pro (MedalWallPro)](#15--vue-勋章墙pro-medalwallpro) | v1.2.1 | 站点勋章购买提醒、统计、展示 | 站点 |
 | 16 | [🌞 Sun-Panel助手 (SpanelHelper)](#16--sun-panel助手-spanelhelper) | v1.1 | 同步MP中已启用的站点到Sun-Panel指定分组 | 工具 |
+| 17 | [🚀 Vue-网络测速 (AutoSpeed)](#17--vue-网络测速-autospeed) | v1.1.0 | 使用Speedtest.net定时自动测速，支持手动触发，记录历史趋势 | 网络 |
+| 18 | [🌾 Vue-拾刻农场 (SkitFarm)](#18--vue-拾刻农场-skitfarm) | v1.0.0 | 支持Skit站点一键收获、种植、养殖，定时自动化任务 | 站点 |
 
 ### 1. 📢 外部消息转发 (MsgNotify)
-- 版本：v1.4.3
+- 版本：v1.4.4
 - 功能：接收外部应用自定义消息并推送。
 - 标签：消息通知
 - 特点：
@@ -38,6 +40,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.4.4: 支持增加 url 参数，例如：关键词|图片URL|card|http://跳转链接。
   - v1.4.3: 修复新版本背景壁纸类导入路径错误问题。
   - v1.4.2: 新增使用MoviePilot登陆页背景壁纸作为卡片消息通知图片，如何配置请查看自定义说明示列。
   - v1.4.1: 移除主程序消息模块挟持，避免消息重复发送问题。
@@ -211,7 +214,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   - v1.0: 初始版本
   </details>
 
-### 9. 🏅 勋章墙 (MedalWall)
+### 9. 🏅 ~~勋章墙 (MedalWall)~~
 - 版本：v1.1
 - 功能：站点勋章购买提醒、统计、展示
 - 标签：站点
@@ -328,7 +331,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   </details>
 
 ### 15. 🏅 Vue-勋章墙Pro (MedalWallPro)
-- 版本：v1.1
+- 版本：v1.2.1
 - 功能：站点勋章购买提醒、统计、展示。
 - 标签：站点
 - 特点：
@@ -341,6 +344,8 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.2.1: 修复了部分站点勋章数据无法完全获取的问题，新增siqi站点勋章获取。
+  - v1.2.0: 适配新版Rousipro站点，适配该站点勋章购买佩戴取下等操作，优化页面显示。
   - v1.1: 修复了部分站点勋章数据无法完全获取的问题。
   - v1.0: 初始版本。
   </details>
@@ -359,6 +364,39 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   
   - v1.1: 新增自定义域名设置。
   - v1.0: 初始版本。
+  </details>
+
+### 17. 🚀 Vue-网络测速 (AutoSpeed)
+- 版本：v1.1.0
+- 功能：使用Speedtest.net定时自动测速，支持手动触发，记录历史趋势。
+- 标签：网络
+- 特点：
+  - 🏃‍♂️ 自动节点选择与多线程测速
+  - 🕰️ 定时自动测速并记录历史数据
+  - 📊 提供测速历史可视化图表
+  - ⚙️ 支持固定节点直连与代理配置
+- 更新说明：
+  <details>
+  <summary>点击查看更新历史</summary>
+  
+  - v1.1.0: 修复Speedtest接口403问题；智能识别运营商；新增16线程高并发；优化体验等。
+  - v1.0.0: 初始版本。
+  </details>
+
+### 18. 🌾 Vue-拾刻农场 (SkitFarm)
+- 版本：v1.0.0
+- 功能：支持Skit站点一键收获、种植、养殖，定时自动化任务。
+- 标签：站点
+- 特点：
+  - 🌱 农场信息监控
+  - 📊 数据统计与市场趋势分析
+  - ⏰ 定时任务自动执行
+  - 🔄 一键/全自动种植、养殖及出售拦截
+- 更新说明：
+  <details>
+  <summary>点击查看更新历史</summary>
+  
+  - v1.0.0: 初始版本。
   </details>
 
 ## 📖 使用说明
