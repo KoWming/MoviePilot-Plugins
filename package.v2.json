@@ -98,5 +98,18 @@
             "v1.1.0": "- 修复 Speedtest.net 接口 403 问题；\n- 优化测速节点选择策略：自动模式可智能识别当前宽带运营商（联通/电信/移动）并优先选取同网节点；\n- 固定节点模式改为通过 Host 直连；\n- 修复手动触发测速不使用最新配置节点的问题；\n- 新增多线程并发上传下载测试（16线程）以突破 Python 原生环境限速；\n- 优化固定节点候选下拉框样式与默认选项。",
             "v1.0.0": "初始版本。"
         }
+    },
+    "SkitFram": {
+        "name": "Vue-拾刻农场",
+        "description": "支持Skit站点一键收获、种植、养殖，定时自动化任务。",
+        "labels": "站点",
+        "version": "1.0.0",
+        "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/skitfarm.png",
+        "author": "KoWming",
+        "level": 2,
+        "release": true,
+        "history": {
+            "v1.0.0": "初始版本。"
+        }
     }
 }
