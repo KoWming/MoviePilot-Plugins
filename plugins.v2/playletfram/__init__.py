@@ -25,7 +25,7 @@ class PlayletFram(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/playletfram.png"
     # 插件版本
-    plugin_version = "1.0.3"
+    plugin_version = "1.0.4"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -41,7 +41,7 @@ class PlayletFram(_PluginBase):
     MAX_SORT_SECONDS = 99999999
     
     # 默认配置常量
-    DEFAULT_SITE_URL = "https://playletpt.xyz"
+    DEFAULT_SITE_URL = "https://playlet.cc"
     DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
     DEFAULT_CRON = "0 8 * * *"  # 默认每天早上8点执行
     SCHEDULE_BUFFER_SECONDS = 120  # 智能调度缓冲时间(秒)，确保作物已成熟
@@ -177,7 +177,7 @@ class PlayletFram(_PluginBase):
             if self._cookie and str(self._cookie).strip().lower() != "cookie":
                 return {"success": True, "cookie": self._cookie}
                 
-            site = self._siteoper.get_by_domain('playletpt.xyz')
+            site = self._siteoper.get_by_domain('playlet.cc')
             if not site:
                 return {"success": False, "msg": "未添加 Playlet 站点！"}
                 
@@ -453,9 +453,9 @@ class PlayletFram(_PluginBase):
                 logger.warning("SiteOper 未初始化")
                 return None, None
             
-            site = self._siteoper.get_by_domain('playletpt.xyz')
+            site = self._siteoper.get_by_domain('playlet.cc')
             if not site:
-                logger.warning("未找到 Playlet 站点配置（playletpt.xyz），请在站点管理中添加")
+                logger.warning("未找到 Playlet 站点配置（playlet.cc），请在站点管理中添加")
                 return None, None
             
             site_url = site.url if hasattr(site, 'url') else None
@@ -800,7 +800,7 @@ class PlayletFram(_PluginBase):
         """
         site_url, _ = self._get_site_info()
         if not site_url:
-            site_url = "https://playletpt.xyz"
+            site_url = "https://playlet.cc"
         url = f"{site_url}/magic_fram.php"
         response = self._request(url)
         if not response:
