@@ -134,9 +134,9 @@ jobs:
           cd "$FULL_SOURCE_PATH"
 
           if [ -f "package-lock.json" ]; then
-            npm ci
+            npm install --no-fund --no-audit
           else
-            npm install
+            npm install --no-fund --no-audit
           fi
 
           npm run build:web
