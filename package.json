@@ -210,5 +210,19 @@
       "v1.1": "新增自定义域名设置。",
       "v1.0": "初始版本。"
     }
+  },
+  "NoProxy": {
+    "name": "直连模式",
+    "description": "对指定域名的请求强制直连，绕过 MoviePilot 全局代理。",
+    "labels": "网络",
+    "version": "1.0.0",
+    "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/noproxy.png",
+    "author": "KoWming",
+    "level": 1,
+    "v2": true,
+    "release": true,
+    "history": {
+      "v1.0.0": "初始版本：支持对 MP_SERVER_HOST 和额外配置主机强制直连，支持通配符域名匹配，绕过 MoviePilot 全局代理。"
+    }
   }
 }
