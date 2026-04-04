@@ -29,7 +29,7 @@ class PlayletMedalHandler(BaseMedalSiteHandler):
         """判断是否为PlayLet站点"""
         site_name = site.name.lower()
         site_url = site.url.lower()
-        return "playlet" in site_name or "playlet" in site_url or "playletpt.xyz" in site_url
+        return "playlet" in site_name or "playlet" in site_url or "playlet.cc" in site_url
     
     def fetch_medals(self, site) -> List[Dict]:
         """获取PlayLet站点勋章数据"""
