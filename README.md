@@ -26,6 +26,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 | 16 | [🌞 Sun-Panel助手 (SpanelHelper)](#16--sun-panel助手-spanelhelper) | v1.1 | 同步MP中已启用的站点到Sun-Panel指定分组 | 工具 |
 | 17 | [🚀 Vue-网络测速 (AutoSpeed)](#17--vue-网络测速-autospeed) | v1.1.0 | 使用Speedtest.net定时自动测速，支持手动触发，记录历史趋势 | 网络 |
 | 18 | [🌾 Vue-拾刻农场 (SkitFarm)](#18--vue-拾刻农场-skitfarm) | v1.0.0 | 支持Skit站点一键收获、种植、养殖，定时自动化任务 | 站点 |
+| 19 | [🌐 直连模式 (NoProxy)](#19--直连模式-noproxy) | v1.1.0 | 对指定域名的请求强制直连，绕过 MoviePilot 全局代理 | 网络 |
 
 ### 1. 📢 外部消息转发 (MsgNotify)
 - 版本：v1.4.4
@@ -397,6 +398,25 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <summary>点击查看更新历史</summary>
   
   - v1.0.0: 初始版本。
+  </details>
+
+### 19. 🌐 直连模式 (NoProxy)
+- 版本：v1.1.0
+- 功能：对指定域名的请求强制直连，绕过 MoviePilot 全局代理。
+- 标签：网络
+- 特点：
+  - 🎯 自动将 `MP_SERVER_HOST` 加入直连白名单
+  - 🌍 支持额外域名、完整 URL 与通配符域名配置
+  - 🔀 支持兼容模式，直连失败后自动回退系统代理
+  - 🐞 支持输出白名单命中、补丁注入、直连失败与回退流程等 debug 日志
+  - ♻️ 支持热切换，启用或禁用后补丁实时注入或回滚
+  - 🧩 适用于全局代理环境下少量站点仍需直连的场景
+- 更新说明：
+  <details>
+  <summary>点击查看更新历史</summary>
+  
+  - v1.1.0: 新增兼容模式开关；修复 bridge 网络场景下直连可能仍受环境代理影响的问题；新增真正的 debug 日志输出；优化设置界面与使用说明。
+  - v1.0.0: 初始版本：支持对 MP_SERVER_HOST 和额外配置主机强制直连，支持通配符域名匹配，绕过 MoviePilot 全局代理。
   </details>
 
 ## 📖 使用说明
