@@ -21,12 +21,13 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 | 11 | [🌾 ~~Vue-象岛农场 (VicomoFarm)~~](#11--vue-象岛农场-vicomofarm) | v1.3.0 | 监听象岛农场相关信息，我在PT学卖菜 | 站点 |
 | 12 | [🔍 资源探索集合 (ExploreServices)](#12--资源探索集合-exploreservices) | v1.1 | 统一管理和配置所有探索数据源插件 | 探索 |
 | 13 | [🌾 Vue-好学农场 (MagicFram)](#13--vue-好学农场-magicfram) | v1.0.2 | 支持一键收获、种植、养殖，定时自动化任务 | 站点 |
-| 14 | [🌾 Vue-开心农场 (PlayletFram)](#14--vue-开心农场-playletfram) | v1.0.3 | 支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务 | 站点 |
-| 15 | [🏅 Vue-勋章墙Pro (MedalWallPro)](#15--vue-勋章墙pro-medalwallpro) | v1.2.1 | 站点勋章购买提醒、统计、展示 | 站点 |
+| 14 | [🌾 Vue-开心农场 (PlayletFram)](#14--vue-开心农场-playletfram) | v1.0.5 | 支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务 | 站点 |
+| 15 | [🏅 Vue-勋章墙Pro (MedalWallPro)](#15--vue-勋章墙pro-medalwallpro) | v1.2.3 | 站点勋章购买提醒、统计、展示 | 站点 |
 | 16 | [🌞 Sun-Panel助手 (SpanelHelper)](#16--sun-panel助手-spanelhelper) | v1.1 | 同步MP中已启用的站点到Sun-Panel指定分组 | 工具 |
 | 17 | [🚀 Vue-网络测速 (AutoSpeed)](#17--vue-网络测速-autospeed) | v1.1.0 | 使用Speedtest.net定时自动测速，支持手动触发，记录历史趋势 | 网络 |
 | 18 | [🌾 Vue-拾刻农场 (SkitFarm)](#18--vue-拾刻农场-skitfarm) | v1.0.0 | 支持Skit站点一键收获、种植、养殖，定时自动化任务 | 站点 |
 | 19 | [🌐 直连模式 (NoProxy)](#19--直连模式-noproxy) | v1.1.0 | 对指定域名的请求强制直连，绕过 MoviePilot 全局代理 | 网络 |
+| 20 | [📥 Vue-PTD站点导入 (PtdImporter)](#20--vue-ptd站点导入-ptdimporter) | v1.0.0 | 上传 PTD 备份并按 MoviePilot 标准站点批量导入/更新 | 站点,工具 |
 
 ### 1. 📢 外部消息转发 (MsgNotify)
 - 版本：v1.4.4
@@ -313,7 +314,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   </details>
 
 ### 14. 🌾 Vue-开心农场 (PlayletFram)
-- 版本：v1.0.3
+- 版本：v1.0.5
 - 功能：支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务。
 - 标签：站点
 - 特点：
@@ -325,6 +326,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.0.5: 修复PlayLet站点域名变更导致无法使用的错误。
   - v1.0.3: 调整图表刷新显示逻辑。
   - v1.0.2: 修复仓库显示错误、智能调度注册失败问题，增强代码健壮性。
   - v1.0.1: 修复自动任务调度失败的问题。
@@ -332,7 +334,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   </details>
 
 ### 15. 🏅 Vue-勋章墙Pro (MedalWallPro)
-- 版本：v1.2.1
+- 版本：v1.2.3
 - 功能：站点勋章购买提醒、统计、展示。
 - 标签：站点
 - 特点：
@@ -345,6 +347,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.2.3: PlayLet站点域名变更。
   - v1.2.1: 修复了部分站点勋章数据无法完全获取的问题，新增siqi站点勋章获取。
   - v1.2.0: 适配新版Rousipro站点，适配该站点勋章购买佩戴取下等操作，优化页面显示。
   - v1.1: 修复了部分站点勋章数据无法完全获取的问题。
@@ -417,6 +420,22 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   
   - v1.1.0: 新增兼容模式开关；修复 bridge 网络场景下直连可能仍受环境代理影响的问题；新增真正的 debug 日志输出；优化设置界面与使用说明。
   - v1.0.0: 初始版本：支持对 MP_SERVER_HOST 和额外配置主机强制直连，支持通配符域名匹配，绕过 MoviePilot 全局代理。
+  </details>
+
+### 20. 📥 Vue-PTD站点导入 (PtdImporter)
+- 版本：v1.0.0
+- 功能：上传 PTD 备份并按 MoviePilot 标准站点批量导入/更新。
+- 标签：站点,工具
+- 特点：
+  - 📦 支持解析 PTD 备份并生成导入预览
+  - 🔍 支持按 MoviePilot 标准站点进行智能匹配
+  - ♻️ 支持站点批量导入与更新认证信息
+  - 📱 已适配移动端页面显示与交互
+- 更新说明：
+  <details>
+  <summary>点击查看更新历史</summary>
+  
+  - v1.0.0: 初始版本，支持 PTD 备份解析、标准站点匹配、批量导入/更新及移动端界面适配。
   </details>
 
 ## 📖 使用说明
