@@ -118,12 +118,13 @@
         "name": "Vue-PTD站点导入",
         "description": "上传 PTD 备份并按 MoviePilot 标准站点批量导入/更新。",
         "labels": "站点,工具",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/PT_Depiler.png",
         "author": "KoWming",
         "level": 2,
         "release": true,
         "history": {
+            "v1.0.1": "优化了用户界面。",
             "v1.0.0": "初始版本，支持 PTD 备份解析、标准站点匹配、批量导入/更新及移动端界面适配。"
         }
     }

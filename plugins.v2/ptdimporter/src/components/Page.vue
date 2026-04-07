@@ -911,7 +911,7 @@ watch(previewItems, () => {
 
 .pi-chip--status,
 .pi-chip--action {
-  min-width: 68px;
+  min-width: auto;
   justify-content: center;
 }
 
@@ -919,6 +919,7 @@ watch(previewItems, () => {
 .pi-chip--action :deep(.v-chip__content) {
   font-size: 11px;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .pi-chip--status:deep(.v-chip),
@@ -1198,7 +1199,21 @@ watch(previewItems, () => {
   }
 
   .pi-mobile-field__badges {
+    flex-wrap: nowrap;
     max-width: 70%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .pi-mobile-field__badges::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pi-mobile-field__badges :deep(.v-chip) {
+    flex-shrink: 0;
+    width: auto;
   }
 
   .pi-table-wrap {
