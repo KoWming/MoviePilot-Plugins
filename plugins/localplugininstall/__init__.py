@@ -3,6 +3,7 @@ import shutil
 import zipfile
 import json
 import time
+from datetime import datetime
 import importlib.util
 import sys
 import threading
@@ -32,7 +33,7 @@ class LocalPluginInstall(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/LocalPluginInstall.png"
     # 插件版本
-    plugin_version = "1.2"
+    plugin_version = "1.3.0"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -53,6 +54,7 @@ class LocalPluginInstall(_PluginBase):
     _config = {
         "enabled": True,
         "backup_enabled": True,                   # 启用备份
+        "backup_retention": 10,                  # 备份保留份数
         "temp_path": "/tmp/moviepilot/upload",    # 临时文件路径
         "max_file_size": 10 * 1024 * 1024,        # 最大文件大小 10MB
         "allowed_extensions": ["zip"],            # 允许的文件扩展名
@@ -61,7 +63,17 @@ class LocalPluginInstall(_PluginBase):
     def init_plugin(self, config: dict = None):
         """初始化插件配置"""
         if config:
+            if "enabled" not in config:
+                config["enabled"] = True
+            if "backup_enabled" not in config:
+                config["backup_enabled"] = True
             self._config.update(config)
+
+        try:
+            backup_retention = int(self._config.get("backup_retention", 10) or 10)
+        except (TypeError, ValueError):
+            backup_retention = 10
+        self._config["backup_retention"] = max(1, backup_retention)
             
         temp_path = Path(self._config.get('temp_path'))
         if not temp_path.exists():
@@ -93,10 +105,11 @@ class LocalPluginInstall(_PluginBase):
             # 检查extract_path本身是否包含__init__.py文件
             init_file = extract_path / "__init__.py"
             actual_plugin_dir_name_from_fs: str = ""
+            is_root_plugin_layout = False
             
             if init_file.exists():
                 # extract_path本身就是插件目录
-                actual_plugin_dir_name_from_fs = extract_path.name.lower()
+                is_root_plugin_layout = True
                 logger.info(f"检测到extract_path本身包含__init__.py文件，插件目录: {extract_path}, 实际目录名: {actual_plugin_dir_name_from_fs}")
             else:
                 # 检查是否有插件子目录
@@ -154,6 +167,9 @@ class LocalPluginInstall(_PluginBase):
             # 获取插件类名和显示名称
             actual_plugin_id_for_manager = plugin_class.__name__
             plugin_display_name = getattr(plugin_class, 'plugin_name', actual_plugin_id_for_manager)
+
+            if is_root_plugin_layout:
+                actual_plugin_dir_name_from_fs = actual_plugin_id_for_manager.lower()
 
             # 验证文件系统目录名与插件类名的小写形式是否一致
             if actual_plugin_dir_name_from_fs != actual_plugin_id_for_manager.lower():
@@ -396,6 +412,50 @@ class LocalPluginInstall(_PluginBase):
                 "installed_packages_list": []
             }
 
+    def _create_plugin_backup_zip(self, source_dir: Path, backup_zip_path: Path) -> None:
+        """将现有插件目录备份为 ZIP，压缩包内根目录名保持为插件目录名。"""
+        ignore_names = {"__pycache__"}
+
+        with zipfile.ZipFile(backup_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, dirs, files in os.walk(source_dir):
+                dirs[:] = [dir_name for dir_name in dirs if dir_name not in ignore_names]
+
+                root_path = Path(root)
+                for file_name in files:
+                    file_path = root_path / file_name
+                    arcname = file_path.relative_to(source_dir.parent)
+                    zipf.write(file_path, arcname)
+
+    def _restore_plugin_from_backup_zip(self, backup_zip_path: Path, target_dir: Path) -> None:
+        """从 ZIP 备份恢复插件目录。"""
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+
+        with zipfile.ZipFile(backup_zip_path, 'r') as zipf:
+            zipf.extractall(target_dir.parent)
+
+    def _cleanup_old_backups(self, backup_root_dir: Path, plugin_id_for_path: str) -> None:
+        """按保留份数清理旧备份。"""
+        retention = self._config.get("backup_retention", 10)
+        try:
+            retention = int(retention)
+        except (TypeError, ValueError):
+            retention = 10
+        retention = max(1, retention)
+
+        backup_files = sorted(
+            backup_root_dir.glob(f"{plugin_id_for_path}_*.zip"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True
+        )
+
+        for old_backup in backup_files[retention:]:
+            try:
+                old_backup.unlink()
+                logger.info(f"已清理旧备份压缩包: {old_backup}")
+            except Exception as e:
+                logger.warning(f"清理旧备份压缩包失败 {old_backup}: {e}")
+
     def _install_plugin(self, plugin_id: str, extract_path: Path) -> Tuple[bool, str, Dict[str, Any]]:
         """
         安装插件
@@ -407,7 +467,7 @@ class LocalPluginInstall(_PluginBase):
         Returns:
             Tuple[bool, str, Dict[str, Any]]: (是否成功, 消息, 依赖安装信息)
         """
-        backup_dir = None
+        backup_zip_path = None
         target_dir = None
         
         try:
@@ -422,10 +482,11 @@ class LocalPluginInstall(_PluginBase):
                     if not backup_root_dir.exists():
                         backup_root_dir.mkdir(parents=True, exist_ok=True)
                         logger.info(f"创建插件备份目录: {backup_root_dir}")
-
-                    backup_dir = backup_root_dir / f"{plugin_id_for_path}_{int(time.time())}"
-                    shutil.copytree(target_dir, backup_dir)
-                    logger.info(f"备份现有插件到: {backup_dir}")
+                    backup_time = datetime.now().strftime("%Y.%m.%d_%H-%M-%S")
+                    backup_zip_path = backup_root_dir / f"{plugin_id_for_path}_{backup_time}.zip"
+                    self._create_plugin_backup_zip(target_dir, backup_zip_path)
+                    logger.info(f"备份现有插件到压缩包: {backup_zip_path}")
+                    self._cleanup_old_backups(backup_root_dir, plugin_id_for_path)
                 else:
                     logger.info("备份已禁用，跳过现有插件备份。")
                 
@@ -514,10 +575,12 @@ class LocalPluginInstall(_PluginBase):
             
         except Exception as e:
             # 发生错误时回滚
-            if backup_dir and target_dir and target_dir.exists():
-                shutil.rmtree(target_dir)
-                shutil.copytree(backup_dir, target_dir)
-                logger.info(f"安装失败，已回滚到备份")
+            if backup_zip_path and target_dir:
+                try:
+                    self._restore_plugin_from_backup_zip(backup_zip_path, target_dir)
+                    logger.info("安装失败，已从备份压缩包回滚插件")
+                except Exception as restore_error:
+                    logger.error(f"安装失败，回滚备份压缩包时出错: {restore_error}", exc_info=True)
             return False, f"安装过程中发生错误: {str(e)}", {"status": "error", "message": "安装失败，无法获取依赖信息"}
 
     async def upload_plugin(self, file: UploadFile = File(...)) -> JSONResponse:
@@ -785,116 +848,98 @@ class LocalPluginInstall(_PluginBase):
         """拼装插件配置页面"""
         return [
             {
-                'component': 'VRow',
+                'component': 'VForm',
                 'content': [
                     {
-                        'component': 'VCol',
-                        'props': {'cols': 12},
+                        'component': 'VCard',
+                        'props': {
+                            'variant': 'flat',
+                            'class': 'mb-6',
+                            'color': 'surface'
+                        },
                         'content': [
                             {
-                                'component': 'VCard',
-                                'props': {
-                                    'elevation': 3,
-                                    'class': 'mx-auto rounded-lg',
-                                    'border': True
-                                },
+                                'component': 'VCardItem',
+                                'props': {'class': 'px-6 pb-0'},
                                 'content': [
                                     {
-                                        'component': 'VCardItem',
-                                        'props': {
-                                            'class': 'pb-0 d-flex flex-column align-center justify-center'
-                                        },
+                                        'component': 'VCardTitle',
+                                        'props': {'class': 'd-flex align-center text-h6'},
                                         'content': [
                                             {
-                                                'component': 'VCardTitle',
+                                                'component': 'VIcon',
                                                 'props': {
-                                                    'class': 'text-h5 font-weight-bold d-flex align-center justify-center'
+                                                    'style': 'color: #16b1ff;',
+                                                    'class': 'mr-3',
+                                                    'size': 'default'
                                                 },
+                                                'text': 'mdi-cog'
+                                            },
+                                            {
+                                                'component': 'span',
+                                                'text': '基本设置'
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                'component': 'VDivider',
+                                'props': {'class': 'mx-4 my-2'}
+                            },
+                            {
+                                'component': 'VCardText',
+                                'props': {'class': 'px-6 pb-6'},
+                                'content': [
+                                    {
+                                        'component': 'VRow',
+                                        'content': [
+                                            {
+                                                'component': 'VCol',
+                                                'props': {'cols': 12, 'sm': 4},
                                                 'content': [
                                                     {
-                                                        'component': 'VIcon',
+                                                        'component': 'VSwitch',
                                                         'props': {
+                                                            'model': 'enabled',
+                                                            'label': '启用插件',
                                                             'color': 'primary',
-                                                            'size': 'large',
-                                                            'class': 'mr-2'
-                                                        },
-                                                        'text': 'mdi-cog'
-                                                    },
-                                                    {
-                                                        'component': 'span',
-                                                        'text': '插件设置'
+                                                            'hide-details': True
+                                                        }
                                                     }
                                                 ]
                                             },
                                             {
-                                                'component': 'VCardSubtitle',
-                                                'props': {
-                                                    'class': 'text-medium-emphasis text-center'
-                                                },
-                                                'text': '配置本地插件安装器的行为'
-                                            }
-                                        ]
-                                    },
-                                    {
-                                        'component': 'VDivider',
-                                        'props': {'class': 'mx-4 my-2'}
-                                    },
-                                    {
-                                        'component': 'VContainer',
-                                        'props': {'class': 'px-md-10 py-4', 'max-width': '800'},
-                                        'content': [
-                                            {
-                                                'component': 'VSheet',
-                                                'props': {
-                                                    'class': 'pa-6',
-                                                    'rounded': 'lg',
-                                                    'elevation': 0,
-                                                    'border': True,
-                                                    'color': 'background'
-                                                },
+                                                'component': 'VCol',
+                                                'props': {'cols': 12, 'sm': 4},
                                                 'content': [
                                                     {
-                                                        'component': 'VRow',
-                                                        'content': [
-                                                            {
-                                                                'component': 'VCol',
-                                                                'props': {
-                                                                    'cols': 12,
-                                                                    'md': 6
-                                                                },
-                                                                'content': [
-                                                                    {
-                                                                        'component': 'VSwitch',
-                                                                        'props': {
-                                                                            'model': 'enabled',
-                                                                            'label': '启用本地插件安装',
-                                                                            'hint': '是否启用此插件，允许从本地上传并安装插件。',
-                                                                            'persistent-hint': True,
-                                                                            'color': 'primary'
-                                                                        }
-                                                                    }
-                                                                ]
-                                                            },
-                                                            {
-                                                                'component': 'VCol',
-                                                                'props': {
-                                                                    'cols': 12,
-                                                                    'md': 6
-                                                                },
-                                                                'content': [
-                                                                    {
-                                                                        'component': 'VSwitch',
-                                                                        'props': {
-                                                                            'model': 'backup_enabled',
-                                                                            'label': '安装时启用备份',
-                                                                            'hint': '安装或更新插件时，是否自动备份旧的插件文件。',
-                                                                            'persistent-hint': True,
-                                                                            'color': 'primary'
-                                                                        }
-                                                                    }
-                                                                ]
-                                                            }
-                                                        ]
+                                                        'component': 'VSwitch',
+                                                        'props': {
+                                                            'model': 'backup_enabled',
+                                                            'label': '安装时启用备份',
+                                                            'color': 'info',
+                                                            'hide-details': True
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VCol',
+                                                'props': {'cols': 12, 'sm': 4},
+                                                'content': [
+                                                    {
+                                                        'component': 'VTextField',
+                                                        'props': {
+                                                            'model': 'backup_retention',
+                                                            'label': '备份保留份数(默认10)',
+                                                            'type': 'number',
+                                                            'min': 1,
+                                                            'step': 1,
+                                                            'active': True,
+                                                            'persistent-hint': True,
+                                                            'placeholder': '默认保留10份'
+                                                        }
                                                     }
                                                 ]
                                             }
@@ -903,12 +948,188 @@ class LocalPluginInstall(_PluginBase):
                                 ]
                             }
                         ]
-                    }
+                    },
+                    {
+                        'component': 'VCard',
+                        'props': {
+                            'variant': 'flat',
+                            'class': 'mb-6',
+                            'color': 'surface'
+                        },
+                        'content': [
+                            {
+                                'component': 'VCardItem',
+                                'props': {'class': 'px-6 pb-0'},
+                                'content': [
+                                    {
+                                        'component': 'VCardTitle',
+                                        'props': {'class': 'd-flex align-center text-h6 mb-0'},
+                                        'content': [
+                                            {
+                                                'component': 'VIcon',
+                                                'props': {
+                                                    'style': 'color: #16b1ff;',
+                                                    'class': 'mr-3',
+                                                    'size': 'default'
+                                                },
+                                                'text': 'mdi-information'
+                                            },
+                                            {
+                                                'component': 'span',
+                                                'text': '备份说明'
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                'component': 'VDivider',
+                                'props': {'class': 'mx-4 my-2'}
+                            },
+                            {
+                                'component': 'VCardText',
+                                'props': {'class': 'px-6 py-0'},
+                                'content': [
+                                    {
+                                        'component': 'VList',
+                                        'props': {
+                                            'lines': 'two',
+                                            'density': 'comfortable'
+                                        }
+                                        ,
+                                        'content': [
+                                            {
+                                                'component': 'VListItem',
+                                                'props': {'lines': 'two'},
+                                                'content': [
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {'class': 'd-flex align-items-start'},
+                                                        'content': [
+                                                            {
+                                                                'component': 'VIcon',
+                                                                'props': {
+                                                                    'color': 'primary',
+                                                                    'class': 'mt-1 mr-2'
+                                                                },
+                                                                'text': 'mdi-folder-zip'
+                                                            },
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {'class': 'text-subtitle-1 font-weight-regular mb-1'},
+                                                                'text': '备份保存位置'
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {'class': 'text-body-2 ml-8'},
+                                                        'text': f"备份压缩包统一保存到目录：{self.get_data_path() / 'backups'}"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VListItem',
+                                                'props': {'lines': 'two'},
+                                                'content': [
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {'class': 'd-flex align-items-start'},
+                                                        'content': [
+                                                            {
+                                                                'component': 'VIcon',
+                                                                'props': {
+                                                                    'color': 'success',
+                                                                    'class': 'mt-1 mr-2'
+                                                                },
+                                                                'text': 'mdi-archive-arrow-down'
+                                                            },
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {'class': 'text-subtitle-1 font-weight-regular mb-1'},
+                                                                'text': '备份命名规则'
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {'class': 'text-body-2 ml-8'},
+                                                        'text': '备份文件名格式为“插件目录名_YYYY.MM.DD_HH-MM-SS.zip”，压缩包内部目录名保持为原插件目录名。'
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VListItem',
+                                                'props': {'lines': 'two'},
+                                                'content': [
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {'class': 'd-flex align-items-start'},
+                                                        'content': [
+                                                            {
+                                                                'component': 'VIcon',
+                                                                'props': {
+                                                                    'color': 'warning',
+                                                                    'class': 'mt-1 mr-2'
+                                                                },
+                                                                'text': 'mdi-broom'
+                                                            },
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {'class': 'text-subtitle-1 font-weight-regular mb-1'},
+                                                                'text': '自动清理规则'
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {'class': 'text-body-2 ml-8'},
+                                                        'text': '备份时会自动跳过 __pycache__ 目录，并在超过保留份数后删除最旧的同名插件备份压缩包。'
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'component': 'VListItem',
+                                                'props': {'lines': 'two'},
+                                                'content': [
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {'class': 'd-flex align-items-start'},
+                                                        'content': [
+                                                            {
+                                                                'component': 'VIcon',
+                                                                'props': {
+                                                                    'color': 'error',
+                                                                    'class': 'mt-1 mr-2'
+                                                                },
+                                                                'text': 'mdi-archive-refresh'
+                                                            },
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {'class': 'text-subtitle-1 font-weight-regular mb-1'},
+                                                                'text': '安装失败自动回滚'
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {'class': 'text-body-2 ml-8'},
+                                                        'text': '如果新插件安装过程中发生异常，系统会自动使用刚生成的备份压缩包回滚恢复原有插件目录。'
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
                 ]
             }
         ], {
             "enabled": True,
-            "backup_enabled": True
+            "backup_enabled": True,
+            "backup_retention": 10
         }
 
     def get_page(self) -> List[dict]:
@@ -1134,8 +1355,6 @@ class LocalPluginInstall(_PluginBase):
                                                             'text': '请确保插件包包含__init__.py文件且继承_PluginBase类。如果插件有依赖，请确保包含requirements.txt文件。',
                                                             'class': 'mb-6',
                                                             'density': 'comfortable',
-                                                            'border': 'start',
-                                                            'border-color': 'primary',
                                                             'icon': 'mdi-information',
                                                             'elevation': 1,
                                                             'rounded': 'lg'
@@ -1233,7 +1452,6 @@ class LocalPluginInstall(_PluginBase):
                                                                     'class': 'text-none font-weight-bold'
                                                                 },
                                                                 'content': [
-                                                                    {'component': 'VIcon', 'props': {'icon': 'mdi-package-variant-plus', 'class': 'mr-2'}},
                                                                     {'component': 'span', 'text': '安装插件'}
                                                                 ]
                                                             }
@@ -1259,29 +1477,25 @@ class LocalPluginInstall(_PluginBase):
                             {
                                 'component': 'VCard',
                                 'props': {
-                                    'elevation': 2,
-                                    'class': 'mx-auto rounded-lg',
-                                    'border': True
+                                    'variant': 'flat',
+                                    'class': 'mb-6',
+                                    'color': 'surface'
                                 },
                                 'content': [
                                     {
                                         'component': 'VCardItem',
-                                        'props': {
-                                            'class': 'pb-0'
-                                        },
+                                        'props': {'class': 'px-6 pb-0'},
                                         'content': [
                                             {
                                                 'component': 'VCardTitle',
-                                                'props': {
-                                                    'class': 'text-h6 font-weight-bold d-flex align-center'
-                                                },
+                                                'props': {'class': 'd-flex align-center text-h6 mb-0'},
                                                 'content': [
                                                     {
                                                         'component': 'VIcon',
                                                         'props': {
-                                                            'color': 'info',
+                                                            'style': 'color: #16b1ff;',
+                                                            'class': 'mr-3',
                                                             'size': 'default',
-                                                            'class': 'mr-2'
                                                         },
                                                         'text': 'mdi-information'
                                                     },
@@ -1301,6 +1515,7 @@ class LocalPluginInstall(_PluginBase):
                                     },
                                     {
                                         'component': 'VCardText',
+                                        'props': {'class': 'px-6 py-0'},
                                         'content': [
                                             {
                                                 'component': 'VList',
@@ -1311,15 +1526,31 @@ class LocalPluginInstall(_PluginBase):
                                                 'content': [
                                                     {
                                                         'component': 'VListItem',
-                                                        'props': {
-                                                            'prepend-icon': 'mdi-cog',
-                                                            'title': '首次安装'
-                                                        },
+                                                        'props': {'lines': 'two'},
                                                         'content': [
                                                             {
                                                                 'component': 'div',
+                                                                'props': {'class': 'd-flex align-items-start'},
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'VIcon',
+                                                                        'props': {
+                                                                            'color': 'primary',
+                                                                            'class': 'mt-1 mr-2'
+                                                                        },
+                                                                        'text': 'mdi-cog'
+                                                                    },
+                                                                    {
+                                                                        'component': 'div',
+                                                                        'props': {'class': 'text-subtitle-1 font-weight-regular mb-1'},
+                                                                        'text': '首次安装'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'div',
                                                                 'props': {
-                                                                    'class': 'text-body-2'
+                                                                    'class': 'text-body-2 ml-8'
                                                                 },
                                                                 'content': [
                                                                     {
@@ -1337,7 +1568,7 @@ class LocalPluginInstall(_PluginBase):
                                                                     },
                                                                     {
                                                                         'component': 'span',
-                                                                        'text': '请新打开设置页面保存一下以生效上传API'
+                                                                        'text': '请新打开设置页面保存一下以生效安装API'
                                                                     }
                                                                 ]
                                                             }
@@ -1345,15 +1576,31 @@ class LocalPluginInstall(_PluginBase):
                                                     },
                                                     {
                                                         'component': 'VListItem',
-                                                        'props': {
-                                                            'prepend-icon': 'mdi-folder-zip',
-                                                            'title': 'ZIP文件结构'
-                                                        },
+                                                        'props': {'lines': 'two'},
                                                         'content': [
                                                             {
                                                                 'component': 'div',
+                                                                'props': {'class': 'd-flex align-items-start'},
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'VIcon',
+                                                                        'props': {
+                                                                            'color': 'success',
+                                                                            'class': 'mt-1 mr-2'
+                                                                        },
+                                                                        'text': 'mdi-folder-zip'
+                                                                    },
+                                                                    {
+                                                                        'component': 'div',
+                                                                        'props': {'class': 'text-subtitle-1 font-weight-regular mb-1'},
+                                                                        'text': 'ZIP文件结构'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'div',
                                                                 'props': {
-                                                                    'class': 'text-body-2'
+                                                                    'class': 'text-body-2 ml-8'
                                                                 },
                                                                 'text': '插件包必须包含以下内容：- 插件目录（如 myplugin/）- __init__.py 文件（必须继承 _PluginBase）- requirements.txt（可选，用于声明依赖）- 其他插件相关文件'
                                                             }
@@ -1361,15 +1608,63 @@ class LocalPluginInstall(_PluginBase):
                                                     },
                                                     {
                                                         'component': 'VListItem',
-                                                        'props': {
-                                                            'prepend-icon': 'mdi-alert',
-                                                            'title': '注意事项'
-                                                        },
+                                                        'props': {'lines': 'two'},
                                                         'content': [
                                                             {
                                                                 'component': 'div',
+                                                                'props': {'class': 'd-flex align-items-start'},
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'VIcon',
+                                                                        'props': {
+                                                                            'color': 'success',
+                                                                            'class': 'mt-1 mr-2'
+                                                                        },
+                                                                        'text': 'mdi-vuejs'
+                                                                    },
+                                                                    {
+                                                                        'component': 'div',
+                                                                        'props': {'class': 'text-subtitle-1 font-weight-regular mb-1'},
+                                                                        'text': 'Vue联邦插件结构'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'div',
                                                                 'props': {
-                                                                    'class': 'text-body-2'
+                                                                    'class': 'text-body-2 ml-8'
+                                                                },
+                                                                'text': '支持安装 Vue 联邦插件。ZIP 可直接以文件为根目录打包，至少包含 __init__.py，以及前端构建产物目录 dist/（通常为 dist/assets/...）；如有 Python 依赖，可同时包含 requirements.txt。'
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        'component': 'VListItem',
+                                                        'props': {'lines': 'two'},
+                                                        'content': [
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {'class': 'd-flex align-items-start'},
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'VIcon',
+                                                                        'props': {
+                                                                            'color': 'warning',
+                                                                            'class': 'mt-1 mr-2'
+                                                                        },
+                                                                        'text': 'mdi-alert'
+                                                                    },
+                                                                    {
+                                                                        'component': 'div',
+                                                                        'props': {'class': 'text-subtitle-1 font-weight-regular mb-1'},
+                                                                        'text': '注意事项'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {
+                                                                    'class': 'text-body-2 ml-8'
                                                                 },
                                                                 'text': '1. 确保插件包大小不超过限制 2. 插件ID必须与目录名一致 3. 安装前请确保插件代码安全可靠 4. 安装失败时请检查错误信息'
                                                             }
@@ -1377,111 +1672,69 @@ class LocalPluginInstall(_PluginBase):
                                                     },
                                                     {
                                                         'component': 'VListItem',
-                                                        'props': {
-                                                            'prepend-icon': 'mdi-help-circle',
-                                                            'title': '常见问题'
-                                                        },
+                                                        'props': {'lines': 'two'},
                                                         'content': [
                                                             {
                                                                 'component': 'div',
+                                                                'props': {'class': 'd-flex align-items-start'},
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'VIcon',
+                                                                        'props': {
+                                                                            'color': 'warning',
+                                                                            'class': 'mt-1 mr-2'
+                                                                        },
+                                                                        'text': 'mdi-help-circle'
+                                                                    },
+                                                                    {
+                                                                        'component': 'div',
+                                                                        'props': {'class': 'text-subtitle-1 font-weight-regular mb-1'},
+                                                                        'text': '常见问题'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'div',
                                                                 'props': {
-                                                                    'class': 'text-body-2'
+                                                                    'class': 'text-body-2 ml-8'
                                                                 },
                                                                 'text': '1. 安装失败？检查插件包结构是否正确 2. 依赖安装失败？确保requirements.txt格式正确，或尝试手动安装依赖 3. 插件不工作？检查日志获取详细信息 4. 提示"没有找到继承_PluginBase的插件类"？可能是依赖缺失，请检查requirements.txt文件'
                                                             }
                                                         ]
-                                                    }
-                                                ]
-                                            }
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            },
-            { # 添加备份路径提示信息卡片
-                'component': 'VRow',
-                'content': [
-                    {
-                        'component': 'VCol',
-                        'props': {'cols': 12},
-                        'content': [
-                            {
-                                'component': 'VCard',
-                                'props': {
-                                    'elevation': 2,
-                                    'class': 'mx-auto rounded-lg',
-                                    'border': True
-                                },
-                                'content': [
-                                    {
-                                        'component': 'VCardItem',
-                                        'props': {
-                                            'class': 'pb-0'
-                                        },
-                                        'content': [
-                                            {
-                                                'component': 'VCardTitle',
-                                                'props': {
-                                                    'class': 'text-h6 font-weight-bold d-flex align-center'
-                                                },
-                                                'content': [
-                                                    {
-                                                        'component': 'VIcon',
-                                                        'props': {
-                                                            'color': 'info',
-                                                            'size': 'default',
-                                                            'class': 'mr-2'
-                                                        },
-                                                        'text': 'mdi-folder-information' # 文件夹信息图标
                                                     },
                                                     {
-                                                        'component': 'span',
-                                                        'text': '备份路径说明'
+                                                        'component': 'VListItem',
+                                                        'props': {'lines': 'two'},
+                                                        'content': [
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {'class': 'd-flex align-items-start'},
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'VIcon',
+                                                                        'props': {
+                                                                            'color': 'info',
+                                                                            'class': 'mt-1 mr-2'
+                                                                        },
+                                                                        'text': 'mdi-folder-information'
+                                                                    },
+                                                                    {
+                                                                        'component': 'div',
+                                                                        'props': {'class': 'text-subtitle-1 font-weight-regular mb-1'},
+                                                                        'text': '备份路径说明'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {
+                                                                    'class': 'text-body-2 ml-8'
+                                                                },
+                                                                'text': f'所有插件的备份文件将保存到此目录：{self.get_data_path() / "backups"}。请勿手动删除此目录下的文件，除非您确定不再需要这些备份。'
+                                                            }
+                                                        ]
                                                     }
                                                 ]
-                                            }
-                                        ]
-                                    },
-                                    {
-                                        'component': 'VDivider',
-                                        'props': {
-                                            'class': 'mx-4 my-2'
-                                        }
-                                    },
-                                    {
-                                        'component': 'VCardText',
-                                        'content': [
-                                            {
-                                                'component': 'VAlert',
-                                                'props': {
-                                                    'type': 'info',
-                                                    'variant': 'tonal',
-                                                    'text': f"所有插件的备份文件将保存到此目录：{self.get_data_path() / 'backups'}", # 直接在这里获取路径
-                                                    'class': 'mb-2',
-                                                    'density': 'comfortable',
-                                                    'border': 'start',
-                                                    'border-color': 'info',
-                                                    'icon': 'mdi-information',
-                                                    'elevation': 1,
-                                                    'rounded': 'lg'
-                                                }
-                                            },
-                                            {
-                                                'component': 'VAlert',
-                                                'props': {
-                                                    'type': 'warning',
-                                                    'variant': 'tonal',
-                                                    'text': '请勿手动删除此目录下的文件，除非您确定不再需要这些备份。',
-                                                    'density': 'comfortable',
-                                                    'border': 'start',
-                                                    'border-color': 'warning',
-                                                    'icon': 'mdi-alert-box',
-                                                    'elevation': 1,
-                                                    'rounded': 'lg'
-                                                }
                                             }
                                         ]
                                     }

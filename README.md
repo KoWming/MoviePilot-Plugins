@@ -13,7 +13,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 | 3 | [💬 群聊区 (GroupChatZone)](#3--群聊区-groupchatzone) | v2.3.2 | 执行站点喊话、获取反馈、定时任务 | 站点 |
 | 4 | [🦅 朱雀助手 (ZhuqueHelper)](#4--朱雀助手-zhuquehelper) | v1.3.3 | 技能释放、一键升级、获取执行记录 | 站点 |
 | 5 | [☁️ Cloudflare订阅 (CloudflaresSubscribe)](#5-%EF%B8%8F-cloudflare订阅-cloudflaressubscribe) | v1.0.5 | 自动订阅Cloudflare免费DNS服务 | 网络 |
-| 6 | [📥 本地插件安装 (LocalPluginInstall)](#6--本地插件安装-localplugininstall) | v1.2 | 上传本地ZIP插件包进行安装 | 工具 |
+| 6 | [📥 本地插件安装 (LocalPluginInstall)](#6--本地插件安装-localplugininstall) | v1.3.0 | 上传本地ZIP插件包进行安装 | 工具 |
 | 7 | [🎮 ~~象岛传说竞技场 (VicomoVS)~~](#7--象岛传说竞技场-vicomovs) | v1.2.6 | 象岛传说竞技场，对战boss | 站点 |
 | 8 | [🏆 织梦勋章套装奖励 (ZmedalRwd)](#8--织梦勋章套装奖励-zmedalrwd) | v1.2.1 | 领取勋章套装奖励 | 站点 |
 | 9 | [🏅 ~~勋章墙 (MedalWall)~~](#9--勋章墙-medalwall) | v1.1 | 站点勋章购买提醒、统计、展示 | 站点 |
@@ -155,7 +155,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   </details>
 
 ### 6. 📥 本地插件安装 (LocalPluginInstall)
-- 版本：v1.2
+- 版本：v1.3.0
 - 功能：上传本地ZIP插件包进行安装
 - 标签：工具
 - 特点：
@@ -164,10 +164,14 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   - 🚀 快速插件部署
   - 🛠️ 支持自定义插件包
   - 🤖 智能依赖处理，自动检测并安装插件依赖
+  - 🗜️ 支持自动创建 ZIP 备份并跳过 `__pycache__`
+  - ♻️ 支持安装失败后自动回滚恢复
+  - 🧩 支持 Vue 联邦插件 ZIP 结构安装
 - 更新说明：
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.3.0: 新增 ZIP 备份与备份保留份数设置，备份自动跳过 __pycache__ 并支持安装失败回滚；重构设置页和安装说明卡片，新增 Vue 联邦插件 ZIP 结构说明与安装支持
   - v1.2: 新增智能依赖处理功能：自动检测并安装插件依赖，优化插件导入验证逻辑，改进错误提示信息
   - v1.1: 优化插件性能，重构插件安装加载逻辑确保插件安装正确显示。新增插件安装前备份旧插件设置
   - v1.0: 初始版本
