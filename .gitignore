@@ -160,3 +160,8 @@ cython_debug/
 
 .idea/
 .vscode/
+
+# Vue 联邦插件本地编译
+dist/
+node_modules/
+*.zip
