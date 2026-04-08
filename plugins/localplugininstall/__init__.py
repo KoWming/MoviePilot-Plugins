@@ -2,6 +2,8 @@ import os
 import shutil
 import zipfile
 import json
+import re
+import ast
 import time
 from datetime import datetime
 import importlib.util
@@ -10,7 +12,7 @@ import threading
 from pathlib import Path
 from typing import Any, List, Dict, Tuple, Optional
 
-from fastapi import UploadFile, File
+from fastapi import UploadFile, File, Body
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
@@ -33,7 +35,7 @@ class LocalPluginInstall(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/LocalPluginInstall.png"
     # 插件版本
-    plugin_version = "1.3.0"
+    plugin_version = "1.4.0"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -456,6 +458,186 @@ class LocalPluginInstall(_PluginBase):
             except Exception as e:
                 logger.warning(f"清理旧备份压缩包失败 {old_backup}: {e}")
 
+    def _get_backup_root_dir(self) -> Path:
+        """获取备份目录。"""
+        backup_root_dir = self.get_data_path() / "backups"
+        backup_root_dir.mkdir(parents=True, exist_ok=True)
+        return backup_root_dir
+
+    def _parse_backup_filename(self, filename: str) -> Optional[Dict[str, str]]:
+        """解析备份文件名。"""
+        match = re.match(r"^(?P<plugin_id>.+)_(?P<backup_time>\d{4}\.\d{2}\.\d{2}_\d{2}-\d{2}-\d{2})\.zip$", filename)
+        if not match:
+            return None
+        return match.groupdict()
+
+    def _extract_plugin_name_from_backup_zip(self, backup_zip_path: Path, fallback_plugin_id: str) -> str:
+        """从备份 ZIP 中提取插件中文名。"""
+        try:
+            with zipfile.ZipFile(backup_zip_path, 'r') as zipf:
+                init_candidates = [
+                    name for name in zipf.namelist()
+                    if name.endswith("/__init__.py") and not any(part.startswith("__") for part in Path(name).parts[:-1])
+                ]
+
+                if not init_candidates:
+                    return fallback_plugin_id
+
+                init_content = zipf.read(init_candidates[0]).decode('utf-8', errors='ignore')
+                match = re.search(r"^\s*plugin_name\s*=\s*(.+)$", init_content, re.MULTILINE)
+                if not match:
+                    return fallback_plugin_id
+
+                plugin_name_expr = match.group(1).split('#', 1)[0].strip()
+                plugin_name = ast.literal_eval(plugin_name_expr)
+                return str(plugin_name).strip() if plugin_name else fallback_plugin_id
+        except Exception as e:
+            logger.warning(f"解析备份插件名称失败 {backup_zip_path.name}: {e}")
+            return fallback_plugin_id
+
+    def _list_backup_groups(self) -> List[Dict[str, Any]]:
+        """按插件分组返回备份列表。"""
+        backup_root_dir = self._get_backup_root_dir()
+        grouped_backups: Dict[str, List[Dict[str, Any]]] = {}
+        plugin_name_map: Dict[str, str] = {}
+
+        for backup_file in sorted(backup_root_dir.glob("*.zip"), key=lambda path: path.stat().st_mtime, reverse=True):
+            parsed = self._parse_backup_filename(backup_file.name)
+            if not parsed:
+                logger.warning(f"跳过无法识别命名规则的备份文件: {backup_file.name}")
+                continue
+
+            plugin_id = parsed["plugin_id"]
+            plugin_name_map.setdefault(plugin_id, self._extract_plugin_name_from_backup_zip(backup_file, plugin_id))
+            grouped_backups.setdefault(plugin_id, []).append({
+                "filename": backup_file.name,
+                "backup_time": parsed["backup_time"],
+                "size": backup_file.stat().st_size,
+                "modified_time": datetime.fromtimestamp(backup_file.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+            })
+
+        result = []
+        for plugin_id, backups in grouped_backups.items():
+            result.append({
+                "plugin_id": plugin_id,
+                "plugin_name": plugin_name_map.get(plugin_id, plugin_id),
+                "backups": backups
+            })
+
+        result.sort(key=lambda item: item["plugin_id"])
+        return result
+
+    def _delete_backup_file(self, plugin_id: str, backup_file: str) -> Tuple[bool, str]:
+        """删除指定备份 ZIP。"""
+        parsed = self._parse_backup_filename(backup_file)
+        if not parsed:
+            return False, "备份文件名格式无效"
+
+        if parsed.get("plugin_id") != plugin_id:
+            return False, "备份文件与插件 ID 不匹配"
+
+        backup_root_dir = self._get_backup_root_dir()
+        backup_path = backup_root_dir / backup_file
+        if not backup_path.exists() or not backup_path.is_file():
+            return False, "备份文件不存在"
+
+        try:
+            backup_path.unlink()
+            logger.info(f"已删除备份文件: {backup_file}")
+            return True, f"备份文件 {backup_file} 已删除"
+        except Exception as e:
+            logger.error(f"删除备份文件失败 {backup_file}: {e}", exc_info=True)
+            return False, f"删除备份文件失败: {e}"
+
+    def _finalize_plugin_installation(self, plugin_id: str, target_dir: Path) -> Dict[str, Any]:
+        """完成插件安装后的依赖安装、注册与加载。"""
+        plugin_manager_instance = PluginManager()
+        plugin_config = plugin_manager_instance.get_plugin_config(plugin_id)
+        if not plugin_config:
+            plugin_config = {"enabled": False}
+            plugin_manager_instance.save_plugin_config(plugin_id, plugin_config)
+            logger.info(f"已为插件 {plugin_id} 保存默认配置 (初始为禁用)。")
+
+        dependencies_status = self._install_dependencies(target_dir)
+        if dependencies_status["status"] == "error":
+            logger.warning(f"依赖安装失败: {dependencies_status['message']}")
+
+        install_plugins = SystemConfigOper().get(SystemConfigKey.UserInstalledPlugins) or []
+        if plugin_id not in install_plugins:
+            install_plugins.append(plugin_id)
+            SystemConfigOper().set(SystemConfigKey.UserInstalledPlugins, install_plugins)
+            logger.info(f"插件 {plugin_id} 已添加到已安装列表。")
+
+        logger.info(f"调用 PluginManager.reload_plugin() 重新加载插件 {plugin_id}...")
+        try:
+            def reload_specific_plugin():
+                try:
+                    plugin_manager_instance.reload_plugin(plugin_id)
+                    logger.info(f"插件 {plugin_id} 重新加载完成")
+                except Exception as e:
+                    logger.error(f"插件 {plugin_id} 重新加载失败: {e}")
+
+            reload_thread = threading.Thread(target=reload_specific_plugin, daemon=True)
+            reload_thread.start()
+            reload_thread.join(timeout=5)
+            if reload_thread.is_alive():
+                logger.warning(f"插件 {plugin_id} 重新加载超时，但插件可能已成功加载")
+        except Exception as e:
+            logger.error(f"插件 {plugin_id} 重新加载异常: {e}")
+
+        time.sleep(1)
+
+        try:
+            plugin_manager_instance = PluginManager()
+            logger.info("重新获取 PluginManager 实例以刷新状态...")
+        except Exception as e:
+            logger.error(f"重新获取 PluginManager 实例失败: {e}")
+
+        Scheduler().update_plugin_job(plugin_id)
+        register_plugin_api(plugin_id)
+        Command().init_commands(plugin_id)
+        return dependencies_status
+
+    def _restore_plugin_install(self, plugin_id: str, backup_file: str) -> Tuple[bool, str, Dict[str, Any]]:
+        """从指定备份恢复并安装插件。"""
+        plugin_id_for_path = plugin_id.lower()
+        parsed = self._parse_backup_filename(backup_file)
+        if not parsed:
+            return False, "备份文件名格式无效", {"status": "error", "message": "备份文件名格式无效"}
+
+        if parsed["plugin_id"].lower() != plugin_id_for_path:
+            return False, "备份文件与插件不匹配", {"status": "error", "message": "备份文件与插件不匹配"}
+
+        backup_root_dir = self._get_backup_root_dir()
+        backup_zip_path = backup_root_dir / backup_file
+        if not backup_zip_path.exists() or not backup_zip_path.is_file():
+            return False, "备份文件不存在", {"status": "error", "message": "备份文件不存在"}
+
+        target_dir = Path("/app/app/plugins") / plugin_id_for_path
+
+        try:
+            self._restore_plugin_from_backup_zip(backup_zip_path, target_dir)
+            logger.info(f"已从备份恢复插件目录: {backup_zip_path}")
+
+            init_file = target_dir / "__init__.py"
+            if not init_file.exists():
+                raise FileNotFoundError("恢复后的插件目录中缺少 __init__.py")
+
+            plugin_class = self._find_plugin_class(init_file, plugin_id_for_path)
+            if not plugin_class:
+                raise ValueError("恢复后的插件中没有找到继承 _PluginBase 的插件类")
+
+            actual_plugin_id = plugin_class.__name__
+            if actual_plugin_id.lower() != plugin_id_for_path:
+                raise ValueError(f"恢复后的插件类名 {actual_plugin_id} 与备份插件目录不匹配")
+
+            dependencies_status = self._finalize_plugin_installation(actual_plugin_id, target_dir)
+            logger.info(f"插件 {actual_plugin_id} 已从备份恢复安装成功")
+            return True, f"插件 {actual_plugin_id} 已成功从备份恢复安装。请刷新页面在插件管理页面手动启用。", dependencies_status
+        except Exception as e:
+            logger.error(f"恢复插件备份失败: {e}", exc_info=True)
+            return False, f"恢复插件失败: {e}", {"status": "error", "message": f"恢复插件失败: {e}"}
+
     def _install_plugin(self, plugin_id: str, extract_path: Path) -> Tuple[bool, str, Dict[str, Any]]:
         """
         安装插件
@@ -514,61 +696,7 @@ class LocalPluginInstall(_PluginBase):
             # 复制插件文件
             shutil.copytree(plugin_source, target_dir)
             logger.info(f"复制插件文件到: {target_dir}")
-
-            # 配置插件状态
-            plugin_manager_instance = PluginManager()
-            plugin_config = plugin_manager_instance.get_plugin_config(plugin_id)
-            if not plugin_config:
-                 plugin_config = {"enabled": False}
-                 plugin_manager_instance.save_plugin_config(plugin_id, plugin_config)
-                 logger.info(f"已为插件 {plugin_id} 保存默认配置 (初始为禁用)。")
-            
-            # 安装依赖
-            dependencies_status = self._install_dependencies(target_dir)
-            if dependencies_status["status"] == "error":
-                logger.warning(f"依赖安装失败: {dependencies_status['message']}")
-
-            # 添加到已安装插件列表
-            install_plugins = SystemConfigOper().get(SystemConfigKey.UserInstalledPlugins) or []
-            if plugin_id not in install_plugins:
-                install_plugins.append(plugin_id)
-                SystemConfigOper().set(SystemConfigKey.UserInstalledPlugins, install_plugins)
-                logger.info(f"插件 {plugin_id} 已添加到已安装列表。")
-
-            # 重新加载刚安装的插件
-            logger.info(f"调用 PluginManager.reload_plugin() 重新加载插件 {plugin_id}...")
-            try:
-                def reload_specific_plugin():
-                    try:
-                        plugin_manager_instance.reload_plugin(plugin_id)
-                        logger.info(f"插件 {plugin_id} 重新加载完成")
-                    except Exception as e:
-                        logger.error(f"插件 {plugin_id} 重新加载失败: {e}")
-                
-                # 在后台线程中执行插件重新加载，避免阻塞主线程
-                reload_thread = threading.Thread(target=reload_specific_plugin, daemon=True)
-                reload_thread.start()
-                reload_thread.join(timeout=5)
-                if reload_thread.is_alive():
-                    logger.warning(f"插件 {plugin_id} 重新加载超时，但插件可能已成功加载")
-
-            except Exception as e:
-                logger.error(f"插件 {plugin_id} 重新加载异常: {e}")
-
-            # 等待插件加载
-            time.sleep(1)
-
-            # 刷新PluginManager实例
-            try:
-                plugin_manager_instance = PluginManager()
-                logger.info(f"重新获取 PluginManager 实例以刷新状态...")
-            except Exception as e:
-                logger.error(f"重新获取 PluginManager 实例失败: {e}")
-
-            # 注册插件服务
-            Scheduler().update_plugin_job(plugin_id)
-            register_plugin_api(plugin_id)
-            Command().init_commands(plugin_id)
+            dependencies_status = self._finalize_plugin_installation(plugin_id, target_dir)
 
             logger.info(f"插件 {plugin_id} 安装成功")
             return True, f"插件 {plugin_id} 已成功安装到系统。请刷新页面在插件管理页面手动启用。", dependencies_status
@@ -822,6 +950,27 @@ class LocalPluginInstall(_PluginBase):
                 "methods": ["GET"],
                 "summary": "获取安装状态",
                 "description": "获取当前插件安装状态"
+            },
+            {
+                "path": "/backup_list",
+                "endpoint": self.get_backup_list,
+                "methods": ["GET"],
+                "summary": "获取备份列表",
+                "description": "获取插件备份列表"
+            },
+            {
+                "path": "/restore_backup",
+                "endpoint": self.restore_backup,
+                "methods": ["POST"],
+                "summary": "恢复备份",
+                "description": "从备份恢复安装插件"
+            },
+            {
+                "path": "/delete_backup",
+                "endpoint": self.delete_backup,
+                "methods": ["POST"],
+                "summary": "删除备份",
+                "description": "删除指定插件备份 ZIP"
             }
         ]
 
@@ -834,6 +983,101 @@ class LocalPluginInstall(_PluginBase):
                 "is_installing": is_installing
             }
         })
+
+    async def get_backup_list(self) -> JSONResponse:
+        """获取插件备份列表。"""
+        try:
+            backups = self._list_backup_groups()
+            return JSONResponse(status_code=200, content={
+                "code": 200,
+                "data": backups
+            })
+        except Exception as e:
+            logger.error(f"获取备份列表失败: {e}", exc_info=True)
+            return JSONResponse(status_code=500, content={
+                "code": 500,
+                "message": f"获取备份列表失败: {e}"
+            })
+
+    async def restore_backup(self, payload: Dict[str, Any] = Body(...)) -> JSONResponse:
+        """从备份恢复安装插件。"""
+        if not self._install_lock.acquire(blocking=False):
+            return JSONResponse(status_code=429, content={
+                "code": 429,
+                "message": "检测到其他插件正在安装中，请等待当前安装完成后再试"
+            })
+
+        try:
+            if not self.get_state():
+                return JSONResponse(status_code=403, content={
+                    "code": 403,
+                    "message": "本地插件安装插件未启用，请在插件设置中启用后重试"
+                })
+
+            plugin_id = str((payload or {}).get("plugin_id") or "").strip()
+            backup_file = str((payload or {}).get("backup_file") or "").strip()
+            if not plugin_id or not backup_file:
+                return JSONResponse(status_code=400, content={
+                    "code": 400,
+                    "message": "缺少 plugin_id 或 backup_file 参数"
+                })
+
+            success, message, dependencies_status = self._restore_plugin_install(plugin_id, backup_file)
+            if success:
+                return JSONResponse(status_code=200, content={
+                    "code": 200,
+                    "message": message,
+                    "data": {
+                        "plugin_id": plugin_id,
+                        "backup_file": backup_file,
+                        "dependencies": dependencies_status
+                    }
+                })
+
+            return JSONResponse(status_code=500, content={
+                "code": 500,
+                "message": message,
+                "data": {
+                    "plugin_id": plugin_id,
+                    "backup_file": backup_file,
+                    "dependencies": dependencies_status
+                }
+            })
+        finally:
+            self._install_lock.release()
+
+    async def delete_backup(self, payload: Dict[str, Any] = Body(...)) -> JSONResponse:
+        """删除插件备份 ZIP。"""
+        try:
+            if not self.get_state():
+                return JSONResponse(status_code=403, content={
+                    "code": 403,
+                    "message": "本地插件安装插件未启用，请在插件设置中启用后重试"
+                })
+            plugin_id = str((payload or {}).get("plugin_id") or "").strip()
+            backup_file = str((payload or {}).get("backup_file") or "").strip()
+            if not plugin_id or not backup_file:
+                return JSONResponse(status_code=400, content={
+                    "code": 400,
+                    "message": "缺少 plugin_id 或 backup_file 参数"
+                })
+            success, message = self._delete_backup_file(plugin_id, backup_file)
+            status_code = 200 if success else 500
+            code = 200 if success else 500
+            return JSONResponse(status_code=status_code, content={
+                "code": code,
+                "message": message,
+                "data": {
+                    "plugin_id": plugin_id,
+                    "backup_file": backup_file
+                }
+            })
+        except Exception as e:
+            logger.error(f"删除备份失败: {e}", exc_info=True)
+            return JSONResponse(status_code=500, content={
+                "code": 500,
+                "message": f"删除备份失败: {e}"
+            })
 
     def get_service(self) -> List[Dict[str, Any]]:
         """获取服务列表"""
@@ -1142,42 +1386,42 @@ class LocalPluginInstall(_PluginBase):
         onclick_js = f"""
         (async (button) => {{
             const fileInput = document.querySelector('#localupload-file-input');
+            const noticeModal = document.getElementById('localupload-notice-modal');
+            const noticeText = document.getElementById('localupload-notice-text');
+            const showNotice = (message) => {{
+                if (noticeText) noticeText.textContent = message;
+                if (noticeModal) noticeModal.style.display = 'flex';
+            }};
             if (!fileInput || !fileInput.files || fileInput.files.length === 0) {{
-                alert('错误：请先选择一个ZIP文件！');
+                showNotice('请先选择一个ZIP文件！');
                 return;
             }}
             const file = fileInput.files[0];
-
             const maxSize = {self._config.get('max_file_size', 10*1024*1024)};
             if (file.size > maxSize) {{
-                 alert(`错误：文件大小超过限制 (${{(maxSize / 1024 / 1024).toFixed(1)}}MB)`);
+                 showNotice(`文件大小超过限制 (${{(maxSize / 1024 / 1024).toFixed(1)}}MB)`);
                  return;
             }}
 
             const formData = new FormData();
             formData.append('file', file);
-
             button.disabled = true;
             const originalText = button.textContent;
             button.textContent = '安装中...';
-
             const errorAlert = document.getElementById('localupload-error-alert');
             const successAlert = document.getElementById('localupload-success-alert');
-
             if (errorAlert) errorAlert.style.display = 'none';
             if (successAlert) successAlert.style.display = 'none';
 
             try {{
                 const apiKey = {js_safe_api_token};
                 const apiUrl = `/api/v1/plugin/LocalPluginInstall/localupload?apikey=${{encodeURIComponent(apiKey)}}`;
-                
                 const response = await fetch(apiUrl, {{
                     method: 'POST',
                     body: formData,
                 }});
 
                 const result = await response.json();
-
                 if (response.ok && result.code === 200) {{
                     if (successAlert) {{
                         let successMessage = result.data?.plugin_display_name || result.message || '插件安装成功！';
@@ -1259,6 +1503,320 @@ class LocalPluginInstall(_PluginBase):
             }} finally {{
                 button.disabled = false;
                 button.textContent = originalText;
+            }}
+        }})(this)
+        """
+
+        restore_onclick_js = f"""
+        (async (button) => {{
+            const errorAlert = document.getElementById('localupload-error-alert');
+            const successAlert = document.getElementById('localupload-success-alert');
+            const modal = document.getElementById('localupload-backup-modal');
+            const backupContainer = document.getElementById('localupload-backup-list-container');
+            const confirmModal = document.getElementById('localupload-confirm-modal');
+            const confirmText = document.getElementById('localupload-confirm-text');
+            const confirmIconWrap = document.getElementById('localupload-confirm-icon-wrap');
+            const confirmCancelBtn = document.getElementById('localupload-confirm-cancel');
+            const confirmOkBtn = document.getElementById('localupload-confirm-ok');
+            const confirmIconPathMap = {{
+                'mdi-alert': 'M13 14H11V9H13M13 18H11V16H13M1 21H23L12 2L1 21Z',
+                'mdi-delete-alert': 'M9 3V4H4V6H5V19A2 2 0 0 0 7 21H17A2 2 0 0 0 19 19V6H20V4H15V3H9M7 6H17V19H7V6M9 8V17H11V8H9M13 8V17H15V8H13Z',
+                'mdi-backup-restore': 'M12 3A9 9 0 0 0 3 12H0L4 16L8 12H5A7 7 0 1 1 12 19C10.39 19 8.9 18.45 7.72 17.53L6.29 18.96A8.96 8.96 0 0 0 12 21A9 9 0 0 0 12 3Z'
+            }};
+            const renderConfirmIcon = (iconName, iconColor) => {{
+                if (!confirmIconWrap) {{
+                    return;
+                }}
+
+                confirmIconWrap.replaceChildren();
+                confirmIconWrap.style.color = iconColor;
+
+                const svgNs = 'http://www.w3.org/2000/svg';
+                const svg = document.createElementNS(svgNs, 'svg');
+                svg.setAttribute('viewBox', '0 0 24 24');
+                svg.setAttribute('width', '22');
+                svg.setAttribute('height', '22');
+                svg.setAttribute('fill', 'currentColor');
+                svg.setAttribute('aria-hidden', 'true');
+
+                const path = document.createElementNS(svgNs, 'path');
+                path.setAttribute('d', confirmIconPathMap[iconName] || confirmIconPathMap['mdi-alert']);
+                svg.appendChild(path);
+                confirmIconWrap.appendChild(svg);
+            }};
+            const closeModal = () => {{
+                if (modal) modal.style.display = 'none';
+            }};
+            const openModal = () => {{
+                if (modal) modal.style.display = 'flex';
+            }};
+            const showConfirm = (message, confirmTextValue = '确认', confirmButtonColor = '#ef4444', confirmIconName = 'mdi-alert', confirmIconColor = '#ef4444') => new Promise((resolve) => {{
+                if (!confirmModal || !confirmText || !confirmCancelBtn || !confirmOkBtn) {{
+                    resolve(false);
+                    return;
+                }}
+
+                confirmText.textContent = message;
+                confirmOkBtn.textContent = confirmTextValue;
+                confirmOkBtn.style.background = confirmButtonColor;
+                renderConfirmIcon(confirmIconName, confirmIconColor);
+                confirmModal.style.display = 'flex';
+                const cleanup = () => {{
+                    confirmModal.style.display = 'none';
+                    confirmCancelBtn.onclick = null;
+                    confirmOkBtn.onclick = null;
+                }};
+
+                confirmCancelBtn.onclick = () => {{
+                    cleanup();
+                    resolve(false);
+                }};
+
+                confirmOkBtn.onclick = () => {{
+                    cleanup();
+                    resolve(true);
+                }};
+            }});
+
+            if (errorAlert) errorAlert.style.display = 'none';
+            if (successAlert) successAlert.style.display = 'none';
+
+            const formatSize = (size) => {{
+                if (!size) return '0 B';
+                const units = ['B', 'KB', 'MB', 'GB'];
+                let value = size;
+                let index = 0;
+                while (value >= 1024 && index < units.length - 1) {{
+                    value /= 1024;
+                    index += 1;
+                }}
+                return `${{value.toFixed(index === 0 ? 0 : 2)}} ${{units[index]}}`;
+            }};
+
+            const renderDependencies = (deps) => {{
+                if (!deps) return '';
+                if (!deps.total_count) return '<br><br><strong>依赖安装：</strong>无需安装依赖';
+                let html = '<br><br><strong>依赖安装详情：</strong>';
+                html += '<br>• 总依赖数量：' + (deps.total_count || 0) + ' 个';
+                html += '<br>• 成功安装：' + (deps.success_count || 0) + ' 个';
+                html += '<br>• 安装失败：' + (deps.failed_count || 0) + ' 个';
+                html += '<br>• 安装状态：' + (deps.status === 'success' ? '✅ 成功' : '❌ 失败');
+                if (deps.message) {{
+                    html += '<br>• 详细信息：' + deps.message;
+                }}
+                return html;
+            }};
+
+            const loadBackupList = async () => {{
+                backupContainer.innerHTML = '<div class="text-medium-emphasis">正在加载备份列表...</div>';
+
+                const apiKey = {js_safe_api_token};
+                const response = await fetch(`/api/v1/plugin/LocalPluginInstall/backup_list?apikey=${{encodeURIComponent(apiKey)}}`);
+                const result = await response.json();
+
+                if (!(response.ok && result.code === 200)) {{
+                    throw new Error(result.message || '获取备份列表失败');
+                }}
+
+                const groups = result.data || [];
+                if (!groups.length) {{
+                    backupContainer.innerHTML = '<div class="text-medium-emphasis">暂无可用备份。</div>';
+                    return;
+                }}
+
+                const modalTitle = document.getElementById('localupload-backup-modal-title');
+                if (modalTitle) {{
+                    const modalTitleText = modalTitle.querySelector('.localupload-backup-modal-title-text');
+                    if (modalTitleText) {{
+                        modalTitleText.textContent = '备份管理 - 共 ' + groups.reduce((sum, group) => sum + (group.backups ? group.backups.length : 0), 0) + ' 个备份';
+                    }}
+                }}
+
+                const html = groups.map((group, groupIndex) => {{
+                    const backups = group.backups || [];
+                    const rows = backups.map((backup, backupIndex) => `
+                        <div class="localupload-backup-row" style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid rgba(128,128,128,.15);flex-wrap:wrap;">
+                            <div style="min-width:260px;flex:1;">
+                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:600;word-break:break-all;">
+                                    <span>${{backup.filename}}</span>
+                                    ${{backupIndex === 0 ? '<span class="localupload-backup-latest-tag" style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:rgba(34,197,94,.12);color:#16a34a;font-size:12px;font-weight:700;line-height:1;">最新</span>' : ''}}
+                                </div>
+                                <div class="localupload-backup-meta" style="font-size:12px;color:rgba(128,128,128,.9);margin-top:4px;">
+                                    备份时间：${{backup.modified_time}} ｜ 文件大小：${{formatSize(backup.size)}}
+                                </div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <button
+                                    type="button"
+                                    class="localupload-delete-backup-btn"
+                                    data-plugin-id="${{group.plugin_id}}"
+                                    data-plugin-name="${{group.plugin_name}}"
+                                    data-backup-file="${{backup.filename}}"
+                                    style="border:1px solid rgba(239,68,68,.32);border-radius:8px;padding:5px 14px;background:#fff;color:#ef4444;cursor:pointer;font-weight:600;font-size:13px;line-height:1.2;"
+                                >删除</button>
+                                <button
+                                    type="button"
+                                    class="localupload-restore-btn"
+                                    data-plugin-id="${{group.plugin_id}}"
+                                    data-plugin-name="${{group.plugin_name}}"
+                                    data-backup-file="${{backup.filename}}"
+                                    style="border:none;border-radius:8px;padding:5px 14px;background:#16b1ff;color:#fff;cursor:pointer;font-weight:600;font-size:13px;line-height:1.2;"
+                                >恢复</button>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    return `
+                        <details class="localupload-backup-group" ${{groupIndex === 0 ? 'open' : ''}} style="border:1px solid rgba(128,128,128,.2);border-radius:12px;padding:12px 16px;background:rgba(22,177,255,.04);margin-bottom:12px;overflow:hidden;">
+                            <summary class="localupload-backup-summary" style="cursor:pointer;font-weight:700;outline:none;">${{group.plugin_name}} <span class="localupload-backup-summary-count" style="color:rgba(128,128,128,.9);font-weight:400;">(${{backups.length}} 个备份)</span></summary>
+                            <div class="localupload-backup-group-body" style="margin-top:12px;max-height:320px;overflow-y:auto;padding-right:4px;box-sizing:border-box;">${{rows}}</div>
+                        </details>
+                    `;
+                }}).join('');
+
+                backupContainer.innerHTML = html;
+                bindBackupAccordions();
+                bindDeleteButtons();
+                bindRestoreButtons();
+            }};
+
+            const bindDeleteButtons = () => {{
+                backupContainer.querySelectorAll('.localupload-delete-backup-btn').forEach((item) => {{
+                    item.addEventListener('click', async (event) => {{
+                        const actionButton = event.currentTarget;
+                        const pluginId = actionButton.getAttribute('data-plugin-id');
+                        const pluginName = actionButton.getAttribute('data-plugin-name') || pluginId;
+                        const backupFile = actionButton.getAttribute('data-backup-file');
+                        if (!pluginId || !backupFile) return;
+
+                        const confirmed = await showConfirm(`确认删除插件 ${{pluginName}} 的备份文件：${{backupFile}} 吗？`, '确认删除', '#ef4444', 'mdi-delete-alert', '#ef4444');
+                        if (!confirmed) {{
+                            return;
+                        }}
+
+                        actionButton.disabled = true;
+                        const originalText = actionButton.textContent;
+                        actionButton.textContent = '删除中...';
+
+                        try {{
+                            const apiKey = {js_safe_api_token};
+                            const response = await fetch(`/api/v1/plugin/LocalPluginInstall/delete_backup?apikey=${{encodeURIComponent(apiKey)}}`, {{
+                                method: 'POST',
+                                headers: {{ 'Content-Type': 'application/json' }},
+                                body: JSON.stringify({{ plugin_id: pluginId, backup_file: backupFile }})
+                            }});
+                            const result = await response.json();
+
+                            if (response.ok && result.code === 200) {{
+                                if (successAlert) {{
+                                    successAlert.textContent = result.message || '删除成功';
+                                    successAlert.style.display = 'block';
+                                }}
+                                await loadBackupList();
+                            }} else {{
+                                if (errorAlert) {{
+                                    errorAlert.textContent = result.message || '删除失败';
+                                    errorAlert.style.display = 'block';
+                                }}
+                            }}
+                        }} catch (error) {{
+                            if (errorAlert) {{
+                                errorAlert.textContent = '删除请求发送失败: ' + error;
+                                errorAlert.style.display = 'block';
+                            }}
+                            console.error('Delete backup error:', error);
+                        }} finally {{
+                            actionButton.disabled = false;
+                            actionButton.textContent = originalText;
+                        }}
+                    }});
+                }});
+            }};
+
+            const bindRestoreButtons = () => {{
+                backupContainer.querySelectorAll('.localupload-restore-btn').forEach((item) => {{
+                    item.addEventListener('click', async (event) => {{
+                        const actionButton = event.currentTarget;
+                        const pluginId = actionButton.getAttribute('data-plugin-id');
+                        const pluginName = actionButton.getAttribute('data-plugin-name') || pluginId;
+                        const backupFile = actionButton.getAttribute('data-backup-file');
+                        if (!pluginId || !backupFile) return;
+
+                        const confirmed = await showConfirm(`确认恢复插件 ${{pluginName}} 的备份文件：${{backupFile}} 吗？`, '确认恢复', '#16b1ff', 'mdi-backup-restore', '#16b1ff');
+                        if (!confirmed) {{
+                            return;
+                        }}
+
+                        actionButton.disabled = true;
+                        const originalText = actionButton.textContent;
+                        actionButton.textContent = '恢复中...';
+
+                        try {{
+                            const apiKey = {js_safe_api_token};
+                            const response = await fetch(`/api/v1/plugin/LocalPluginInstall/restore_backup?apikey=${{encodeURIComponent(apiKey)}}`, {{
+                                method: 'POST',
+                                headers: {{ 'Content-Type': 'application/json' }},
+                                body: JSON.stringify({{ plugin_id: pluginId, backup_file: backupFile }})
+                            }});
+                            const result = await response.json();
+
+                            if (response.ok && result.code === 200) {{
+                                if (successAlert) {{
+                                    successAlert.innerHTML = (result.message || '恢复成功') + renderDependencies(result.data?.dependencies);
+                                    successAlert.style.whiteSpace = 'pre-line';
+                                    successAlert.style.display = 'block';
+                                }}
+                                closeModal();
+                            }} else {{
+                                if (errorAlert) {{
+                                    errorAlert.innerHTML = (result.message || '恢复失败') + renderDependencies(result.data?.dependencies);
+                                    errorAlert.style.whiteSpace = 'pre-line';
+                                    errorAlert.style.display = 'block';
+                                }}
+                            }}
+                        }} catch (error) {{
+                            if (errorAlert) {{
+                                errorAlert.textContent = '恢复请求发送失败: ' + error;
+                                errorAlert.style.display = 'block';
+                            }}
+                            console.error('Restore backup error:', error);
+                        }} finally {{
+                            actionButton.disabled = false;
+                            actionButton.textContent = originalText;
+                        }}
+                    }});
+                }});
+            }};
+
+            const bindBackupAccordions = () => {{
+                const detailItems = backupContainer.querySelectorAll('.localupload-backup-group');
+                detailItems.forEach((detail) => {{
+                    detail.addEventListener('toggle', () => {{
+                        if (!detail.open) return;
+                        detailItems.forEach((other) => {{
+                            if (other !== detail) {{
+                                other.open = false;
+                            }}
+                        }});
+                    }});
+                }});
+            }};
+
+            try {{
+                button.disabled = true;
+                button.textContent = '加载中...';
+                openModal();
+                await loadBackupList();
+            }} catch (error) {{
+                backupContainer.innerHTML = '<div style="color:#ff5252;">' + error + '</div>';
+                if (errorAlert) {{
+                    errorAlert.textContent = '获取备份列表失败: ' + error;
+                    errorAlert.style.display = 'block';
+                }}
+                console.error('Load backup list error:', error);
+            }} finally {{
+                button.disabled = false;
+                button.textContent = '从备份恢复';
             }}
         }})(this)
         """
@@ -1440,19 +1998,56 @@ class LocalPluginInstall(_PluginBase):
                                                                 }
                                                             },
                                                             { # 按钮
-                                                                'component': 'VBtn',
+                                                                'component': 'VRow',
                                                                 'props': {
-                                                                    'color': 'primary',
-                                                                    'block': True,
-                                                                    'size': 'large',
-                                                                    'onclick': onclick_js,
-                                                                    'id': 'localupload-install-button',
-                                                                    'elevation': 2,
-                                                                    'rounded': 'lg',
-                                                                    'class': 'text-none font-weight-bold'
+                                                                    'class': 'mt-2'
                                                                 },
                                                                 'content': [
-                                                                    {'component': 'span', 'text': '安装插件'}
+                                                                    {
+                                                                        'component': 'VCol',
+                                                                        'props': {'cols': 12, 'md': 6},
+                                                                        'content': [
+                                                                            {
+                                                                                'component': 'VBtn',
+                                                                                'props': {
+                                                                                    'color': 'primary',
+                                                                                    'block': True,
+                                                                                    'size': 'large',
+                                                                                    'onclick': onclick_js,
+                                                                                    'id': 'localupload-install-button',
+                                                                                    'elevation': 2,
+                                                                                    'rounded': 'lg',
+                                                                                    'class': 'text-none font-weight-bold'
+                                                                                },
+                                                                                'content': [
+                                                                                    {'component': 'span', 'text': '安装插件'}
+                                                                                ]
+                                                                            }
+                                                                        ]
+                                                                    },
+                                                                    {
+                                                                        'component': 'VCol',
+                                                                        'props': {'cols': 12, 'md': 6},
+                                                                        'content': [
+                                                                            {
+                                                                                'component': 'VBtn',
+                                                                                'props': {
+                                                                                    'color': 'info',
+                                                                                    'variant': 'outlined',
+                                                                                    'block': True,
+                                                                                    'size': 'large',
+                                                                                    'onclick': restore_onclick_js,
+                                                                                    'id': 'localupload-show-backup-button',
+                                                                                    'elevation': 0,
+                                                                                    'rounded': 'lg',
+                                                                                    'class': 'text-none font-weight-bold'
+                                                                                },
+                                                                                'content': [
+                                                                                    {'component': 'span', 'text': '从备份恢复'}
+                                                                                ]
+                                                                            }
+                                                                        ]
+                                                                    },
                                                                 ]
                                                             }
                                                         ]
@@ -1568,7 +2163,7 @@ class LocalPluginInstall(_PluginBase):
                                                                     },
                                                                     {
                                                                         'component': 'span',
-                                                                        'text': '请新打开设置页面保存一下以生效安装API'
+                                                                        'text': '请重新打开设置页面保存一下以生效安装API'
                                                                     }
                                                                 ]
                                                             }
@@ -1733,6 +2328,38 @@ class LocalPluginInstall(_PluginBase):
                                                                 'text': f'所有插件的备份文件将保存到此目录：{self.get_data_path() / "backups"}。请勿手动删除此目录下的文件，除非您确定不再需要这些备份。'
                                                             }
                                                         ]
+                                                    },
+                                                    {
+                                                        'component': 'VListItem',
+                                                        'props': {'lines': 'two'},
+                                                        'content': [
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {'class': 'd-flex align-items-start'},
+                                                                'content': [
+                                                                    {
+                                                                        'component': 'VIcon',
+                                                                        'props': {
+                                                                            'color': 'info',
+                                                                            'class': 'mt-1 mr-2'
+                                                                        },
+                                                                        'text': 'mdi-backup-restore'
+                                                                    },
+                                                                    {
+                                                                        'component': 'div',
+                                                                        'props': {'class': 'text-subtitle-1 font-weight-regular mb-1'},
+                                                                        'text': '恢复功能说明'
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                'component': 'div',
+                                                                'props': {
+                                                                    'class': 'text-body-2 ml-8'
+                                                                },
+                                                                'text': '点击“从备份恢复”可打开备份列表，列表会按插件名称分组显示历史备份 ZIP。展开对应插件后，选择需要的备份文件并点击“恢复”即可重新安装该版本插件。恢复时不会额外创建一次新备份，请确认所选版本无误后再执行。'
+                                                            }
+                                                        ]
                                                     }
                                                 ]
                                             }
@@ -1743,6 +2370,268 @@ class LocalPluginInstall(_PluginBase):
                         ]
                     }
                 ]
+            },
+            {
+                'component': 'div',
+                'props': {
+                    'id': 'localupload-backup-modal',
+                    'style': 'display:none;position:fixed;inset:0;z-index:3000;background:#3A354180;align-items:center;justify-content:center;padding:24px;'
+                },
+                'content': [
+                    {
+                        'component': 'div',
+                        'props': {
+                            'id': 'localupload-backup-modal-card',
+                            'style': 'width:min(720px,100%);height:min(70vh,640px);background:#ffffff;border:1px solid rgba(226,232,240,1);border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,.16);overflow:hidden;display:flex;flex-direction:column;position:relative;'
+                        },
+                        'content': [
+                            {
+                                'component': 'div',
+                                'props': {
+                                    'id': 'localupload-backup-modal-header',
+                                    'style': 'display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid rgba(128,128,128,.18);flex:0 0 auto;'
+                                },
+                                'content': [
+                                    {
+                                        'component': 'div',
+                                        'props': {
+                                            'id': 'localupload-backup-modal-title',
+                                            'style': 'font-size:18px;font-weight:700;color:#111827;display:flex;align-items:center;'
+                                        },
+                                        'content': [
+                                            {
+                                                'component': 'VIcon',
+                                                'props': {
+                                                    'color': '#16b1ff',
+                                                    'size': '20',
+                                                    'class': 'mr-2'
+                                                },
+                                                'text': 'mdi-folder-download'
+                                            },
+                                            {
+                                                'component': 'span',
+                                                'props': {
+                                                    'class': 'localupload-backup-modal-title-text'
+                                                },
+                                                'text': '选择备份并恢复安装'
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        'component': 'button',
+                                        'props': {
+                                            'id': 'localupload-backup-modal-close',
+                                            'type': 'button',
+                                            'onclick': "document.getElementById('localupload-backup-modal').style.display='none'",
+                                            'style': 'border:none;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#6b7280;padding:0 4px;'
+                                        },
+                                        'text': '×'
+                                    }
+                                ]
+                            },
+                            {
+                                'component': 'div',
+                                'props': {
+                                    'style': 'padding:18px 22px;overflow:hidden;flex:1;min-height:0;'
+                                },
+                                'content': [
+                                    {
+                                        'component': 'div',
+                                        'props': {
+                                            'id': 'localupload-backup-list-container',
+                                            'style': 'height:100%;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-ms-overflow-style:none;padding-right:2px;'
+                                        }
+                                    },
+                                    {
+                                        'component': 'style',
+                                        'text': '#localupload-backup-list-container::-webkit-scrollbar{width:0;height:0;display:none;}'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                'component': 'div',
+                'props': {
+                    'id': 'localupload-notice-modal',
+                    'style': 'display:none;position:fixed;inset:0;z-index:3001;background:#3A354180;align-items:center;justify-content:center;padding:24px;pointer-events:none;'
+                },
+                'content': [
+                    {
+                        'component': 'div',
+                        'props': {
+                            'id': 'localupload-notice-card',
+                            'style': 'min-width:320px;max-width:min(440px,100%);background:#ffffff;border:1px solid rgba(226,232,240,1);border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,.18);padding:22px 22px 18px 22px;pointer-events:auto;'
+                        },
+                        'content': [
+                            {
+                                'component': 'div',
+                                'props': {
+                                    'style': 'display:flex;align-items:flex-start;gap:14px;'
+                                },
+                                'content': [
+                                    {
+                                        'component': 'div',
+                                        'props': {
+                                            'style': 'display:flex;align-items:center;justify-content:center;flex:0 0 auto;width:28px;height:28px;color:#ef4444;font-size:20px;font-weight:700;'
+                                        },
+                                        'content': [
+                                            {
+                                                'component': 'VIcon',
+                                                'props': {
+                                                    'color': '#ef4444',
+                                                    'size': '22'
+                                                },
+                                                'text': 'mdi-alert'
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        'component': 'div',
+                                        'props': {
+                                            'style': 'flex:1;min-width:0;'
+                                        },
+                                        'content': [
+                                            {
+                                                'component': 'div',
+                                                'props': {
+                                                    'id': 'localupload-notice-title',
+                                                    'style': 'font-size:16px;font-weight:700;color:#1f2937;margin-bottom:8px;'
+                                                },
+                                                'text': '错误提示：'
+                                            },
+                                            {
+                                                'component': 'div',
+                                                'props': {
+                                                    'id': 'localupload-notice-text',
+                                                    'style': 'font-size:14px;line-height:1.6;color:#4b5563;word-break:break-word;'
+                                                },
+                                                'text': ''
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                'component': 'div',
+                                'props': {
+                                    'style': 'display:flex;justify-content:flex-end;margin-top:18px;'
+                                },
+                                'content': [
+                                    {
+                                        'component': 'button',
+                                        'props': {
+                                            'id': 'localupload-notice-ok',
+                                            'type': 'button',
+                                            'onclick': "document.getElementById('localupload-notice-modal').style.display='none'",
+                                            'style': 'border:none;border-radius:10px;padding:7px 16px;background:#16b1ff;color:#fff;font-size:13px;line-height:1.2;font-weight:700;cursor:pointer;'
+                                        },
+                                        'text': '知道了'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                'component': 'div',
+                'props': {
+                    'id': 'localupload-confirm-modal',
+                    'style': 'display:none;position:fixed;inset:0;z-index:3002;background:#3A354180;align-items:center;justify-content:center;padding:24px;pointer-events:none;'
+                },
+                'content': [
+                    {
+                        'component': 'div',
+                        'props': {
+                            'id': 'localupload-confirm-card',
+                            'style': 'min-width:320px;max-width:min(460px,100%);background:#ffffff;border:1px solid rgba(226,232,240,1);border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,.18);padding:22px 22px 18px 22px;pointer-events:auto;'
+                        },
+                        'content': [
+                            {
+                                'component': 'div',
+                                'props': {
+                                    'style': 'display:flex;align-items:flex-start;gap:14px;'
+                                },
+                                'content': [
+                                    {
+                                        'component': 'div',
+                                        'props': {
+                                            'id': 'localupload-confirm-icon-wrap',
+                                            'style': 'display:flex;align-items:center;justify-content:center;flex:0 0 auto;width:28px;height:28px;color:#ef4444;font-size:20px;font-weight:700;'
+                                        },
+                                        'content': [
+                                            {
+                                                'component': 'VIcon',
+                                                'props': {
+                                                    'color': '#ef4444',
+                                                    'size': '22'
+                                                },
+                                                'text': 'mdi-alert'
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        'component': 'div',
+                                        'props': {
+                                            'style': 'flex:1;min-width:0;'
+                                        },
+                                        'content': [
+                                            {
+                                                'component': 'div',
+                                                'props': {
+                                                    'id': 'localupload-confirm-title',
+                                                    'style': 'font-size:16px;font-weight:700;color:#1f2937;margin-bottom:8px;'
+                                                },
+                                                'text': '请确认操作'
+                                            },
+                                            {
+                                                'component': 'div',
+                                                'props': {
+                                                    'id': 'localupload-confirm-text',
+                                                    'style': 'font-size:14px;line-height:1.6;color:#4b5563;word-break:break-word;'
+                                                },
+                                                'text': ''
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                'component': 'div',
+                                'props': {
+                                    'style': 'display:flex;justify-content:flex-end;gap:10px;margin-top:18px;'
+                                },
+                                'content': [
+                                    {
+                                        'component': 'button',
+                                        'props': {
+                                            'id': 'localupload-confirm-cancel',
+                                            'type': 'button',
+                                            'style': 'border:1px solid rgba(148,163,184,.4);border-radius:10px;padding:7px 16px;background:#fff;color:#475569;font-size:13px;line-height:1.2;font-weight:700;cursor:pointer;'
+                                        },
+                                        'text': '取消'
+                                    },
+                                    {
+                                        'component': 'button',
+                                        'props': {
+                                            'id': 'localupload-confirm-ok',
+                                            'type': 'button',
+                                            'style': 'border:none;border-radius:10px;padding:7px 16px;background:#ef4444;color:#fff;font-size:13px;line-height:1.2;font-weight:700;cursor:pointer;'
+                                        },
+                                        'text': '确认'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                'component': 'style',
+                'text': '.v-theme--dark #localupload-backup-modal,[data-theme="dark"] #localupload-backup-modal,.v-theme--dark #localupload-notice-modal,[data-theme="dark"] #localupload-notice-modal,.v-theme--dark #localupload-confirm-modal,[data-theme="dark"] #localupload-confirm-modal{background:rgba(15,23,42,.62) !important;}.v-theme--dark #localupload-backup-modal-card,[data-theme="dark"] #localupload-backup-modal-card,.v-theme--dark #localupload-notice-card,[data-theme="dark"] #localupload-notice-card,.v-theme--dark #localupload-confirm-card,[data-theme="dark"] #localupload-confirm-card{background:#111827 !important;border-color:rgba(71,85,105,.55) !important;box-shadow:0 18px 42px rgba(0,0,0,.45) !important;}.v-theme--dark #localupload-backup-modal-header,[data-theme="dark"] #localupload-backup-modal-header{border-bottom-color:rgba(71,85,105,.55) !important;}.v-theme--dark #localupload-backup-modal-title,[data-theme="dark"] #localupload-backup-modal-title,.v-theme--dark #localupload-notice-title,[data-theme="dark"] #localupload-notice-title,.v-theme--dark #localupload-confirm-title,[data-theme="dark"] #localupload-confirm-title{color:#f9fafb !important;}.v-theme--dark #localupload-backup-modal-close,[data-theme="dark"] #localupload-backup-modal-close{color:#cbd5e1 !important;}.v-theme--dark .localupload-backup-group,[data-theme="dark"] .localupload-backup-group{background:rgba(37,99,235,.12) !important;border-color:rgba(71,85,105,.55) !important;}.v-theme--dark .localupload-backup-summary,[data-theme="dark"] .localupload-backup-summary{color:#f9fafb !important;}.v-theme--dark .localupload-backup-summary-count,[data-theme="dark"] .localupload-backup-summary-count,.v-theme--dark .localupload-backup-meta,[data-theme="dark"] .localupload-backup-meta{color:#94a3b8 !important;}.v-theme--dark .localupload-backup-row,[data-theme="dark"] .localupload-backup-row{border-top-color:rgba(71,85,105,.4) !important;color:#e5e7eb !important;}.v-theme--dark .localupload-backup-group-body,[data-theme="dark"] .localupload-backup-group-body{color:#e5e7eb !important;}.v-theme--dark .localupload-delete-backup-btn,[data-theme="dark"] .localupload-delete-backup-btn{background:#1f2937 !important;color:#f87171 !important;border-color:rgba(248,113,113,.4) !important;}.v-theme--dark .localupload-restore-btn,[data-theme="dark"] .localupload-restore-btn{background:#0ea5e9 !important;color:#ffffff !important;}.v-theme--dark .localupload-backup-latest-tag,[data-theme="dark"] .localupload-backup-latest-tag{background:rgba(34,197,94,.18) !important;color:#86efac !important;}.v-theme--dark #localupload-notice-text,[data-theme="dark"] #localupload-notice-text,.v-theme--dark #localupload-confirm-text,[data-theme="dark"] #localupload-confirm-text{color:#cbd5e1 !important;}.v-theme--dark #localupload-confirm-cancel,[data-theme="dark"] #localupload-confirm-cancel{background:#1f2937 !important;color:#e5e7eb !important;border-color:rgba(148,163,184,.3) !important;}.v-theme--dark #localupload-notice-ok,[data-theme="dark"] #localupload-notice-ok{box-shadow:none !important;}@media (prefers-color-scheme: dark){#localupload-backup-modal,#localupload-notice-modal,#localupload-confirm-modal{background:rgba(15,23,42,.62) !important;}#localupload-backup-modal-card,#localupload-notice-card,#localupload-confirm-card{background:#111827 !important;border-color:rgba(71,85,105,.55) !important;box-shadow:0 18px 42px rgba(0,0,0,.45) !important;}#localupload-backup-modal-header{border-bottom-color:rgba(71,85,105,.55) !important;}#localupload-backup-modal-title,#localupload-notice-title,#localupload-confirm-title{color:#f9fafb !important;}#localupload-backup-modal-close{color:#cbd5e1 !important;} .localupload-backup-group{background:rgba(37,99,235,.12) !important;border-color:rgba(71,85,105,.55) !important;} .localupload-backup-summary{color:#f9fafb !important;} .localupload-backup-summary-count,.localupload-backup-meta{color:#94a3b8 !important;} .localupload-backup-row{border-top-color:rgba(71,85,105,.4) !important;color:#e5e7eb !important;} .localupload-backup-group-body{color:#e5e7eb !important;} .localupload-delete-backup-btn{background:#1f2937 !important;color:#f87171 !important;border-color:rgba(248,113,113,.4) !important;} .localupload-restore-btn{background:#0ea5e9 !important;color:#ffffff !important;} .localupload-backup-latest-tag{background:rgba(34,197,94,.18) !important;color:#86efac !important;}#localupload-notice-text,#localupload-confirm-text{color:#cbd5e1 !important;}#localupload-confirm-cancel{background:#1f2937 !important;color:#e5e7eb !important;border-color:rgba(148,163,184,.3) !important;}#localupload-notice-ok{box-shadow:none !important;}'
             }
         ]
         return page_structure
