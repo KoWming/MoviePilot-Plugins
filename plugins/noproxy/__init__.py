@@ -18,7 +18,7 @@ class NoProxy(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/noproxy.png"
     # 插件版本
-    plugin_version = "1.1.0"
+    plugin_version = "1.1.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -258,7 +258,7 @@ class NoProxy(_PluginBase):
                     return session.request(method, url, **request_kwargs)
                 except requests.exceptions.RequestException as e:
                     error_msg = str(e) if str(e) else f"未知网络错误 (URL: {url}, Method: {method.upper()})"
-                    logger.debug(f"直连模式: 同步直连失败: {error_msg}")
+                    cls._log_debug(f"直连模式: 同步直连失败: {error_msg}")
 
                     proxy_config = cls._get_sync_proxy_config(instance)
                     cls._log_debug(f"直连模式: 同步兼容模式代理配置={proxy_config}")
@@ -274,7 +274,7 @@ class NoProxy(_PluginBase):
                             return compat_session.request(method, url, **compat_kwargs)
                         except requests.exceptions.RequestException as compat_err:
                             compat_error_msg = str(compat_err) if str(compat_err) else f"未知网络错误 (URL: {url}, Method: {method.upper()})"
-                            logger.debug(f"直连模式: 同步兼容模式回退失败: {compat_error_msg}")
+                            cls._log_debug(f"直连模式: 同步兼容模式回退失败: {compat_error_msg}")
                             if raise_exception:
                                 raise compat_err
                             return None
@@ -318,7 +318,7 @@ class NoProxy(_PluginBase):
                             return await make_request_func(tmp_client, method, url, raise_exception, **kwargs)
                     except httpx.RequestError as e:
                         error_msg = str(e) if str(e) else f"未知网络错误 (URL: {url}, Method: {method.upper()})"
-                        logger.debug(f"直连模式: 异步直连失败: {error_msg}")
+                        cls._log_debug(f"直连模式: 异步直连失败: {error_msg}")
 
                         proxy_config = cls._get_async_proxy_config(instance)
                         cls._log_debug(f"直连模式: 异步兼容模式代理配置={proxy_config}")
@@ -340,7 +340,7 @@ class NoProxy(_PluginBase):
                                     return await make_request_func(compat_client, method, url, raise_exception, **kwargs)
                             except httpx.RequestError as compat_err:
                                 compat_error_msg = str(compat_err) if str(compat_err) else f"未知网络错误 (URL: {url}, Method: {method.upper()})"
-                                logger.debug(f"直连模式: 异步兼容模式回退失败: {compat_error_msg}")
+                                cls._log_debug(f"直连模式: 异步兼容模式回退失败: {compat_error_msg}")
                                 if raise_exception:
                                     raise compat_err
                                 return None
@@ -357,6 +357,12 @@ class NoProxy(_PluginBase):
                     logger.warning("直连模式: 未找到 _make_request 方法，回退原始流程")
 
             return await cls._original_async_request(instance, method, url, raise_exception, **kwargs)
+
+        try:
+            patched_sync.__code__ = patched_sync.__code__.replace(co_filename="app/noproxy_patch.py")
+            patched_async.__code__ = patched_async.__code__.replace(co_filename="app/noproxy_patch.py")
+        except BaseException:
+            pass
 
         RequestUtils.request = patched_sync
         AsyncRequestUtils.request = patched_async
