@@ -127,5 +127,18 @@
             "v1.0.1": "优化了用户界面。",
             "v1.0.0": "初始版本，支持 PTD 备份解析、标准站点匹配、批量导入/更新及移动端界面适配。"
         }
+    },
+    "GuangYaDisk": {
+        "name": "Vue-光鸭云盘储存",
+        "description": "使存储支持光鸭云盘。",
+        "labels": "存储,工具",
+        "version": "1.0.0",
+        "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/GuangyaDisk.png",
+        "author": "KoWming",
+        "level": 1,
+        "release": true,
+        "history": {
+            "v1.0.0": "初始版本，支持光鸭云盘扫码登录、文件管理、整理刮削等操作。"
+        }
     }
 }
