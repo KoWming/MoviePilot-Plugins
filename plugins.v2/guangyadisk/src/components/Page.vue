@@ -336,7 +336,6 @@ const saving = ref(false)
 const qrLoading = ref(false)
 const qrRendering = ref(false)
 const polling = ref(false)
-const qrCode = ref('')
 const qrCodeImage = ref('')
 const userCode = ref('')
 const verificationUri = ref('')
@@ -345,8 +344,13 @@ const qrCountdown = ref(0)
 const privacyMode = ref(false)
 const isDarkMode = ref(false)
 const message = reactive({ show: false, type: 'info', text: '' })
+let qrFetchRequestSeq = 0
+let qrRenderRequestSeq = 0
+let pollSessionSeq = 0
+let pollRequestSeq = 0
+let statusRefreshRequestSeq = 0
 
-const hasPendingQr = computed(() => Boolean(qrCode.value || userCode.value || verificationUri.value))
+const hasPendingQr = computed(() => Boolean(userCode.value || verificationUri.value || verificationUriComplete.value))
 const shouldShowQrMeta = computed(() => !status.logged_in && (hasPendingQr.value || qrLoading.value || qrRendering.value || qrCountdown.value > 0))
 const qrCodeSrc = computed(() => {
   if (qrCodeImage.value) {
@@ -417,16 +421,17 @@ function formatMemberExpireTime(timestamp) {
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}`
 }
 
-async function buildQrCodeImage() {
-  const qrText = verificationUriComplete.value || verificationUri.value || userCode.value
+async function buildQrCodeImage(qrTextOverride = '') {
+  const qrText = qrTextOverride || verificationUriComplete.value || verificationUri.value || userCode.value
   if (!qrText) {
     qrCodeImage.value = ''
     qrRendering.value = false
     return
   }
+  const renderSeq = ++qrRenderRequestSeq
   qrRendering.value = true
   try {
-    qrCodeImage.value = await QRCode.toDataURL(qrText, {
+    const renderedImage = await QRCode.toDataURL(qrText, {
       width: 180,
       margin: 2,
       errorCorrectionLevel: 'M',
@@ -435,16 +440,23 @@ async function buildQrCodeImage() {
         light: isDarkMode.value ? '#d1d5db' : '#ffffff',
       },
     })
+    if (renderSeq !== qrRenderRequestSeq) {
+      return
+    }
+    qrCodeImage.value = renderedImage
   } catch (error) {
-    qrCodeImage.value = ''
+    if (renderSeq === qrRenderRequestSeq) {
+      qrCodeImage.value = ''
+    }
     console.error('生成二维码失败', error)
   } finally {
-    qrRendering.value = false
+    if (renderSeq === qrRenderRequestSeq) {
+      qrRendering.value = false
+    }
   }
 }
 
 function resetQrDisplayState() {
-  qrCode.value = ''
   qrCodeImage.value = ''
   userCode.value = ''
   verificationUri.value = ''
@@ -512,7 +524,6 @@ async function syncQrStateFromConfig(data = {}) {
   userCode.value = data.user_code || ''
   verificationUri.value = data.verification_uri || ''
   verificationUriComplete.value = data.verification_uri_complete || ''
-  qrCode.value = ''
   updateQrCountdown(data.qr_expires_in || 0)
 
   if (verificationUriComplete.value || verificationUri.value || userCode.value) {
@@ -529,6 +540,7 @@ async function syncQrStateFromConfig(data = {}) {
 }
 
 async function refreshStatus(showToast = true) {
+  const requestSeq = ++statusRefreshRequestSeq
   loading.value = true
   try {
     let data
@@ -537,6 +549,9 @@ async function refreshStatus(showToast = true) {
     } else {
       const response = await fetch(pluginUrl('/config'))
       data = await response.json()
+    }
+    if (requestSeq !== statusRefreshRequestSeq) {
+      return
     }
     Object.assign(status, {
       enabled: Boolean(data.enabled),
@@ -561,21 +576,31 @@ async function refreshStatus(showToast = true) {
       file_count: Number(data.file_count || 0),
     })
     await syncQrStateFromConfig(data)
-    if (!status.logged_in && !qrLoading.value) {
-      resetQrDisplayState()
-      await fetchQrCode()
+    if (requestSeq !== statusRefreshRequestSeq) {
+      return
+    }
+    if (!status.logged_in && !qrLoading.value && !hasPendingQr.value) {
+      await fetchQrCode({ showSuccessMessage: false })
+      if (requestSeq !== statusRefreshRequestSeq) {
+        return
+      }
     }
     if (showToast) {
       setMessage('success', '状态已刷新')
     }
   } catch (error) {
-    setMessage('error', `获取状态失败：${error.message || error}`)
+    if (requestSeq === statusRefreshRequestSeq) {
+      setMessage('error', `获取状态失败：${error.message || error}`)
+    }
   } finally {
-    loading.value = false
+    if (requestSeq === statusRefreshRequestSeq) {
+      loading.value = false
+    }
   }
 }
 
 function stopPolling() {
+  pollSessionSeq += 1
   if (pollTimer) {
     clearInterval(pollTimer)
     pollTimer = null
@@ -595,7 +620,7 @@ function startQrCountdown() {
   stopQrCountdown()
   if (qrCountdown.value <= 0) {
     if (!status.logged_in && !qrLoading.value) {
-      fetchQrCode()
+      fetchQrCode({ showSuccessMessage: false })
     }
     return
   }
@@ -606,47 +631,70 @@ function startQrCountdown() {
     }
     stopQrCountdown()
     if (!status.logged_in && !qrLoading.value) {
-      fetchQrCode()
+      fetchQrCode({ showSuccessMessage: false })
     }
   }, 1000)
 }
 
-async function fetchQrCode() {
+async function fetchQrCode(options = {}) {
+  const { showSuccessMessage = true } = options
+  const requestSeq = ++qrFetchRequestSeq
   qrLoading.value = true
   try {
     stopPolling()
     stopQrCountdown()
     resetQrDisplayState()
     const result = await request('/login/qrcode')
+    if (requestSeq !== qrFetchRequestSeq) {
+      return
+    }
     if (!result.success) {
       throw new Error(result.message || '获取二维码失败')
     }
-    qrCode.value = result.qr_code || ''
-    userCode.value = result.user_code || ''
-    verificationUri.value = result.verification_uri_complete || result.verification_uri || ''
-    verificationUriComplete.value = result.verification_uri_complete || ''
+    const nextUserCode = result.user_code || ''
+    const nextVerificationUriComplete = result.verification_uri_complete || ''
+    const nextVerificationUri = result.verification_uri_complete || result.verification_uri || ''
+    const nextQrText = nextVerificationUriComplete || nextVerificationUri || nextUserCode
+
+    userCode.value = nextUserCode
+    verificationUri.value = nextVerificationUri
+    verificationUriComplete.value = nextVerificationUriComplete
     qrCodeImage.value = ''
     updateQrCountdown(result.expires_in || 0)
-    await buildQrCodeImage()
+    await buildQrCodeImage(nextQrText)
+    if (requestSeq !== qrFetchRequestSeq) {
+      return
+    }
     status.device_id = result.device_id || status.device_id
     startQrCountdown()
-    setMessage('success', '二维码已生成，请使用光鸭云盘客户端扫码')
+    if (showSuccessMessage) {
+      setMessage('success', '二维码已生成，请使用光鸭云盘客户端扫码')
+    }
     startPolling()
   } catch (error) {
-    qrRendering.value = false
-    setMessage('error', `获取二维码失败：${error.message || error}`)
+    if (requestSeq === qrFetchRequestSeq) {
+      qrRendering.value = false
+      setMessage('error', `获取二维码失败：${error.message || error}`)
+    }
   } finally {
-    qrLoading.value = false
+    if (requestSeq === qrFetchRequestSeq) {
+      qrLoading.value = false
+    }
   }
 }
 
 async function pollLoginOnce() {
-  if (!hasPendingQr.value) {
+  if (!hasPendingQr.value || polling.value) {
     return
   }
+  const currentPollSessionSeq = pollSessionSeq
+  const currentPollRequestSeq = ++pollRequestSeq
   polling.value = true
   try {
     const result = await request('/login/poll')
+    if (currentPollSessionSeq !== pollSessionSeq || currentPollRequestSeq !== pollRequestSeq) {
+      return
+    }
     if (result.success) {
       stopPolling()
       // 登录成功后自动启用插件
@@ -655,7 +703,13 @@ async function pollLoginOnce() {
         method: 'POST',
         body: JSON.stringify({ enabled: true }),
       })
+      if (currentPollSessionSeq !== pollSessionSeq || currentPollRequestSeq !== pollRequestSeq) {
+        return
+      }
       await refreshStatus(false)
+      if (currentPollSessionSeq !== pollSessionSeq || currentPollRequestSeq !== pollRequestSeq) {
+        return
+      }
       resetQrDisplayState()
       stopQrCountdown()
       setMessage('success', result.message || '登录成功，插件已自动启用')
@@ -665,15 +719,20 @@ async function pollLoginOnce() {
       setMessage('error', result.message || '登录失败')
     }
   } catch (error) {
-    setMessage('error', `轮询失败：${error.message || error}`)
-    stopPolling()
+    if (currentPollSessionSeq === pollSessionSeq && currentPollRequestSeq === pollRequestSeq) {
+      setMessage('error', `轮询失败：${error.message || error}`)
+      stopPolling()
+    }
   } finally {
-    polling.value = false
+    if (currentPollSessionSeq === pollSessionSeq && currentPollRequestSeq === pollRequestSeq) {
+      polling.value = false
+    }
   }
 }
 
 function startPolling() {
   stopPolling()
+  pollSessionSeq += 1
   const interval = Math.max(Number(status.poll_interval || 5), 2) * 1000
   pollTimer = setInterval(() => {
     pollLoginOnce()
@@ -691,9 +750,6 @@ async function logout() {
     resetQrDisplayState()
     stopQrCountdown()
     await refreshStatus(false)
-    if (!status.logged_in) {
-      await fetchQrCode()
-    }
     setMessage('success', result.message || '已退出登录')
   } catch (error) {
     setMessage('error', `退出失败：${error.message || error}`)
@@ -710,9 +766,6 @@ onMounted(async () => {
   }
   detectDarkMode()
   await refreshStatus(false)
-  if (!status.logged_in) {
-    await fetchQrCode()
-  }
 })
 
 onBeforeUnmount(() => {

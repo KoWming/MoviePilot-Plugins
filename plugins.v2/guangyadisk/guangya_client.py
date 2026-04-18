@@ -23,6 +23,18 @@ class GuangYaClient:
     API_BASE_URL = "https://api.guangyapan.com"
     DEFAULT_CLIENT_ID = "aMe-8VSlkrbQXpUR"
 
+    @staticmethod
+    def _mask_token(token: Optional[str], keep: int = 10) -> str:
+        """
+        脱敏显示 token。
+        """
+        if not token:
+            return ""
+        token = str(token)
+        if len(token) <= keep * 2:
+            return token
+        return f"{token[:keep]}...{token[-keep:]}"
+
     def __init__(
         self,
         access_token: str = None,
@@ -39,12 +51,27 @@ class GuangYaClient:
         self._client_id = (client_id or self.DEFAULT_CLIENT_ID).strip() or self.DEFAULT_CLIENT_ID
         self._device_id = self._normalize_device_id(device_id) or self._generate_device_id()
         self._on_token_refresh = on_token_refresh
+        self._last_refresh_attempted = False
+        self._last_refresh_invalid = False
+        self._last_refresh_result: Dict[str, Any] = {}
         self._session = requests.Session()
         self._session.headers.update(self._build_common_headers())
 
     @property
     def device_id(self) -> str:
         return self._device_id
+
+    @property
+    def last_refresh_attempted(self) -> bool:
+        return self._last_refresh_attempted
+
+    @property
+    def last_refresh_invalid(self) -> bool:
+        return self._last_refresh_invalid
+
+    @property
+    def last_refresh_result(self) -> Dict[str, Any]:
+        return self._last_refresh_result
 
     @staticmethod
     def _generate_device_id() -> str:
@@ -90,6 +117,31 @@ class GuangYaClient:
             "X-Sdk-Version": "9.0.2",
         }
 
+    @staticmethod
+    def _is_auth_invalid_result(result: Dict[str, Any]) -> bool:
+        if not isinstance(result, dict):
+            return False
+        combined = " ".join(
+            [
+                str(result.get("error") or ""),
+                str(result.get("msg") or ""),
+                str(result.get("error_description") or ""),
+                str(result),
+            ]
+        )
+        keywords = [
+            "unauthenticated",
+            "无效token",
+            "authorize failed",
+            "认证失败",
+            "invalid_grant",
+            "invalid token",
+            "invalid_token",
+            "token expiry",
+        ]
+        combined_lower = combined.lower()
+        return any(keyword.lower() in combined_lower for keyword in keywords)
+
     def _get_auth_headers(self, use_access_token: bool = True) -> Dict[str, str]:
         """
         获取认证头。
@@ -125,6 +177,16 @@ class GuangYaClient:
         if need_auth and self._access_token:
             req_headers.update(self._get_auth_headers())
 
+        if need_auth:
+            logger.debug(
+                "【光鸭云盘】发起请求: %s %s, device_id=%s, access_token=%s, refresh_token=%s",
+                method.upper(),
+                url,
+                self._device_id,
+                self._mask_token(self._access_token),
+                self._mask_token(self._refresh_token),
+            )
+
         try:
             if method.upper() == "GET":
                 response = self._session.get(url, headers=req_headers, params=data, timeout=timeout)
@@ -137,7 +199,7 @@ class GuangYaClient:
                 return {"msg": "success", "code": 0}
             return response.json()
         except requests.exceptions.HTTPError as err:
-            status_code = err.response.status_code if err.response else None
+            status_code = err.response.status_code if err.response is not None else None
             if treat_http_error_as_response and err.response is not None:
                 try:
                     return err.response.json()
@@ -148,7 +210,12 @@ class GuangYaClient:
                         "error": err.response.text[:500] if err.response.text else str(err),
                     }
             if status_code == 401 and retry_on_401 and need_auth:
-                logger.info("【光鸭云盘】Token 失效，尝试刷新")
+                logger.info(
+                    "【光鸭云盘】Token 失效，尝试刷新: access_token=%s, refresh_token=%s, device_id=%s",
+                    self._mask_token(self._access_token),
+                    self._mask_token(self._refresh_token),
+                    self._device_id,
+                )
                 if self.refresh_access_token():
                     return self._request(
                         method=method,
@@ -160,7 +227,7 @@ class GuangYaClient:
                         treat_http_error_as_response=treat_http_error_as_response,
                         timeout=timeout,
                     )
-            detail = f"{status_code} {err.response.reason}" if err.response else str(err)
+            detail = f"{status_code} {err.response.reason}" if err.response is not None else str(err)
             try:
                 if err.response is not None and err.response.text:
                     detail = f"{detail} - {err.response.text[:500]}"
@@ -172,7 +239,7 @@ class GuangYaClient:
             logger.error(f"【光鸭云盘】请求失败: {url} - {err}")
             return {"msg": "error", "code": -1, "error": str(err)}
 
-    def get_device_code(self, qr_path: str = None) -> Optional[Dict[str, Any]]:
+    def get_device_code(self) -> Optional[Dict[str, Any]]:
         """
         获取设备码与二维码。
         """
@@ -187,20 +254,6 @@ class GuangYaClient:
         )
         if result.get("error"):
             return None
-
-        if qr_path:
-            qr_url = result.get("qr_code")
-            try:
-                qr_dir = os.path.dirname(qr_path)
-                if qr_dir and not os.path.exists(qr_dir):
-                    os.makedirs(qr_dir)
-                if qr_url:
-                    response = requests.get(qr_url, timeout=30)
-                    response.raise_for_status()
-                    with open(qr_path, "wb") as file_obj:
-                        file_obj.write(response.content)
-            except Exception as err:
-                logger.warning(f"【光鸭云盘】下载二维码失败: {err}")
         return result
 
     def poll_device_code(self, device_code: str) -> Optional[Dict[str, Any]]:
@@ -230,8 +283,16 @@ class GuangYaClient:
         """
         刷新访问令牌。
         """
+        self._last_refresh_attempted = True
+        self._last_refresh_invalid = False
+        self._last_refresh_result = {}
         if not self._refresh_token:
+            self._last_refresh_invalid = True
+            self._last_refresh_result = {"error": "missing_refresh_token", "msg": "refresh_token 为空"}
+            logger.warning("【光鸭云盘】刷新失败：refresh_token 为空")
             return False
+        old_access_token = self._access_token
+        old_refresh_token = self._refresh_token
         result = self._request(
             method="POST",
             url=f"{self.ACCOUNT_BASE_URL}/v1/auth/token",
@@ -242,15 +303,32 @@ class GuangYaClient:
             },
             need_auth=False,
         )
+        self._last_refresh_result = result if isinstance(result, dict) else {"result": result}
         if result.get("access_token"):
             self._access_token = result.get("access_token") or ""
             self._refresh_token = result.get("refresh_token") or self._refresh_token
+            self._last_refresh_invalid = False
+            logger.info(
+                "【光鸭云盘】Token 刷新成功: access_token %s -> %s, refresh_token %s -> %s",
+                self._mask_token(old_access_token),
+                self._mask_token(self._access_token),
+                self._mask_token(old_refresh_token),
+                self._mask_token(self._refresh_token),
+            )
             if self._on_token_refresh:
                 try:
                     self._on_token_refresh(self._access_token, self._refresh_token)
                 except Exception as err:
                     logger.error(f"【光鸭云盘】Token 刷新回调失败: {err}")
             return True
+        self._last_refresh_invalid = self._is_auth_invalid_result(result)
+        logger.warning(
+            "【光鸭云盘】Token 刷新失败: device_id=%s, refresh_token=%s, auth_invalid=%s, response=%s",
+            self._device_id,
+            self._mask_token(old_refresh_token),
+            self._last_refresh_invalid,
+            result,
+        )
         return False
 
     def get_user_info(self) -> Dict[str, Any]:

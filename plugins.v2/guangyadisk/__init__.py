@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-import base64
 import os
 import time
 import uuid
@@ -25,7 +24,7 @@ class GuangYaDisk(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/GuangyaDisk.png"
     # 插件版本
-    plugin_version = "1.0.0"
+    plugin_version = "1.0.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -58,13 +57,54 @@ class GuangYaDisk(_PluginBase):
 
     script_path = os.path.abspath(__file__)
     script_dir = os.path.dirname(script_path)
-    qr_path = os.path.join(script_dir, "guangyadisk_qr.png")
+
+    @staticmethod
+    def _mask_token(token: str, keep: int = 10) -> str:
+        """
+        脱敏显示 token。
+        """
+        if not token:
+            return ""
+        token = str(token)
+        if len(token) <= keep * 2:
+            return token
+        return f"{token[:keep]}...{token[-keep:]}"
 
     def __init__(self):
         """
         初始化插件。
         """
         super().__init__()
+
+    def _clear_auth_state(self, reason: str = ""):
+        """
+        清理认证状态并持久化。
+        """
+        if reason:
+            logger.warning(f"【光鸭云盘】清理登录状态: {reason}")
+        self._access_token = ""
+        self._refresh_token = ""
+        self._device_code = ""
+        self._user_code = ""
+        self._verification_uri = ""
+        self._qr_expires_at = 0
+        if self._client:
+            self._client._access_token = ""
+            self._client._refresh_token = ""
+        self.update_config(
+            {
+                "enabled": self._enabled,
+                "access_token": "",
+                "refresh_token": "",
+                "client_id": self._client_id,
+                "device_id": self._device_id,
+                "poll_interval": self._poll_interval,
+                "page_size": self._page_size,
+                "order_by": self._order_by,
+                "sort_type": self._sort_type,
+                "permanently_delete": self._permanently_delete,
+            }
+        )
 
     def init_plugin(self, config: dict = None):
         """
@@ -98,26 +138,46 @@ class GuangYaDisk(_PluginBase):
         self._poll_interval = int(config.get("poll_interval") or 5)
         self._permanently_delete = bool(config.get("permanently_delete"))
 
+        logger.info(
+            "【光鸭云盘】初始化插件: enabled=%s, device_id=%s, access_token=%s, refresh_token=%s",
+            self._enabled,
+            self._device_id,
+            self._mask_token(self._access_token),
+            self._mask_token(self._refresh_token),
+        )
+
         def on_token_refresh(access_token: str, refresh_token: str):
             """
             token 刷新后自动持久化。
             """
+            logger.info(
+                "【光鸭云盘】收到 Token 刷新回调: access_token=%s, refresh_token=%s, old_access_token=%s, old_refresh_token=%s",
+                self._mask_token(access_token),
+                self._mask_token(refresh_token),
+                self._mask_token(self._access_token),
+                self._mask_token(self._refresh_token),
+            )
             self._access_token = access_token
             self._refresh_token = refresh_token
-            self.update_config(
-                {
-                    "enabled": self._enabled,
-                    "access_token": access_token,
-                    "refresh_token": refresh_token,
-                    "client_id": self._client_id,
-                    "device_id": self._device_id,
-                    "poll_interval": self._poll_interval,
-                    "page_size": self._page_size,
-                    "order_by": self._order_by,
-                    "sort_type": self._sort_type,
-                    "permanently_delete": self._permanently_delete,
-                }
+            config_payload = {
+                "enabled": self._enabled,
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "client_id": self._client_id,
+                "device_id": self._device_id,
+                "poll_interval": self._poll_interval,
+                "page_size": self._page_size,
+                "order_by": self._order_by,
+                "sort_type": self._sort_type,
+                "permanently_delete": self._permanently_delete,
+            }
+            logger.info(
+                "【光鸭云盘】准备回写配置: device_id=%s, access_token=%s, refresh_token=%s",
+                self._device_id,
+                self._mask_token(access_token),
+                self._mask_token(refresh_token),
             )
+            self.update_config(config_payload)
             logger.info("【光鸭云盘】Token 已自动保存")
 
         try:
@@ -242,6 +302,24 @@ class GuangYaDisk(_PluginBase):
                 except (TypeError, ValueError):
                     return 0
 
+        def _is_auth_invalid(result: Dict[str, Any]) -> bool:
+            if not isinstance(result, dict):
+                return False
+            error_text = str(result.get("error") or "")
+            msg_text = str(result.get("msg") or "")
+            detail_text = str(result)
+            return any(
+                keyword in f"{error_text} {msg_text} {detail_text}"
+                for keyword in ["unauthenticated", "无效token", "Authorize failed", "认证失败"]
+            )
+
+        def _should_clear_auth(result: Dict[str, Any]) -> bool:
+            if not _is_auth_invalid(result):
+                return False
+            if not self._client:
+                return False
+            return bool(self._client.last_refresh_attempted and self._client.last_refresh_invalid)
+
         config = {
             "enabled": self._enabled,
             "access_token": self._access_token,
@@ -264,6 +342,34 @@ class GuangYaDisk(_PluginBase):
             try:
                 # 获取用户信息
                 user_info = self._client.get_user_info() or {}
+                if _should_clear_auth(user_info):
+                    self._clear_auth_state(
+                        f"access_token/refresh_token 已失效，需要重新扫码登录: {self._client.last_refresh_result}"
+                    )
+                    config["access_token"] = ""
+                    config["refresh_token"] = ""
+                    config["device_id"] = self._device_id
+                    config["user_name"] = ""
+                    config["user_id"] = ""
+                    config["vip_level"] = ""
+                    config["member_expire_time"] = 0
+                    config["total_space"] = 0
+                    config["used_space"] = 0
+                    config["free_space"] = 0
+                    config["file_count"] = 0
+                    return config
+                if _is_auth_invalid(user_info):
+                    logger.warning(f"【光鸭云盘】用户信息接口认证异常，但未确认 refresh_token 失效，暂不清空登录态: {user_info}")
+                    config["user_name"] = ""
+                    config["user_id"] = ""
+                    config["vip_level"] = ""
+                    config["member_expire_time"] = 0
+                    config["total_space"] = 0
+                    config["used_space"] = 0
+                    config["free_space"] = 0
+                    config["file_count"] = 0
+                    return config
+
                 user_data = user_info.get("data") if isinstance(user_info.get("data"), dict) else user_info
                 user_name = _pick_first(
                     user_data,
@@ -300,6 +406,18 @@ class GuangYaDisk(_PluginBase):
                 if user_name is None and user_id is not None:
                     user_name = user_id
 
+                if user_name is None and user_id is None:
+                    logger.warning(f"【光鸭云盘】用户信息无有效身份字段，视为未登录: {user_info}")
+                    config["user_name"] = ""
+                    config["user_id"] = ""
+                    config["vip_level"] = ""
+                    config["member_expire_time"] = 0
+                    config["total_space"] = 0
+                    config["used_space"] = 0
+                    config["free_space"] = 0
+                    config["file_count"] = 0
+                    return config
+
                 config["user_name"] = "" if user_name is None else str(user_name)
                 config["user_id"] = "" if user_id is None else str(user_id)
                 config["vip_level"] = "" if vip_level is None else str(vip_level)
@@ -308,6 +426,30 @@ class GuangYaDisk(_PluginBase):
                 
                 # 获取空间统计
                 assets_info = self._client.get_assets() or {}
+                if _should_clear_auth(assets_info):
+                    self._clear_auth_state(
+                        f"空间信息接口返回未认证，且 refresh_token 已失效，需要重新扫码登录: {self._client.last_refresh_result}"
+                    )
+                    config["logged_in"] = False
+                    config["access_token"] = ""
+                    config["refresh_token"] = ""
+                    config["user_name"] = ""
+                    config["user_id"] = ""
+                    config["vip_level"] = ""
+                    config["member_expire_time"] = 0
+                    config["total_space"] = 0
+                    config["used_space"] = 0
+                    config["free_space"] = 0
+                    config["file_count"] = 0
+                    return config
+                if _is_auth_invalid(assets_info):
+                    logger.warning(f"【光鸭云盘】空间信息接口认证异常，但未确认 refresh_token 失效，暂不清空登录态: {assets_info}")
+                    config["total_space"] = 0
+                    config["used_space"] = 0
+                    config["free_space"] = 0
+                    config["file_count"] = 0
+                    return config
+
                 assets_data = assets_info.get("data") if isinstance(assets_info.get("data"), dict) else assets_info
                 total_space = _to_int(
                     _pick_first(
@@ -631,7 +773,7 @@ class GuangYaDisk(_PluginBase):
                 client_id=self._client_id,
                 device_id=self._device_id,
             )
-            result = temp_client.get_device_code(qr_path=self.qr_path)
+            result = temp_client.get_device_code()
             if not result:
                 return {"success": False, "message": "获取二维码失败"}
 
@@ -641,18 +783,9 @@ class GuangYaDisk(_PluginBase):
             self._verification_uri = result.get("verification_uri") or ""
             expires_in = int(result.get("expires_in") or 300)
             self._qr_expires_at = time.time() + expires_in
-            qr_url = result.get("qr_code") or ""
-
-            qr_base64 = None
-            if os.path.exists(self.qr_path):
-                with open(self.qr_path, "rb") as file_obj:
-                    qr_base64 = base64.b64encode(file_obj.read()).decode("utf-8")
 
             return {
                 "success": True,
-                "qr_code": qr_base64 or qr_url,
-                "qr_code_base64": qr_base64,
-                "qr_code_url": qr_url,
                 "user_code": self._user_code,
                 "verification_uri": self._verification_uri,
                 "verification_uri_complete": result.get("verification_uri_complete") or "",
@@ -738,12 +871,6 @@ class GuangYaDisk(_PluginBase):
         self._qr_expires_at = 0
         self._client = None
         self._guangya_api = None
-
-        if os.path.exists(self.qr_path):
-            try:
-                os.remove(self.qr_path)
-            except OSError:
-                pass
 
         self.update_config(
             {
