@@ -177,16 +177,6 @@ class GuangYaClient:
         if need_auth and self._access_token:
             req_headers.update(self._get_auth_headers())
 
-        if need_auth:
-            logger.debug(
-                "【光鸭云盘】发起请求: %s %s, device_id=%s, access_token=%s, refresh_token=%s",
-                method.upper(),
-                url,
-                self._device_id,
-                self._mask_token(self._access_token),
-                self._mask_token(self._refresh_token),
-            )
-
         try:
             if method.upper() == "GET":
                 response = self._session.get(url, headers=req_headers, params=data, timeout=timeout)
@@ -210,12 +200,6 @@ class GuangYaClient:
                         "error": err.response.text[:500] if err.response.text else str(err),
                     }
             if status_code == 401 and retry_on_401 and need_auth:
-                logger.info(
-                    "【光鸭云盘】Token 失效，尝试刷新: access_token=%s, refresh_token=%s, device_id=%s",
-                    self._mask_token(self._access_token),
-                    self._mask_token(self._refresh_token),
-                    self._device_id,
-                )
                 if self.refresh_access_token():
                     return self._request(
                         method=method,
@@ -289,10 +273,15 @@ class GuangYaClient:
         if not self._refresh_token:
             self._last_refresh_invalid = True
             self._last_refresh_result = {"error": "missing_refresh_token", "msg": "refresh_token 为空"}
-            logger.warning("【光鸭云盘】刷新失败：refresh_token 为空")
+            logger.warning("【光鸭云盘】Token 刷新跳过: refresh_token 缺失")
             return False
         old_access_token = self._access_token
         old_refresh_token = self._refresh_token
+        logger.info(
+            "【光鸭云盘】Token 失效，尝试刷新: device_id=%s, has_refresh_token=%s",
+            self._device_id,
+            bool(self._refresh_token),
+        )
         result = self._request(
             method="POST",
             url=f"{self.ACCOUNT_BASE_URL}/v1/auth/token",
@@ -309,11 +298,9 @@ class GuangYaClient:
             self._refresh_token = result.get("refresh_token") or self._refresh_token
             self._last_refresh_invalid = False
             logger.info(
-                "【光鸭云盘】Token 刷新成功: access_token %s -> %s, refresh_token %s -> %s",
-                self._mask_token(old_access_token),
-                self._mask_token(self._access_token),
-                self._mask_token(old_refresh_token),
-                self._mask_token(self._refresh_token),
+                "【光鸭云盘】Token 刷新成功: access_token_updated=%s, refresh_token_rotated=%s",
+                old_access_token != self._access_token,
+                old_refresh_token != self._refresh_token,
             )
             if self._on_token_refresh:
                 try:
@@ -323,11 +310,10 @@ class GuangYaClient:
             return True
         self._last_refresh_invalid = self._is_auth_invalid_result(result)
         logger.warning(
-            "【光鸭云盘】Token 刷新失败: device_id=%s, refresh_token=%s, auth_invalid=%s, response=%s",
-            self._device_id,
-            self._mask_token(old_refresh_token),
+            "【光鸭云盘】Token 刷新失败: auth_invalid=%s, code=%s, msg=%s",
             self._last_refresh_invalid,
-            result,
+            result.get("code"),
+            result.get("msg") or result.get("error") or result.get("error_description"),
         )
         return False
 

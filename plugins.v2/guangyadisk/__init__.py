@@ -24,7 +24,7 @@ class GuangYaDisk(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/GuangyaDisk.png"
     # 插件版本
-    plugin_version = "1.0.1"
+    plugin_version = "1.0.2"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -139,24 +139,18 @@ class GuangYaDisk(_PluginBase):
         self._permanently_delete = bool(config.get("permanently_delete"))
 
         logger.info(
-            "【光鸭云盘】初始化插件: enabled=%s, device_id=%s, access_token=%s, refresh_token=%s",
+            "【光鸭云盘】初始化插件: enabled=%s, device_id=%s, has_access_token=%s, has_refresh_token=%s",
             self._enabled,
             self._device_id,
-            self._mask_token(self._access_token),
-            self._mask_token(self._refresh_token),
+            bool(self._access_token),
+            bool(self._refresh_token),
         )
 
         def on_token_refresh(access_token: str, refresh_token: str):
             """
             token 刷新后自动持久化。
             """
-            logger.info(
-                "【光鸭云盘】收到 Token 刷新回调: access_token=%s, refresh_token=%s, old_access_token=%s, old_refresh_token=%s",
-                self._mask_token(access_token),
-                self._mask_token(refresh_token),
-                self._mask_token(self._access_token),
-                self._mask_token(self._refresh_token),
-            )
+            logger.info("【光鸭云盘】收到 Token 刷新回调，准备保存配置")
             self._access_token = access_token
             self._refresh_token = refresh_token
             config_payload = {
@@ -171,12 +165,6 @@ class GuangYaDisk(_PluginBase):
                 "sort_type": self._sort_type,
                 "permanently_delete": self._permanently_delete,
             }
-            logger.info(
-                "【光鸭云盘】准备回写配置: device_id=%s, access_token=%s, refresh_token=%s",
-                self._device_id,
-                self._mask_token(access_token),
-                self._mask_token(refresh_token),
-            )
             self.update_config(config_payload)
             logger.info("【光鸭云盘】Token 已自动保存")
 
