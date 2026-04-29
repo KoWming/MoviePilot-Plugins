@@ -579,7 +579,7 @@ async function refreshStatus(showToast = true) {
     if (requestSeq !== statusRefreshRequestSeq) {
       return
     }
-    if (!status.logged_in && !qrLoading.value && !hasPendingQr.value) {
+    if (!status.logged_in && !qrLoading.value) {
       await fetchQrCode({ showSuccessMessage: false })
       if (requestSeq !== statusRefreshRequestSeq) {
         return
@@ -697,19 +697,14 @@ async function pollLoginOnce() {
     }
     if (result.success) {
       stopPolling()
+      polling.value = false
       // 登录成功后自动启用插件
       status.enabled = true
       await request('/config', {
         method: 'POST',
         body: JSON.stringify({ enabled: true }),
       })
-      if (currentPollSessionSeq !== pollSessionSeq || currentPollRequestSeq !== pollRequestSeq) {
-        return
-      }
       await refreshStatus(false)
-      if (currentPollSessionSeq !== pollSessionSeq || currentPollRequestSeq !== pollRequestSeq) {
-        return
-      }
       resetQrDisplayState()
       stopQrCountdown()
       setMessage('success', result.message || '登录成功，插件已自动启用')

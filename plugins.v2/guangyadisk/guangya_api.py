@@ -990,11 +990,35 @@ class GuangYaApi:
             if response.get("msg") != "success" and response.get("code") != 0:
                 return None
             data = response.get("data", {}) or {}
-            total = data.get("totalSpaceSize", 0) or 0
-            used = data.get("usedSpaceSize")
-            if used is None:
-                return schemas.StorageUsage(total=total, available=0)
-            return schemas.StorageUsage(total=total, available=total - used if total else 0)
+
+            def _pick(d, *keys):
+                for k in keys:
+                    v = d.get(k)
+                    if v is not None:
+                        return v
+                return None
+
+            def _to_int(v):
+                if v is None:
+                    return None
+                try:
+                    return int(v)
+                except (TypeError, ValueError):
+                    return None
+
+            total = _to_int(_pick(data, "totalSpaceSize", "total_space", "totalSpace", "total")) or 0
+            used = _to_int(_pick(data, "usedSpaceSize", "used_space", "usedSpace", "used"))
+            free = _to_int(_pick(data, "freeSpaceSize", "free_space", "freeSpace", "free", "available"))
+
+            # 优先用 free；其次用 total - used；都没有则 available = total（视为未使用）
+            if free is not None:
+                available = free
+            elif used is not None and total:
+                available = max(total - used, 0)
+            else:
+                available = total
+
+            return schemas.StorageUsage(total=total, available=available)
         except Exception as err:
             logger.debug(f"【光鸭云盘】获取空间信息异常: {err}")
             return None

@@ -132,12 +132,13 @@
         "name": "Vue-光鸭云盘储存",
         "description": "使存储支持光鸭云盘。",
         "labels": "存储,工具",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/GuangyaDisk.png",
         "author": "KoWming",
         "level": 1,
         "release": true,
         "history": {
+            "v1.0.3": "修复首次打开页面二维码扫码无反应的问题；修复登录成功后页面未切换到已登录状态的问题；修复宿主系统存储空间统计显示问题。",
             "v1.0.2": "精简高频日志输出，保留初始化与 Token 刷新关键日志，减少宿主开启 DEBUG 时的日志噪音。",
             "v1.0.1": "优化 token 刷新与登录态处理，修复二维码重复刷新问题，增强扫码轮询与状态请求并发保护并降低自动提示噪音。",
             "v1.0.0": "初始版本，支持光鸭云盘扫码登录、文件管理、整理刮削等操作。"
