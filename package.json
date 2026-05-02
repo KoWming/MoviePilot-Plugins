@@ -228,5 +228,19 @@
       "v1.1.0": "新增兼容模式开关；修复 bridge 网络场景下直连可能仍受环境代理影响的问题；新增真正的 debug 日志输出；优化设置界面与使用说明。",
       "v1.0.0": "初始版本：支持对 MP_SERVER_HOST 和额外配置主机强制直连，支持通配符域名匹配，绕过 MoviePilot 全局代理。"
     }
+  },
+  "ZTEHosts": {
+    "name": "中兴问天Hosts",
+    "description": "定时将本地Hosts同步至中兴问天路由自定义Hosts。",
+    "labels": "网络",
+    "version": "1.0",
+    "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/ZTEHosts.png",
+    "author": "KoWming",
+    "level": 1,
+    "v2": true,
+    "release": true,
+    "history": {
+      "v1.0": "初始版本。"
+    }
   }
 }
