@@ -19,15 +19,17 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 | 9 | [🏅 ~~勋章墙 (MedalWall)~~](#9--勋章墙-medalwall) | v1.1 | 站点勋章购买提醒、统计、展示 | 站点 |
 | 10 | [🌐 NAT类型检测 (NATdetect)](#10--nat类型检测-natdetect) | v2.1 | 检测MP所在环境的网络NAT类型 | 站点 |
 | 11 | [🌾 ~~Vue-象岛农场 (VicomoFarm)~~](#11--vue-象岛农场-vicomofarm) | v1.3.0 | 监听象岛农场相关信息，我在PT学卖菜 | 站点 |
-| 12 | [🔍 资源探索集合 (ExploreServices)](#12--资源探索集合-exploreservices) | v1.1 | 统一管理和配置所有探索数据源插件 | 探索 |
+| 12 | [🔍 探索服务聚合 (ExploreServices)](#12--探索服务聚合-exploreservices) | v1.1 | 统一管理和配置所有探索数据源插件 | 探索 |
 | 13 | [🌾 Vue-好学农场 (MagicFram)](#13--vue-好学农场-magicfram) | v1.0.2 | 支持一键收获、种植、养殖，定时自动化任务 | 站点 |
 | 14 | [🌾 Vue-开心农场 (PlayletFram)](#14--vue-开心农场-playletfram) | v1.0.5 | 支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务 | 站点 |
 | 15 | [🏅 Vue-勋章墙Pro (MedalWallPro)](#15--vue-勋章墙pro-medalwallpro) | v1.2.3 | 站点勋章购买提醒、统计、展示 | 站点 |
 | 16 | [🌞 Sun-Panel助手 (SpanelHelper)](#16--sun-panel助手-spanelhelper) | v1.1 | 同步MP中已启用的站点到Sun-Panel指定分组 | 工具 |
 | 17 | [🚀 Vue-网络测速 (AutoSpeed)](#17--vue-网络测速-autospeed) | v1.1.0 | 使用Speedtest.net定时自动测速，支持手动触发，记录历史趋势 | 网络 |
 | 18 | [🌾 Vue-拾刻农场 (SkitFarm)](#18--vue-拾刻农场-skitfarm) | v1.0.0 | 支持Skit站点一键收获、种植、养殖，定时自动化任务 | 站点 |
-| 19 | [🌐 直连模式 (NoProxy)](#19--直连模式-noproxy) | v1.1.0 | 对指定域名的请求强制直连，绕过 MoviePilot 全局代理 | 网络 |
-| 20 | [📥 Vue-PTD站点导入 (PtdImporter)](#20--vue-ptd站点导入-ptdimporter) | v1.0.0 | 上传 PTD 备份并按 MoviePilot 标准站点批量导入/更新 | 站点,工具 |
+| 19 | [🌐 直连模式 (NoProxy)](#19--直连模式-noproxy) | v1.1.1 | 对指定域名的请求强制直连，绕过 MoviePilot 全局代理 | 网络 |
+| 20 | [📥 Vue-PTD站点导入 (PtdImporter)](#20--vue-ptd站点导入-ptdimporter) | v1.0.1 | 上传 PTD 备份并按 MoviePilot 标准站点批量导入/更新 | 站点,工具 |
+| 21 | [🛜 中兴问天Hosts (ZTEHosts)](#21--中兴问天hosts-ztehosts) | v1.0 | 定时将本地Hosts同步至中兴问天路由自定义Hosts | 网络 |
+| 22 | [🦆 Vue-光鸭云盘储存 (GuangYaDisk)](#22--vue-光鸭云盘储存-guangyadisk) | v1.0.3 | 使存储支持光鸭云盘 | 存储,工具 |
 
 ### 1. 📢 外部消息转发 (MsgNotify)
 - 版本：v1.4.4
@@ -284,7 +286,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   - v1.0: 初始版本。
   </details>
 
-### 12. 🔍 资源探索集合 (ExploreServices)
+### 12. 🔍 探索服务聚合 (ExploreServices)
 - 版本：v1.1
 - 功能：统一管理和配置所有探索数据源插件。
 - 标签：探索
@@ -412,7 +414,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   </details>
 
 ### 19. 🌐 直连模式 (NoProxy)
-- 版本：v1.1.0
+- 版本：v1.1.1
 - 功能：对指定域名的请求强制直连，绕过 MoviePilot 全局代理。
 - 标签：网络
 - 特点：
@@ -426,12 +428,13 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.1.1: 修复日志输出问题。
   - v1.1.0: 新增兼容模式开关；修复 bridge 网络场景下直连可能仍受环境代理影响的问题；新增真正的 debug 日志输出；优化设置界面与使用说明。
   - v1.0.0: 初始版本：支持对 MP_SERVER_HOST 和额外配置主机强制直连，支持通配符域名匹配，绕过 MoviePilot 全局代理。
   </details>
 
 ### 20. 📥 Vue-PTD站点导入 (PtdImporter)
-- 版本：v1.0.0
+- 版本：v1.0.1
 - 功能：上传 PTD 备份并按 MoviePilot 标准站点批量导入/更新。
 - 标签：站点,工具
 - 特点：
@@ -443,7 +446,43 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.0.1: 优化了用户界面。
   - v1.0.0: 初始版本，支持 PTD 备份解析、标准站点匹配、批量导入/更新及移动端界面适配。
+  </details>
+
+### 21. 🛜 中兴问天Hosts (ZTEHosts)
+- 版本：v1.0
+- 功能：定时将本地Hosts同步至中兴问天路由自定义Hosts。
+- 标签：网络
+- 特点：
+  - 🛜 支持自动登录中兴问天路由后台并同步自定义 Hosts
+  - 🔐 支持管理密码密文输入与浏览器仿真登录
+  - ⏰ 支持定时同步与立即运行一次
+  - 📨 支持统一收口的任务通知消息
+- 更新说明：
+  <details>
+  <summary>点击查看更新历史</summary>
+  
+  - v1.0: 初始版本。
+  </details>
+
+### 22. 🦆 Vue-光鸭云盘储存 (GuangYaDisk)
+- 版本：v1.0.3
+- 功能：使存储支持光鸭云盘。
+- 标签：存储,工具
+- 特点：
+  - ☁️ 支持光鸭云盘扫码登录与存储接入
+  - 📁 支持文件管理、整理与刮削场景使用
+  - 🔄 支持 Token 刷新与登录态维护
+  - 📱 优化页面交互与二维码登录体验
+- 更新说明：
+  <details>
+  <summary>点击查看更新历史</summary>
+  
+  - v1.0.3: 修复首次打开页面二维码扫码无反应的问题；修复登录成功后页面未切换到已登录状态的问题；修复宿主系统存储空间统计显示问题。
+  - v1.0.2: 精简高频日志输出，保留初始化与 Token 刷新关键日志，减少宿主开启 DEBUG 时的日志噪音。
+  - v1.0.1: 优化 token 刷新与登录态处理，修复二维码重复刷新问题，增强扫码轮询与状态请求并发保护并降低自动提示噪音。
+  - v1.0.0: 初始版本，支持光鸭云盘扫码登录、文件管理、整理刮削等操作。
   </details>
 
 ## 📖 使用说明
