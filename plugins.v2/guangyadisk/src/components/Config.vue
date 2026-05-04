@@ -212,11 +212,11 @@ const sortTypeOptions = ref([
 ])
 
 function pluginUrl(path) {
-  return `/api/v1/plugin/GuangYaDisk${path}`
+  return `/api/v1/plugin/GuangyaDisk${path}`
 }
 
 async function request(path, options = {}) {
-  const apiPath = `plugin/GuangYaDisk${path}`
+  const apiPath = `plugin/GuangyaDisk${path}`
   if (options.method === 'POST') {
     if (props.api?.post) {
       return props.api.post(apiPath, options.body ? JSON.parse(options.body) : {}, options)

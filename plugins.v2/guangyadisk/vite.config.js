@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [
     vue(),
     federation({
-      name: 'GuangYaDisk',
+      name: 'GuangyaDisk',
       filename: 'remoteEntry.js',
       exposes: {
         './Page': './src/components/Page.vue',

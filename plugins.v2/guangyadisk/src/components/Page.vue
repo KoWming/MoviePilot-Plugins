@@ -482,11 +482,11 @@ function detectDarkMode() {
 }
 
 function pluginUrl(path) {
-  return `/api/v1/plugin/GuangYaDisk${path}`
+  return `/api/v1/plugin/GuangyaDisk${path}`
 }
 
 async function request(path, options = {}) {
-  const apiPath = `plugin/GuangYaDisk${path}`
+  const apiPath = `plugin/GuangyaDisk${path}`
   if (options.method === 'POST') {
     if (props.api?.post) {
       return props.api.post(apiPath, options.body ? JSON.parse(options.body) : {}, options)
@@ -545,7 +545,7 @@ async function refreshStatus(showToast = true) {
   try {
     let data
     if (props.api?.get) {
-      data = await props.api.get('plugin/GuangYaDisk/config')
+      data = await props.api.get('plugin/GuangyaDisk/config')
     } else {
       const response = await fetch(pluginUrl('/config'))
       data = await response.json()

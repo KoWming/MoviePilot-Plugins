@@ -16,7 +16,7 @@ from .guangya_api import GuangYaApi
 from .guangya_client import GuangYaClient
 
 
-class GuangYaDisk(_PluginBase):
+class GuangyaDisk(_PluginBase):
     # 插件名称
     plugin_name = "Vue-光鸭云盘储存"
     # 插件描述
@@ -24,7 +24,7 @@ class GuangYaDisk(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/GuangyaDisk.png"
     # 插件版本
-    plugin_version = "1.0.3"
+    plugin_version = "1.1.0"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
