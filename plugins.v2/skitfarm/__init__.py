@@ -23,7 +23,7 @@ class SkitFarm(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/skitfarm.png"
     # 插件版本
-    plugin_version = "1.0.0"
+    plugin_version = "1.0.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -359,7 +359,7 @@ class SkitFarm(_PluginBase):
         logger.info(f"{self.plugin_name} 定时任务开始执行")
         self.save_data("last_run", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         
-        logs = {'harvest': [], 'plant': [], 'sell': [], 'expiry_sell': []}
+        logs = {'harvest': [], 'plant': [], 'sell': None, 'expiry_sell': []}
         
         try:
             # 1. 自动种植/养殖 (包含收获)
@@ -374,7 +374,7 @@ class SkitFarm(_PluginBase):
             if self._auto_sell:
                 sell_logs = self._run_auto_sell()
                 if sell_logs:
-                    logs['sell'].extend(sell_logs)
+                    logs['sell'] = sell_logs
 
             # 3. 临期自动出售
             if self._expiry_sale_enabled:
@@ -448,19 +448,17 @@ class SkitFarm(_PluginBase):
             
         return logs
 
-    def _run_auto_sell(self) -> List[str]:
+    def _run_auto_sell(self) -> Dict[str, Any]:
         """执行自动出售"""
-        msgs = []
         try:
             result = self._sell_all()
             if result.get("success"):
                  msg = result.get('msg')
                  logger.info(f"{self.plugin_name}: 自动出售成功 - {msg}")
-                 if result.get("success_count", 0) > 0:
-                     msgs.append(f"{msg}")
+                 return result
         except Exception as e:
              logger.error(f"{self.plugin_name}: 自动出售执行异常: {e}")
-        return msgs
+        return {}
 
     def _run_expiry_sale(self) -> List[str]:
         """执行临期出售"""
@@ -970,6 +968,9 @@ class SkitFarm(_PluginBase):
         success_count = 0
         fail_count = 0
         skip_count = 0
+        success_items = []
+        fail_items = []
+        skip_items = []
         start_time = time.time()
         timeout_limit = 25 # 25秒超时保护
         
@@ -1011,6 +1012,7 @@ class SkitFarm(_PluginBase):
                         if profit_pct < self._auto_sell_threshold:
                             logger.info(f"{self.plugin_name}: {name} 盈利 {profit_pct:.2f}% < 阈值 {self._auto_sell_threshold}%，跳过出售")
                             skip_count += 1
+                            skip_items.append(name)
                             continue
                 except Exception as e:
                     logger.warning(f"{self.plugin_name}: 计算 {name} 盈利出错: {e}，默认出售")
@@ -1018,10 +1020,12 @@ class SkitFarm(_PluginBase):
             res = self._sell_item({"key": key})
             if res and res.get("success"):
                 success_count += 1
+                success_items.append(name)
                 # 缩短延时到 0.2s
                 time.sleep(0.2)
             else:
                 fail_count += 1
+                fail_items.append(name)
                 
         msg = f"一键出售完成: 成功 {success_count} 个, 失败 {fail_count} 个"
         if skip_count > 0:
@@ -1034,7 +1038,10 @@ class SkitFarm(_PluginBase):
             "msg": msg,
             "success_count": success_count,
             "fail_count": fail_count,
-            "skip_count": skip_count
+            "skip_count": skip_count,
+            "success_items": success_items,
+            "fail_items": fail_items,
+            "skip_items": skip_items
         }
 
     def _plant_all(self, payload: dict = None):
@@ -1411,6 +1418,11 @@ class SkitFarm(_PluginBase):
         try:
             if logs is None:
                 logs = {}
+
+            def _format_item_line(prefix: str, items: List[str]) -> str:
+                if not items:
+                    return ""
+                return prefix + "".join([f"✅{item}" for item in items])
                 
             # 基础数据
             bonus = farm_info.get("bonus", "0")
@@ -1468,10 +1480,10 @@ class SkitFarm(_PluginBase):
             report += f"━━━━━━━━━━━━━━\n"
             report += f"🏡 农场概况：\n"
             report += f"🌾 农作物种植区：共{len(crops)}块\n"
-            report += "\n".join(crop_lines) + "\n\n\n"
+            report += "\n".join(crop_lines) + "\n\n"
             
             report += f"🐂 动物养殖区：共{len(animals)}个\n"
-            report += "\n".join(animal_lines) + "\n\n\n"
+            report += "\n".join(animal_lines) + "\n\n"
             
             report += f"📦 仓库：共{len(warehouse)}类物品\n"
 
@@ -1491,28 +1503,40 @@ class SkitFarm(_PluginBase):
                 report += f"动物：{a_count}类\n"
             
             # 自动任务日志
-            # logs: {'harvest': [], 'plant': [], 'sell': [], 'expiry_sell': []}
+            # logs: {'harvest': [], 'plant': [], 'sell': {}, 'expiry_sell': []}
             task_log_str = ""
             
             if logs.get('harvest'):
                 task_log_str += "\n自动收获成功：\n"
-                for item in logs['harvest']:
-                    task_log_str += f"✅{item}\n"
+                task_log_str += _format_item_line("", logs['harvest']) + "\n"
             
             if logs.get('plant'):
                 task_log_str += "\n自动种植/养殖成功：\n"
-                for item in logs['plant']:
-                    task_log_str += f"✅{item}\n"
+                task_log_str += _format_item_line("", logs['plant']) + "\n"
             
             if logs.get('sell'):
                 task_log_str += "\n自动出售成功：\n"
-                for item in logs['sell']:
-                    task_log_str += f"✅{item}\n"
+                sell_log = logs['sell']
+                success_items = sell_log.get('success_items', [])
+                fail_items = sell_log.get('fail_items', [])
+                skip_items = sell_log.get('skip_items', [])
+                task_log_str += f"✅成功 {sell_log.get('success_count', 0)} 个"
+                if success_items:
+                    task_log_str += f"({ '、'.join(success_items) })"
+                task_log_str += "\n"
+                task_log_str += f"❌失败 {sell_log.get('fail_count', 0)} 个"
+                if fail_items:
+                    task_log_str += f"({ '、'.join(fail_items) })"
+                task_log_str += "\n"
+                if sell_log.get('skip_count', 0) > 0:
+                    task_log_str += f"📌未盈利跳过 {sell_log.get('skip_count', 0)} 个"
+                    if skip_items:
+                        task_log_str += f"({ '、'.join(skip_items) })"
+                    task_log_str += "\n"
 
             if logs.get('expiry_sell'):
                 task_log_str += "\n临期自动出售：\n"
-                for item in logs['expiry_sell']:
-                    task_log_str += f"✅{item}\n"
+                task_log_str += _format_item_line("", logs['expiry_sell']) + "\n"
 
             if task_log_str:
                 report += f"━━━━━━━━━━━━━━\n"

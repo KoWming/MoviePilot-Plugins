@@ -2,11 +2,9 @@ import re
 import time
 import base64
 import requests
-import pytz
-import traceback
 from pathlib import Path
 from lxml import etree
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, List, Dict, Tuple, Optional
 from apscheduler.triggers.cron import CronTrigger
 
@@ -17,34 +15,25 @@ from app.scheduler import Scheduler
 from app.schemas import NotificationType
 from app.db.site_oper import SiteOper
 
-class PlayletFram(_PluginBase):
+class NovahdFram(_PluginBase):
     # 插件名称
-    plugin_name = "Vue-开心农场"
+    plugin_name = "Vue-魔力农场"
     # 插件描述
-    plugin_desc = "支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务。"
+    plugin_desc = "支持 NovaHD 魔力农场一键收获、种植、养殖，定时自动化任务。"
     # 插件图标
-    plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/playletfram.png"
+    plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/novahdfram.png"
     # 插件版本
-    plugin_version = "1.0.6"
+    plugin_version = "1.0.0"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
     author_url = "https://github.com/KoWming"
     # 插件配置项ID前缀
-    plugin_config_prefix = "playletfram_"
+    plugin_config_prefix = "novahdfram_"
     # 加载顺序
     plugin_order = 27
     # 可使用的用户级别
     auth_level = 2
-    
-    # 排序使用的最大秒数
-    MAX_SORT_SECONDS = 99999999
-    
-    # 默认配置常量
-    DEFAULT_SITE_URL = "https://playlet.cc"
-    DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
-    DEFAULT_CRON = "0 8 * * *"  # 默认每天早上8点执行
-    SCHEDULE_BUFFER_SECONDS = 120  # 智能调度缓冲时间(秒)，确保作物已成熟
 
     # 配置与状态
     _enabled: bool = False
@@ -59,50 +48,35 @@ class PlayletFram(_PluginBase):
     _retry_count: int = 3      # 重试次数
     _retry_interval: int = 5   # 重试间隔(秒)
     
-    # 动态调度时间
-    _next_run_time: Optional[datetime] = None
-    
-    # 站点信息缓存
-    _siteoper: Optional[SiteOper] = None
-    _site_url: str = ""
-    _user_agent: str = ""
+    _siteoper = None
 
     def __init__(self):
         super().__init__()
 
     @staticmethod
     def _to_bool(val: Any) -> bool:
-        """
-        安全地将值转换为布尔类型
-        
-        :param val: 要转换的值
-        :return: 布尔值
-        """
-        return val if isinstance(val, bool) else (val.lower() == 'true' if isinstance(val, str) else bool(val))
+        """转换布尔值"""
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, str):
+            return val.lower() == 'true'
+        return bool(val)
 
     @staticmethod
     def _to_float(val: Any, default: float = 0.0) -> float:
-        """
-        安全地将值转换为float类型
-        
-        :param val: 要转换的值
-        :param default: 转换失败时的默认值
-        :return: 浮点数
-        """
-        try: return float(val)
-        except: return default
+        """转换浮点数"""
+        try:
+            return float(val)
+        except:
+            return default
 
     @staticmethod
     def _to_int(val: Any, default: int = 0) -> int:
-        """
-        安全地将值转换为int类型
-        
-        :param val: 要转换的值
-        :param default: 转换失败时的默认值
-        :return: 整数
-        """
-        try: return int(val)
-        except: return default
+        """转换整数"""
+        try:
+            return int(val)
+        except:
+            return default
 
     def init_plugin(self, config: Optional[dict] = None) -> None:
         """初始化插件，加载配置并注册定时任务"""
@@ -112,16 +86,7 @@ class PlayletFram(_PluginBase):
 
             if config:
                 self._enabled = self._to_bool(config.get("enabled", False))
-                
-                # 验证 Cron 表达式
-                cron = config.get("cron") or self.DEFAULT_CRON
-                try:
-                    CronTrigger.from_crontab(cron)
-                    self._cron = cron
-                except (ValueError, Exception) as e:
-                    logger.warning(f"{self.plugin_name}: Cron表达式无效 '{cron}'，使用默认值 '{self.DEFAULT_CRON}' - {str(e)}")
-                    self._cron = self.DEFAULT_CRON
-                
+                self._cron = config.get("cron") or "0 8 * * *"
                 self._cookie = config.get("cookie")
                 self._notify = self._to_bool(config.get("notify", False))
                 self._auto_plant = self._to_bool(config.get("auto_plant", False))
@@ -132,23 +97,13 @@ class PlayletFram(_PluginBase):
                 self._retry_count = self._to_int(config.get("retry_count"), 3)
                 self._retry_interval = self._to_int(config.get("retry_interval"), 5)
                 
-                # 验证必需配置
-                if self._enabled and not self._cookie:
-                    logger.error(f"{self.plugin_name}: 插件已启用但未配置Cookie！")
-                    self._enabled = False
-                
-            # 重置下次运行时间，确保重新调度
-            self._next_run_time = None
-
-            # 获取并缓存站点信息
+            # 初始化站点URL
             site_info = self._get_site_info()
             if site_info and site_info[0]:
                 self._site_url = site_info[0]
-                self._user_agent = site_info[1] if site_info[1] else self.DEFAULT_USER_AGENT
             else:
-                self._site_url = self.DEFAULT_SITE_URL
-                self._user_agent = self.DEFAULT_USER_AGENT
-                logger.warning(f"{self.plugin_name}: 未找到站点配置，使用默认值")
+                self._site_url = "https://pt.novahd.top"
+                logger.warning(f"{self.plugin_name}: 未找到站点配置，使用默认URL: {self._site_url}")
                 
             if not self._enabled:
                 logger.info(f"{self.plugin_name} 服务未启用")
@@ -157,10 +112,8 @@ class PlayletFram(_PluginBase):
                 logger.info(f"{self.plugin_name}: 已配置 CRON '{self._cron}'，任务将通过公共服务注册。")
             else:
                 logger.info(f"{self.plugin_name}: 未配置定时任务。启动时配置: Enable={self._enabled}, Cron='{self._cron}'")
-      
         except Exception as e:
             logger.error(f"{self.plugin_name} 服务启动失败: {str(e)}")
-            logger.debug(traceback.format_exc())  # 调试级别记录完整堆栈
 
     def get_state(self) -> bool:
         """获取插件状态"""
@@ -177,9 +130,9 @@ class PlayletFram(_PluginBase):
             if self._cookie and str(self._cookie).strip().lower() != "cookie":
                 return {"success": True, "cookie": self._cookie}
                 
-            site = self._siteoper.get_by_domain('playlet.cc')
+            site = self._siteoper.get_by_domain('novahd.top')
             if not site:
-                return {"success": False, "msg": "未添加 Playlet 站点！"}
+                return {"success": False, "msg": "未添加 NovaHD 站点！"}
                 
             cookie = site.cookie
             if not cookie or str(cookie).strip().lower() == "cookie":
@@ -304,7 +257,7 @@ class PlayletFram(_PluginBase):
 
     def _get_status(self) -> Dict[str, Any]:
         """API接口: 返回当前插件状态和历史记录"""
-
+        # 获取公共定时任务信息
         next_run_time = "未配置定时任务"
         time_until_next = None
         task_status = "未启用"
@@ -312,8 +265,9 @@ class PlayletFram(_PluginBase):
         if self._enabled and self._cron:
             try:
                 scheduler = Scheduler()
+                # 获取所有定时任务
                 schedule_list = scheduler.list()
-
+                # 查找当前插件的任务
                 plugin_task = None
                 for task in schedule_list:
                     if task.provider == self.plugin_name:
@@ -321,8 +275,9 @@ class PlayletFram(_PluginBase):
                         break
                 
                 if plugin_task:
+                    # 获取任务状态
                     task_status = plugin_task.status
-
+                    # 获取下次执行时间
                     if hasattr(plugin_task, 'next_run') and plugin_task.next_run:
                         next_run_time = plugin_task.next_run
                         time_until_next = plugin_task.next_run
@@ -338,33 +293,11 @@ class PlayletFram(_PluginBase):
                 else:
                     task_status = "未找到任务"
                     next_run_time = f"按配置执行: {self._cron}"
-
-                for task in schedule_list:
-                    if getattr(task, 'id', '') == 'playletfram_auto':
-                        if hasattr(task, 'next_run') and task.next_run:
-                            next_run_time += f" (智能: {task.next_run})"
-                        break
+                    
             except Exception as e:
                 logger.warning(f"获取公共定时任务信息失败: {e}")
                 task_status = "获取失败"
                 next_run_time = f"按配置执行: {self._cron}"
-        
-        # 获取/自动更新农场状态
-        farm_status = self.get_data("farm_status")
-        last_run = self.get_data("last_run")
-        
-        if not farm_status or not farm_status.get("crop_subtitle"):
-             logger.info(f"{self.plugin_name}: 缓存数据不存在、过期或字段为空，正在获取最新数据...")
-             try:
-                 new_data = self.get_farm_data()
-                 if new_data:
-                     farm_status = new_data
-                     last_run = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                     self.save_data("farm_status", farm_status)
-                     self.save_data("last_run", last_run)
-                     self._schedule_next_auto_run()
-             except Exception as e:
-                 logger.error(f"{self.plugin_name}: 自动刷新数据失败 - {e}")
 
         return {
             "enabled": self._enabled,
@@ -373,8 +306,8 @@ class PlayletFram(_PluginBase):
             "next_run_time": next_run_time,
             "time_until_next": time_until_next,
             "task_status": task_status,
-            "farm_status": farm_status,
-            "last_run": last_run
+            "farm_status": self.get_data("farm_status"),
+            "last_run": self.get_data("last_run")
         }
 
     def get_service(self) -> List[Dict[str, Any]]:
@@ -383,47 +316,11 @@ class PlayletFram(_PluginBase):
         
         if self._enabled and self._cron:
             services.append({
-                "id": "playletfram",
-                "name": "开心农场 - 定时任务",
+                "id": "novahdfram",
+                "name": "魔力农场 - 定时任务",
                 "trigger": CronTrigger.from_crontab(self._cron),
                 "func": self._farm_task,
                 "kwargs": {}
-            })
-            
-        # 智能调度任务 (如果启用了自动化)
-        if self._enabled and (self._auto_plant or self._auto_sell or self._expiry_sale_enabled):
-            next_run = self._next_run_time
-            tz = pytz.timezone(settings.TZ)
-            
-            # 尝试从数据库恢复
-            if not next_run:
-                try:
-                    saved_next_run = self.get_data("next_run_time")
-                    if saved_next_run:
-                        next_run = datetime.strptime(saved_next_run, '%Y-%m-%d %H:%M:%S')
-                        if next_run.tzinfo is None:
-                            next_run = tz.localize(next_run)
-                            
-                        # 如果时间已过，稍后执行
-                        if next_run < datetime.now(tz=tz):
-                             next_run = datetime.now(tz=tz) + timedelta(seconds=10)
-                except Exception as e:
-                    logger.error(f"{self.plugin_name}: 恢复下次运行时间失败: {e}")
-
-            if not next_run:
-                next_run = datetime.now(tz=tz) + timedelta(seconds=5)
-                logger.info(f"{self.plugin_name}: 初始启动，将在5秒后执行智能调度")
-            else:
-                logger.info(f"{self.plugin_name}: 注册智能调度任务执行时间: {next_run}")
-
-            services.append({
-                "id": "playletfram_auto",
-                "name": "开心农场 - 智能调度",
-                "trigger": "date",
-                "func": self._auto_worker,
-                "kwargs": {
-                    "run_date": next_run
-                }
             })
             
         return services
@@ -431,21 +328,10 @@ class PlayletFram(_PluginBase):
     def stop_service(self):
         """停止服务"""
         try:
-            # 清理调度器任务
-            try:
-                scheduler = Scheduler()
-                scheduler.remove_plugin_job(self.__class__.__name__)
-            except Exception as e:
-                logger.warning(f"{self.plugin_name}: 移除调度任务失败 - {str(e)}")
-            
-            # 清理所有内部状态
-            self._next_run_time = None
-            self._site_url = ""
-            self._user_agent = ""
-            
+            Scheduler().remove_plugin_job(self.__class__.__name__.lower())
             logger.info(f"{self.plugin_name}: 插件服务已停止")
         except Exception as e:
-            logger.error(f"{self.plugin_name} 停止服务失败: {str(e)}")
+            logger.debug(f"{self.plugin_name} 停止服务失败: {str(e)}")
 
     def _get_site_info(self) -> Tuple[Optional[str], Optional[str]]:
         try:
@@ -453,14 +339,17 @@ class PlayletFram(_PluginBase):
                 logger.warning("SiteOper 未初始化")
                 return None, None
             
-            site = self._siteoper.get_by_domain('playlet.cc')
+            site = self._siteoper.get_by_domain('novahd.top')
+            
             if not site:
-                logger.warning("未找到 Playlet 站点配置（playlet.cc），请在站点管理中添加")
+                logger.warning("未找到 NovaHD 站点配置（novahd.top），请在站点管理中添加")
                 return None, None
             
             site_url = site.url if hasattr(site, 'url') else None
             user_agent = site.ua if hasattr(site, 'ua') else None
+            
             return site_url, user_agent
+            
         except Exception as e:
             logger.error(f"获取站点信息失败: {str(e)}")
             return None, None
@@ -494,11 +383,11 @@ class PlayletFram(_PluginBase):
                     logs['expiry_sell'].extend(expiry_logs)
 
             # 4. 更新状态数据
-            data = self.get_farm_data(force_record_trend=True)
+            data = self.get_farm_data()
             if data:
                 self.save_data("farm_status", data)
                 
-            # 发送通知: 只要通知开启，就发送
+            # 发送通知: 只要通知开启，就发送 (包含由 logs 决定的任务日志 和 farm_data 决定的状态报告)
             if self._notify:
                 self._send_message(logs, data)
                 
@@ -509,7 +398,7 @@ class PlayletFram(_PluginBase):
         """执行自动种植流程"""
         logs = {'harvest': [], 'plant': []}
         try:
-            # 1. 识别成熟作物
+            # 1. 识别成熟作物 (以便记录日志)
             pre_data = self.get_farm_data()
             if pre_data:
                 for c in pre_data.get("crops", []):
@@ -533,6 +422,7 @@ class PlayletFram(_PluginBase):
             for crop in data.get("crops", []):
                 if crop.get("state") == "empty":
                     crop_id = crop.get("id")
+                    # 尝试种植
                     if crop_id and self.plant("crop", crop_id):
                         name = crop.get("name", "未知作物")
                         msg = f"{name}"
@@ -587,11 +477,13 @@ class PlayletFram(_PluginBase):
                 if "天" in remaining:
                     continue
                 
+                # 提取小时
                 hours = 0
                 match_h = re.search(r'(\d+)小时', remaining)
                 if match_h:
                     hours = int(match_h.group(1))
                 
+                # 如果小于1小时
                 if hours < 1:
                     should_sell = True
                 
@@ -613,70 +505,68 @@ class PlayletFram(_PluginBase):
 
     def _request(self, url: str, method: str = "GET", data: dict = None, params: dict = None) -> Optional[requests.Response]:
         """发送请求"""
-        if not self._cookie:
-            logger.error(f"{self.plugin_name}: 未配置Cookie")
-            return None
-        
-        # 使用缓存的站点信息
-        headers = {
-            "cookie": self._cookie,
-            "referer": self._site_url or self.DEFAULT_SITE_URL,
-            "user-agent": self._user_agent or self.DEFAULT_USER_AGENT
-        }
-        
-        proxies = self._get_proxies()
-        
-        # 使用 for 循环优化重试逻辑
-        for attempt in range(self._retry_count + 1):
-            try:
-                # 统一请求处理
-                response = requests.request(
-                    method=method.upper(),
-                    url=url,
-                    headers=headers,
-                    data=data if method.upper() == "POST" else None,
-                    params=params if method.upper() == "GET" else None,
-                    proxies=proxies,
-                    timeout=30
-                )
+        try:
+            if not self._cookie:
+                logger.error(f"{self.plugin_name}: 未配置Cookie")
+                return None
+            
+            site_url, user_agent = self._get_site_info()
+            
+            if not site_url:
+                site_url = "https://pt.novahd.top"
+                logger.warning(f"未找到站点配置，使用默认URL: {site_url}")
+            
+            if not user_agent:
+                user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
+                logger.warning("未找到站点UA配置，使用默认UA")
                 
-                # 增强状态码处理
-                if response.status_code == 200:
-                    return response
-                elif response.status_code in [401, 403]:
-                    # 认证失败，不重试
-                    logger.error(f"{self.plugin_name}: 认证失败 (HTTP {response.status_code})，请检查Cookie是否有效")
-                    return None
-                else:
-                    logger.warning(f"{self.plugin_name}: HTTP {response.status_code} - {url}，重试 {attempt + 1}/{self._retry_count}")
+            headers = {
+                "cookie": self._cookie,
+                "referer": site_url,
+                "user-agent": user_agent
+            }
             
-            # 细化异常类型
-            except requests.exceptions.Timeout:
-                logger.warning(f"{self.plugin_name}: 请求超时 - {url}，重试 {attempt + 1}/{self._retry_count}")
-            except requests.exceptions.ConnectionError:
-                logger.warning(f"{self.plugin_name}: 连接失败 - {url}，重试 {attempt + 1}/{self._retry_count}")
-            except Exception as e:
-                logger.warning(f"{self.plugin_name}: 请求异常 - {url} - {str(e)}，重试 {attempt + 1}/{self._retry_count}")
+            proxies = self._get_proxies()
             
-            # 重试前等待
-            if attempt < self._retry_count:
-                time.sleep(self._retry_interval)
-        
-        logger.error(f"{self.plugin_name}: 请求失败 - {url}，已达到最大重试次数 {self._retry_count}")
-        return None
+            retry_count = 0
+            max_retries = self._retry_count
+            
+            while retry_count <= max_retries:
+                try:
+                    if method.upper() == "POST":
+                        response = requests.post(url, headers=headers, data=data, proxies=proxies, timeout=30)
+                    else:
+                        response = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=30)
+                        
+                    if response.status_code == 200:
+                        return response
+                    else:
+                        logger.warning(f"{self.plugin_name}: 请求失败 {url} - {response.status_code}，重试 {retry_count + 1}/{max_retries}")
+                except Exception as e:
+                    logger.warning(f"{self.plugin_name}: 请求异常 {url} - {str(e)}，重试 {retry_count + 1}/{max_retries}")
+                
+                retry_count += 1
+                if retry_count <= max_retries:
+                    time.sleep(self._retry_interval)
+            
+            logger.error(f"{self.plugin_name}: 请求失败，已达到最大重试次数")
+            return None
+        except Exception as e:
+            logger.error(f"{self.plugin_name}: 请求异常 {url} - {str(e)}")
+            return None
     
     def _get_image_base64(self, name: str) -> str:
         """将本地图片转换为 base64 编码的 data URI"""
         
         name_to_file = {
-            "小麦": "crop_wheat.png",
-            "玉米": "crop_corn.png",
-            "土豆": "crop_potato.png",
-            "花生": "crop_peanut.png",
+            "小麦": "crop_wheat4.png",
+            "玉米": "crop_corn4.png",
+            "土豆": "crop_potato1.png",
+            "花生": "crop_peanut4.png",
             "鸡": "animal_chicken1.png",
-            "猪": "animal_pig2.png",
-            "牛": "animal_cow1.png",
-            "羊": "animal_sheep.png"
+            "猪": "animal_pig1.png",
+            "牛": "animal_cow2.png",
+            "羊": "animal_sheep1.png"
         }
         
         filename = name_to_file.get(name)
@@ -696,7 +586,9 @@ class PlayletFram(_PluginBase):
             with open(image_path, 'rb') as f:
                 image_data = f.read()
                 base64_data = base64.b64encode(image_data).decode('utf-8')
-                return f"data:image/png;base64,{base64_data}"
+                suffix = image_path.suffix.lower().lstrip('.') or 'png'
+                mime_type = f"image/{'jpeg' if suffix in ['jpg', 'jpeg'] else suffix}"
+                return f"data:{mime_type};base64,{base64_data}"
         except Exception as e:
             logger.error(f"转换图片为 base64 失败: {str(e)}")
             return ""
@@ -706,38 +598,48 @@ class PlayletFram(_PluginBase):
         items = []
         rows = table.xpath('.//tr[position()>1]')
         for row in rows:
+            cells = row.xpath('.//td/text()')
             tds = row.xpath('.//td')
-            # 确保至少有4列 (图片, 名称, 数量, 时间, 操作)
-            if len(tds) < 4:
-                continue
-
-            name = tds[1].xpath('string(.)').strip()
-            quantity = tds[2].xpath('string(.)').strip()
-            remaining_time = tds[3].xpath('string(.)').strip()
-
-            item = {
-                "name": name,
-                "quantity": quantity,
-                "remaining_time": remaining_time,
-                "key": ""
-            }
-
             link = row.xpath('.//a/@href')
-            if link:
-                match = re.search(r'key=([^&]+)', link[0])
-                if match:
-                    item["key"] = match.group(1)
             
-            items.append(item)
+            if len(cells) >= 4:
+                if len(tds) >= 5:
+                    name = tds[1].xpath('string(.)').strip()
+                    quantity = tds[2].xpath('string(.)').strip()
+                    harvest_time = ""
+                    remaining_time = tds[3].xpath('string(.)').strip()
+                else:
+                    name = cells[0].strip()
+                    quantity = cells[1].strip()
+                    harvest_time = cells[2].strip()
+                    remaining_time = cells[3].strip() if len(cells) > 3 else ""
+                item = {
+                    "name": name,
+                    "quantity": quantity,
+                    "harvest_time": harvest_time,
+                    "remaining_time": remaining_time,
+                    "key": ""
+                }
+                
+                # 提取 key 从链接
+                if link:
+                    match = re.search(r'key=([^&]+)', link[0])
+                    if match:
+                        item["key"] = match.group(1)
+                
+                items.append(item)
         return items
 
     def _parse_farm_item(self, item_element, item_type="crop"):
         """解析农场物品通用逻辑"""
         data = {}
+        # 名称
         name_el = item_element.xpath('.//h3/text()')
         data["name"] = name_el[0].strip() if name_el else "未知"
+        # 图片
         data["image"] = self._get_image_base64(data["name"])
         
+        # 详细信息
         data["price"] = ""
         data["grow_time"] = ""
         data["double_chance"] = ""
@@ -755,15 +657,13 @@ class PlayletFram(_PluginBase):
             elif "有效期:" in info:
                 data["valid_days"] = info.replace("有效期:", "").strip()
         
+        # 状态
         status_el = item_element.xpath('.//p[contains(@class, "growing-status")]/text()')
         if status_el:
             data["status"] = status_el[0].strip()
+            # 提取纯剩余时间
             if "剩余时间" in data["status"]:
                 data["remaining_time"] = data["status"].replace("剩余时间:", "").strip()
-                td = self._parse_timedelta(data["remaining_time"])
-                data["sort_seconds"] = td.total_seconds() if td else self.MAX_SORT_SECONDS
-            else:
-                data["sort_seconds"] = self.MAX_SORT_SECONDS
             data["state"] = "growing"
         else:
             btn_el = item_element.xpath('.//a[contains(@class, "btn")]')
@@ -773,32 +673,26 @@ class PlayletFram(_PluginBase):
                 
                 if f"action={target_action}" in btn_href:
                     data["state"] = "empty"
-                    data["sort_seconds"] = self.MAX_SORT_SECONDS 
                     match = re.search(r'id=(\d+)', btn_href)
                     if match:
                         data["id"] = match.group(1)
                 elif "action=harvest" in btn_href:
                     data["state"] = "ripe"
-                    data["sort_seconds"] = -1
                     match = re.search(r'id=(\d+)', btn_href)
                     if match:
                         data["id"] = match.group(1)
                 else:
                     data["state"] = "unknown"
-                    data["sort_seconds"] = self.MAX_SORT_SECONDS
             else:
                 data["state"] = "unknown"
-                data["sort_seconds"] = self.MAX_SORT_SECONDS
                 
         return data
 
-    def get_farm_data(self, force_record_trend: bool = False):
-        """获取农场数据 (用于前端展示)
-        :param force_record_trend: 是否强制记录价格趋势(定时任务调用时为True)
-        """
+    def get_farm_data(self):
+        """获取农场数据 (用于前端展示)"""
         site_url, _ = self._get_site_info()
         if not site_url:
-            site_url = "https://playlet.cc"
+            site_url = "https://pt.novahd.top"
         url = f"{site_url}/magic_fram.php"
         response = self._request(url)
         if not response:
@@ -810,16 +704,17 @@ class PlayletFram(_PluginBase):
            "crops": [],
            "animals": [],
            "warehouse": [],
-           "market": [],
-           "crop_subtitle": "",
-           "animal_subtitle": ""
+              "market": [],
+              "crop_subtitle": "",
+              "animal_subtitle": ""
         }
         
         try:
             # 1. 获取火花
             bonus_el = html.xpath('//div[contains(@class, "points-display")]/text()')
             if bonus_el:
-                 data["bonus"] = bonus_el[0].replace("当前魔力值:", "").strip()
+                bonus_text = ''.join([text.strip() for text in bonus_el if text and text.strip()])
+                data["bonus"] = bonus_text.replace("当前魔力值:", "").replace("当前火花:", "").strip()
 
             # 2. 遍历各个区域
             sections = html.xpath('//div[contains(@class, "farm-section")]')
@@ -850,21 +745,25 @@ class PlayletFram(_PluginBase):
                 # 仓库
                 elif "仓库" in title:
                     warehouse_items = []
+                    # 1. 解析当前页（第一页）表格
                     table = section.xpath('.//table[@class="warehouse-table"]')
                     if table:
                         warehouse_items.extend(self._parse_warehouse_table(table[0]))
                     
-                    # 检查分页并获取剩余数据
+                    # 2. 检查分页并获取剩余数据
                     try:
                         pagination_info = section.xpath('.//div[@class="pagination-info"]/text()')
                         if pagination_info:
+                            # 提取 "页 1 共 2" 中的总页数
                             match = re.search(r'共\s*(\d+)', pagination_info[0])
                             if match:
                                 total_pages = int(match.group(1))
                                 if total_pages > 1:
                                     logger.info(f"{self.plugin_name}: 仓库共有 {total_pages} 页，开始获取剩余分页数据")
+                                    # 遍历剩余页面
                                     for page in range(2, total_pages + 1):
                                         try:
+                                            # 注意：URL 可能会根据排序不同而变化，这里假设默认排序或沿用 expire_asc
                                             page_url = f"{url}?sort=expire_asc&page={page}"
                                             page_resp = self._request(page_url)
                                             if page_resp:
@@ -876,6 +775,7 @@ class PlayletFram(_PluginBase):
                                                         warehouse_items.extend(items)
                                                         logger.debug(f"{self.plugin_name}: 第 {page} 页获取到 {len(items)} 个物品")
                                             
+                                            # 避免请求过快
                                             time.sleep(1)
                                         except Exception as page_error:
                                             logger.error(f"{self.plugin_name}: 获取第 {page} 页失败: {page_error}")
@@ -887,10 +787,13 @@ class PlayletFram(_PluginBase):
                 # 菜市场
                 elif "菜市场" in title or "市场" in title:
                     market_items = []
+                    # 查找市场表格（有两个：农作物和动物）
                     categories = section.xpath('.//div[@class="market-category"]')
+                    
                     for category in categories:
                         category_title = category.xpath('.//h3/text()')
                         item_type = "crop" if "农作物" in str(category_title) else "animal"
+                        
                         rows = category.xpath('.//table[@class="market-table"]//tr[position()>1]')
                         for row in rows:
                             tds = row.xpath('.//td')
@@ -905,101 +808,98 @@ class PlayletFram(_PluginBase):
                     data["market"] = market_items
                     
                     # --- 记录基础价格 (用于计算波动) ---
-                    try:
-                        # 1. 尝试读取持久化存储的成本价
-                        item_costs = self.get_data("item_costs") or {}
-                        
-                        # 2. 更新当前页面看到的成本价
-                        for c in data["crops"]:
-                            if c.get("name") and c.get("price"):
-                                item_costs[c["name"]] = c["price"]
-                        for a in data["animals"]:
-                            if a.get("name") and a.get("price"):
-                                item_costs[a["name"]] = a["price"]
-                                
-                        # 3. 保存回持久化存储
-                        self.save_data("item_costs", item_costs)
-                        
-                        cost_map = item_costs
-                    except Exception as e:
-                        logger.warning(f"{self.plugin_name}: 处理成本价缓存失败: {e}")
-                        cost_map = {}
+                    cost_map = {}
+                    for c in data["crops"]:
+                        if c.get("name") and c.get("price"):
+                            cost_map[c["name"]] = c["price"]
+                    for a in data["animals"]:
+                        if a.get("name") and a.get("price"):
+                            cost_map[a["name"]] = a["price"]
                     
-                    # --- 记录价格趋势 (滚动存储最近5个点) ---
+                    # --- 记录价格趋势 (滚动存储最近6个点) ---
                     try:
-                         now_obj = datetime.now()
-                         current_time = now_obj.strftime('%m-%d %H:%M')
-                         
-                         market_trends = self.get_data("market_trends")
-                         if not market_trends:
-                             market_trends = {"data": {}}
-                         
-                         trend_data = market_trends.get("data", {})
-                         
-                         for m_item in market_items:
-                             name = m_item["name"]
-                             price = m_item["price"]
-                             
-                             if name not in trend_data:
-                                 trend_data[name] = []
-                             
-                             item_list = trend_data[name]
-                             should_append = False
-                             
-                             if not item_list:
-                                 should_append = True
-                             elif force_record_trend:
-                                  # 定时任务执行时强制记录
-                                  should_append = True
-
-                             else:
-                                  # 非定时任务: 仅价格变化时记录
-                                 last_item = item_list[-1]
-                                 last_price = last_item.get("price")
-                                 
-                                 if str(last_price) != str(price):
-                                     should_append = True
-                             if should_append:
-                                 item_list.append({
-                                     "time": current_time,
-                                     "price": price
-                                 })
-                                 
-                                 # 保持最多 5 个点
-                                 if len(item_list) > 5:
-                                     trend_data[name] = item_list[-5:]
-                             
-                             m_item["change_pct"] = 0
-                             history_len = len(item_list)
-                             if history_len >= 2:
-                                 current_price_float = float(price)
-                                 
-                                 if should_append:
-                                     prev_price = float(item_list[-2]["price"])
-                                     if prev_price > 0:
-                                         m_item["change_pct"] = round(((current_price_float - prev_price) / prev_price) * 100, 2)
-                                 else:
-                                     m_item["change_pct"] = 0
-
-                             if name in cost_map:
-                                 m_item["last_price"] = cost_map[name]
-                             else:
-                                 m_item["last_price"] = 0
-                                 
-                         market_trends["data"] = trend_data
-                         market_trends["update_time"] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                         self.save_data("market_trends", market_trends)
-                         data["market_trends"] = market_trends
-                         
+                        today_str = datetime.now().strftime('%Y-%m-%d')
+                        current_hour = datetime.now().hour
+                        slot = (current_hour // 4) * 4
+                        key = f"{today_str}-{slot}"
+                        
+                        market_trends = self.get_data("market_trends") or {}
+                        
+                        # 兼容旧数据重置
+                        if "date" in market_trends:
+                            market_trends = {"version": 2, "data": {}}
+                        
+                        if "data" not in market_trends:
+                            market_trends["data"] = {}
+                            
+                        trends_data = market_trends["data"]
+                        
+                        for item in market_items:
+                            name = item["name"]
+                            price_str = re.sub(r'[^\d.]', '', str(item["price"]))
+                            price = float(price_str) if price_str else 0
+                            
+                            if name not in trends_data:
+                                trends_data[name] = []
+                            
+                            history = trends_data[name]
+                            
+                            record = {
+                                "slot": slot,
+                                "price": price,
+                                "key": key,
+                                "label": f"{slot}:00"
+                            }
+                            
+                            # 更新或追加
+                            if history and history[-1].get("key") == key:
+                                history[-1] = record
+                            else:
+                                history.append(record)
+                            
+                            # 保持最近 6 条
+                            if len(history) > 6:
+                                history.pop(0)
+                        
+                        self.save_data("market_trends", market_trends)
+                        data["market_trends"] = market_trends
                     except Exception as e:
-                        logger.error(f"{self.plugin_name}: 处理市场趋势失败: {str(e)}")
+                        logger.error(f"{self.plugin_name}: 记录价格趋势失败: {e}")
 
+                    # 计算价格波动 (基于成本价)
+                    for item in data["market"]:
+                        try:
+                            # 解析当前价格 (移除可能的非数字字符)
+                            price_str = re.sub(r'[^\d.]', '', str(item["price"]))
+                            current_price = float(price_str) if price_str else 0
+                            
+                            item_name = item["name"]
+                            
+                            # 获取成本价
+                            cost_price_str = cost_map.get(item_name, "0")
+                            cost_price_clean = re.sub(r'[^\d.]', '', str(cost_price_str))
+                            cost_price = float(cost_price_clean) if cost_price_clean else 0
+                            
+                            # "last_price" 字段现在用于显示成本价
+                            item["last_price"] = cost_price if cost_price > 0 else "未知"
+                            item["change_pct"] = 0
+                            item["change"] = 0
+                            
+                            if cost_price > 0:
+                                change = current_price - cost_price
+                                change_pct = (change / cost_price) * 100
+                                item["change"] = change
+                                item["change_pct"] = round(change_pct, 2)
+                                
+                        except Exception as e:
+                            logger.error(f"计算价格波动出错: {e}")
+                            item["last_price"] = "未知"
+                            item["change_pct"] = 0      
+            return data
+            
         except Exception as e:
             logger.error(f"{self.plugin_name} 解析数据失败: {str(e)}")
-            import traceback
-            traceback.print_exc()
-
-        return data
+            return None
 
     def harvest_all(self) -> Optional[str]:
         """一键收获
@@ -1010,6 +910,7 @@ class PlayletFram(_PluginBase):
         response = self._request(url, params=params)
         if response and "收获成功" in response.text:
             msg = "一键收获成功"
+            # 尝试提取收获统计信息
             if "共收获" in response.text:
                 match = re.search(r'共收获\s*(\d+)\s*项', response.text)
                 if match:
@@ -1033,7 +934,9 @@ class PlayletFram(_PluginBase):
 
     def harvest(self, type_name: str, id: int):
         """单独收获"""
-        site_url = self._site_url or self.DEFAULT_SITE_URL  # 使用常量
+        site_url, _ = self._get_site_info()
+        if not site_url:
+            site_url = "https://pt.novahd.top"
         url = f"{site_url}/magic_fram.php"
         params = {
             "action": "harvest",
@@ -1042,60 +945,40 @@ class PlayletFram(_PluginBase):
         }
         response = self._request(url, params=params)
         return response is not None
-            
+
     def _sell_item(self, payload: dict = None):
-        """API: 出售物品"""
+        """出售物品"""
         if payload is None:
             payload = {}
-            
-        key = payload.get('key', '')
-        if not key:
-            return {"success": False, "message": "参数 key 不能为空"}
-            
-        try:
-            url = f"{self._site_url}/magic_fram.php"
-            params = {
-                "action": "sell",
-                "key": key
-            }
-            
-            response = self._request(url, params=params)
-            if response and response.status_code == 200:
-                if "出售成功" in response.text or "成功" in response.text:
-                    logger.info(f"{self.plugin_name}: 出售成功 - key={key}")
-                    return {
-                        "success": True,
-                        "message": "出售成功"
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "message": "出售失败"
-                    }
-            else:
-                return {
-                    "success": False,
-                    "message": "请求失败"
-                }
-        except Exception as e:
-            logger.error(f"{self.plugin_name}: 出售异常 - {str(e)}")
-            return {
-                "success": False,
-                "message": str(e)
-            }
-
-    def _sell_all(self, payload: dict = None) -> dict:
-        """API: 一键出售"""
         
+        key = payload.get('key')
+        if not key:
+            return {"success": False, "msg": "缺少参数 key"}
+            
+        site_url, _ = self._get_site_info()
+        if not site_url:
+            site_url = "https://pt.novahd.top"
+        url = f"{site_url}/magic_fram.php"
+        params = {
+            "action": "sell",
+            "key": key
+        }
+        response = self._request(url, params=params)
+        if response and "出售成功" in response.text:
+            return {"success": True, "msg": "出售成功"}
+        return {"success": False, "msg": "出售失败"}
+
+    def _sell_all(self):
+        """一键出售"""
         # 1. 获取最新仓库数据
         data = self.get_farm_data()
         if not data or "warehouse" not in data:
             return {"success": False, "msg": "获取仓库数据失败"}
-            
+        
         warehouse = data["warehouse"]
         if not warehouse:
-             return {"success": True, "msg": "仓库为空，无需出售"}
-        
+            return {"success": True, "msg": "仓库为空，无需出售"}
+            
         success_count = 0
         fail_count = 0
         skip_count = 0
@@ -1103,8 +986,9 @@ class PlayletFram(_PluginBase):
         fail_items = []
         skip_items = []
         start_time = time.time()
-        timeout_limit = 30
+        timeout_limit = 25 # 25秒超时保护
         
+        # 构建市场价格映射 (用于计算利润)
         market_map = {}
         if self._auto_sell_threshold > 0:
             for m in data.get("market", []):
@@ -1112,21 +996,25 @@ class PlayletFram(_PluginBase):
 
         # 2. 遍历出售
         for item in warehouse:
+            # 超时检查
             if time.time() - start_time > timeout_limit:
                 logger.warning(f"{self.plugin_name}: 一键出售执行超时，已中断。")
                 break
-                
+
             key = item.get("key")
             name = item.get("name")
-            
             if not key:
                 continue
-                
+            
+            # 盈利检查
             if self._auto_sell_threshold > 0 and name in market_map:
                 m_item = market_map[name]
                 try:
+                    # 获取当前价格
                     price_str = re.sub(r'[^\d.]', '', str(m_item.get("price", "0")))
                     current_price = float(price_str) if price_str else 0
+                    
+                    # 获取成本价 (在 get_farm_data 中已处理并存入 last_price)
                     cost_str = str(m_item.get("last_price", "0"))
                     if cost_str == "未知":
                         cost_price = 0
@@ -1140,21 +1028,14 @@ class PlayletFram(_PluginBase):
                             skip_count += 1
                             skip_items.append(name)
                             continue
-                    elif self._auto_sell_threshold > 0:
-                         logger.info(f"{self.plugin_name}: {name} 成本价未知，无法计算盈利，跳过出售")
-                         skip_count += 1
-                         skip_items.append(name)
-                         continue
                 except Exception as e:
-                    logger.warning(f"{self.plugin_name}: 计算 {name} 盈利出错: {e}，跳过出售")
-                    skip_count += 1
-                    skip_items.append(name)
-                    continue
+                    logger.warning(f"{self.plugin_name}: 计算 {name} 盈利出错: {e}，默认出售")
 
             res = self._sell_item({"key": key})
             if res and res.get("success"):
                 success_count += 1
                 success_items.append(name)
+                # 缩短延时到 0.2s
                 time.sleep(0.2)
             else:
                 fail_count += 1
@@ -1200,10 +1081,11 @@ class PlayletFram(_PluginBase):
         success_count = 0
         fail_count = 0
         start_time = time.time()
-        timeout_limit = 25
+        timeout_limit = 25 # 25秒超时保护
         
         # 2. 遍历种植
         for item in items:
+            # 超时检查
             if time.time() - start_time > timeout_limit:
                 logger.warning(f"{self.plugin_name}: 一键{type_cn}执行超时，已中断。")
                 break
@@ -1211,10 +1093,11 @@ class PlayletFram(_PluginBase):
             if item.get("state") == "empty":
                 item_id = item.get("id")
                 if item_id:
+                     # 复用 plant 方法
                      if self.plant(item_type, item_id):
                          success_count += 1
                          logger.info(f"{self.plugin_name}: 自动{type_cn} {item.get('name')} 成功")
-                         time.sleep(0.5)
+                         time.sleep(0.5) # 避免请求过快
                      else:
                          fail_count += 1
                          logger.warning(f"{self.plugin_name}: 自动{type_cn} {item.get('name')} 失败")
@@ -1280,20 +1163,23 @@ class PlayletFram(_PluginBase):
             
             logger.info(f"{self.plugin_name}: 配置已保存并重新初始化")
             
-            return {"success": True, "message": "配置已成功保存", "saved_config": self._get_config()}
+            return {"message": "配置已成功保存", "saved_config": self._get_config()}
         except Exception as e:
             logger.error(f"更新配置失败: {str(e)}")
             return {
                 "message": f"保存配置失败: {e}",
-                "success": False
+                "error": True
             }
     
     def _refresh_data(self):
         """API: 强制刷新农场数据"""
         try:
             logger.info(f"{self.plugin_name}: 开始强制刷新农场数据")
+            # 从站点获取最新数据
             new_data = self.get_farm_data()
+            
             if new_data:
+                # 保存新数据
                 self.save_data("farm_status", new_data)
                 self.save_data("last_run", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                 logger.info(f"{self.plugin_name}: 农场数据刷新成功")
@@ -1374,7 +1260,9 @@ class PlayletFram(_PluginBase):
                 if "成功" in response.text or "种植" in response.text or "养殖" in response.text:
                     logger.info(f"{self.plugin_name}: {action_name}成功 - type={item_type}, id={item_id}")
                     
+                    # 刷新并保存新数据
                     try:
+                        from datetime import datetime
                         new_data = self.get_farm_data()
                         if new_data:
                             self.save_data("farm_status", new_data)
@@ -1389,8 +1277,9 @@ class PlayletFram(_PluginBase):
                     }
                 else:
                     error_msg = "操作失败"
-                    if "魔力值不足" in response.text:
-                        error_msg = "魔力值不足"
+                    # 尝试从响应中提取错误信息
+                    if "火花不足" in response.text:
+                        error_msg = "火花不足"
                     elif "已" in response.text:
                         error_msg = "该位置已有作物/动物"
                     
@@ -1430,16 +1319,22 @@ class PlayletFram(_PluginBase):
             
             response = self._request(url, params=params)
             if response and response.status_code == 200:
+                # 检查响应内容判断是否成功
                 if "收获成功" in response.text or "获得" in response.text:
                     logger.info(f"{self.plugin_name}: 收获成功 - type={item_type}, id={item_id}")
                     
+                    # 尝试提取收获信息（火花数量等）
                     reward_info = ""
-                    if "魔力值" in response.text:
-                        match = re.search(r'(\d+)\s*魔力值', response.text)
+                    if "火花" in response.text:
+                        # 简单提取火花信息
+                        import re
+                        match = re.search(r'(\d+)\s*火花', response.text)
                         if match:
-                            reward_info = f"，获得 {match.group(1)} 魔力值"
-
+                            reward_info = f"，获得 {match.group(1)} 火花"
+                    
+                    # 刷新并保存新数据
                     try:
+                        from datetime import datetime
                         new_data = self.get_farm_data()
                         if new_data:
                             self.save_data("farm_status", new_data)
@@ -1489,13 +1384,17 @@ class PlayletFram(_PluginBase):
                 if "收获成功" in response.text or "收获" in response.text:
                     logger.info(f"{self.plugin_name}: 一键收获成功")
                     
+                    # 尝试提取收获统计信息
                     harvest_info = ""
                     if "共收获" in response.text:
+                        import re
                         match = re.search(r'共收获\s*(\d+)\s*项', response.text)
                         if match:
                             harvest_info = f"，共收获 {match.group(1)} 项"
-
+                    
+                    # 刷新并保存新数据
                     try:
+                        from datetime import datetime
                         new_data = self.get_farm_data()
                         if new_data:
                             self.save_data("farm_status", new_data)
@@ -1509,6 +1408,7 @@ class PlayletFram(_PluginBase):
                         "message": f"一键收获成功{harvest_info}"
                     }
                 else:
+                    # 即使没有可收获的也算成功
                     logger.info(f"{self.plugin_name}: 一键收获完成（可能无可收获项）")
                     return {
                         "success": True,
@@ -1537,18 +1437,21 @@ class PlayletFram(_PluginBase):
                 if not items:
                     return ""
                 return prefix + "".join([f"✅{item}" for item in items])
-
+                
+            # 基础数据
             bonus = farm_info.get("bonus", "0")
             crops = farm_info.get("crops", [])
             animals = farm_info.get("animals", [])
             warehouse = farm_info.get("warehouse", [])
-
+            
+            # 统计作物状态
             crop_lines = []
             for c in crops:
                 name = c.get("name", "未知")
                 state = c.get("state")
                 status_text = ""
                 if state == "growing":
+                    # 优先使用提取的剩余时间
                     rem_time = c.get("remaining_time")
                     if rem_time:
                         status_text = f"剩余时间: {rem_time}"
@@ -1570,6 +1473,7 @@ class PlayletFram(_PluginBase):
                 state = a.get("state")
                 status_text = ""
                 if state == "growing":
+                    # 优先使用提取的剩余时间
                     rem_time = a.get("remaining_time")
                     if rem_time:
                         status_text = f"剩余时间: {rem_time}"
@@ -1585,7 +1489,7 @@ class PlayletFram(_PluginBase):
 
             # 生成报告
             report = f"━━━━━━━━━━━━━━\n"
-            report += f"🌿 魔力值余额：{bonus}\n"
+            report += f"🌿 魔力余额：{bonus}\n"
             
             report += f"━━━━━━━━━━━━━━\n"
             report += f"🏡 农场概况：\n"
@@ -1613,6 +1517,7 @@ class PlayletFram(_PluginBase):
                 report += f"动物：{a_count}类\n"
             
             # 自动任务日志
+            # logs: {'harvest': [], 'plant': [], 'sell': {}, 'expiry_sell': []}
             task_log_str = ""
             
             if logs.get('harvest'):
@@ -1664,7 +1569,9 @@ class PlayletFram(_PluginBase):
         if not logs and not farm_data:
             return
             
-        title = f"【开心农场】任务报告"
+        title = f"【魔力农场】任务报告"
+        
+        # 如果有农场数据，生成富文本报告
         if farm_data:
             report_text = self.generate_farm_report(farm_data, logs)
         else:
@@ -1680,163 +1587,3 @@ class PlayletFram(_PluginBase):
             logger.info(f"{self.plugin_name}: 发送通知成功")
         except Exception as e:
             logger.error(f"{self.plugin_name}: 发送通知失败: {str(e)}")
-
-    def _parse_timedelta(self, time_str: str) -> Optional[timedelta]:
-        """解析剩余时间字符串为 timedelta"""
-        if not time_str:
-            return None
-        
-        try:
-            if ":" in time_str:
-                parts = time_str.split(":")
-                if len(parts) == 3:
-                    h, m, s = map(int, parts)
-                    return timedelta(hours=h, minutes=m, seconds=s)
-                elif len(parts) == 2:
-                    m, s = map(int, parts)
-                    return timedelta(minutes=m, seconds=s)
-
-            days = 0
-            hours = 0
-            minutes = 0
-            seconds = 0
-            
-            if "天" in time_str:
-                match = re.search(r'(\d+)天', time_str)
-                if match: days = int(match.group(1))
-            if "小时" in time_str:
-                match = re.search(r'(\d+)小时', time_str)
-                if match: hours = int(match.group(1))
-            if "分" in time_str:
-                match = re.search(r'(\d+)分', time_str)
-                if match: minutes = int(match.group(1))
-            if "秒" in time_str:
-                match = re.search(r'(\d+)秒', time_str)
-                if match: seconds = int(match.group(1))
-                
-            if days > 0 or hours > 0 or minutes > 0 or seconds > 0:
-                return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
-                
-            return None
-        except Exception as e:
-            logger.error(f"{self.plugin_name}: 解析时间字符串失败 '{time_str}': {e}")
-            return None
-
-    def _auto_worker(self, *args, **kwargs):
-        """智能自动化任务（动态调度）"""
-        logger.info(f"{self.plugin_name}: 开始执行智能自动化任务")
-        
-        # 1. 执行自动化操作
-        logs = {'harvest': [], 'plant': [], 'sell': None, 'expiry_sell': []}
-        try:
-            # 自动种植/养殖 (包含收获)
-            if self._auto_plant:
-                plant_logs = self._run_auto_plant()
-                if plant_logs.get('harvest'):
-                    logs['harvest'].extend(plant_logs['harvest'])
-                if plant_logs.get('plant'):
-                    logs['plant'].extend(plant_logs['plant'])
-            
-            # 自动出售
-            if self._auto_sell:
-                sell_logs = self._run_auto_sell()
-                if sell_logs:
-                    logs['sell'] = sell_logs
-            
-            # 临期自动出售
-            if self._expiry_sale_enabled:
-                 expiry_logs = self._run_expiry_sale()
-                 if expiry_logs:
-                     logs['expiry_sell'].extend(expiry_logs)
-                     
-        except Exception as e:
-            logger.error(f"{self.plugin_name}: 智能自动化任务执行异常: {e}")
-
-        # 发送通知
-        if self._notify and any(logs.values()):
-             data = self.get_farm_data()
-             self._send_message(logs, data)
-
-        # 2. 调度下一次执行
-        self._schedule_next_auto_run()
-
-    def reregister_plugin(self):
-        """重新注册插件任务"""
-        logger.info(f"{self.plugin_name}: 重新注册插件任务")
-        Scheduler().update_plugin_job(self.__class__.__name__)
-
-    def _schedule_next_auto_run(self):
-        """计算并注册下一次智能执行时间"""
-        # 检查自动化功能是否启用
-        if not (self._auto_plant or self._auto_sell or self._expiry_sale_enabled):
-            logger.debug(f"{self.plugin_name}: 自动化功能未启用，跳过智能调度")
-            self._next_run_time = None
-            return
-
-        try:
-            # 获取最新数据
-            data = self.get_farm_data()
-            if not data:
-                # 增加重试机制：数据获取失败时,5分钟后重试
-                logger.warning(f"{self.plugin_name}: 获取数据失败，5分钟后重试")
-                fallback_time = datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(minutes=5)
-                self._next_run_time = fallback_time
-                self.save_data("next_run_time", fallback_time.strftime('%Y-%m-%d %H:%M:%S'))
-                self.reregister_plugin()
-                return
-            else:
-                # 刷新缓存，确保前端显示最新状态
-                self.save_data("farm_status", data)
-                self.save_data("last_run", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-                
-                min_seconds = None
-                
-                # 遍历作物和动物，找最小剩余时间
-                items = (data.get("crops", []) or []) + (data.get("animals", []) or [])
-
-                valid_seconds = []
-                has_ripe_or_empty = False
-                
-                for item in items:
-                    state = item.get("state")
-                    sort_sec = item.get("sort_seconds", self.MAX_SORT_SECONDS)
-                    
-                    if state == "ripe":
-                        has_ripe_or_empty = True
-                        valid_seconds.append(0)
-                    elif state == "empty":
-                         has_ripe_or_empty = True
-                         valid_seconds.append(10)
-                    elif state == "growing":
-                        if sort_sec < self.MAX_SORT_SECONDS:
-                            valid_seconds.append(sort_sec)
-                
-                if valid_seconds:
-                    min_seconds = min(valid_seconds)
-                elif has_ripe_or_empty:
-                    min_seconds = 10 
-                
-                if min_seconds is not None:
-                    # 使用缓冲时间确保作物已成熟
-                    wait_seconds = max(10, min_seconds + self.SCHEDULE_BUFFER_SECONDS)
-                    next_run = datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=wait_seconds)
-                    logger.info(
-                        f"{self.plugin_name}: 检测到最近成熟时间为 {int(min_seconds)} 秒后 "
-                        f"(+{self.SCHEDULE_BUFFER_SECONDS}秒缓冲)，下一次智能调度时间: {next_run.strftime('%Y-%m-%d %H:%M:%S')}"
-                    )
-                else:
-                    # 无紧急任务，5分钟后再检测
-                    wait_seconds = 300
-                    next_run = datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=wait_seconds)
-                    logger.info(f"{self.plugin_name}: 当前无紧急任务，将在 {wait_seconds} 秒后再次检测")
-
-            # 更新下一次运行时间
-            if next_run:
-                self._next_run_time = next_run
-                # 持久化保存
-                self.save_data("next_run_time", next_run.strftime('%Y-%m-%d %H:%M:%S'))
-                # 重新注册插件以更新任务
-                self.reregister_plugin()
-            
-        except Exception as e:
-            logger.error(f"{self.plugin_name}: 调度下一次任务失败: {e}")

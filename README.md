@@ -10,7 +10,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 |------|----------|------|----------|------|
 | 1 | [📢 外部消息转发 (MsgNotify)](#1--外部消息转发-msgnotify) | v1.4.4 | 接收外部应用自定义消息并推送 | 消息通知 |
 | 2 | [🍀 Lucky助手 (LuckyHelper)](#2--lucky助手-luckyhelper) | v1.2.6 | 定时备份Lucky配置文件 | 备份 |
-| 3 | [💬 群聊区 (GroupChatZone)](#3--群聊区-groupchatzone) | v2.3.2 | 执行站点喊话、获取反馈、定时任务 | 站点 |
+| 3 | [💬 群聊区 (GroupChatZone)](#3--群聊区-groupchatzone) | v2.3.3 | 执行站点喊话、获取反馈、定时任务 | 站点 |
 | 4 | [🦅 朱雀助手 (ZhuqueHelper)](#4--朱雀助手-zhuquehelper) | v1.3.3 | 技能释放、一键升级、获取执行记录 | 站点 |
 | 5 | [☁️ Cloudflare订阅 (CloudflaresSubscribe)](#5-%EF%B8%8F-cloudflare订阅-cloudflaressubscribe) | v1.0.5 | 自动订阅Cloudflare免费DNS服务 | 网络 |
 | 6 | [📥 本地插件安装 (LocalPluginInstall)](#6--本地插件安装-localplugininstall) | v1.4.0 | 上传本地ZIP插件包进行安装 | 工具 |
@@ -20,17 +20,18 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 | 10 | [🌐 NAT类型检测 (NATdetect)](#10--nat类型检测-natdetect) | v2.1 | 检测MP所在环境的网络NAT类型 | 站点 |
 | 11 | [🌾 ~~Vue-象岛农场 (VicomoFarm)~~](#11--vue-象岛农场-vicomofarm) | v1.3.0 | 监听象岛农场相关信息，我在PT学卖菜 | 站点 |
 | 12 | [🔍 探索服务聚合 (ExploreServices)](#12--探索服务聚合-exploreservices) | v1.1 | 统一管理和配置所有探索数据源插件 | 探索 |
-| 13 | [🌾 Vue-好学农场 (MagicFram)](#13--vue-好学农场-magicfram) | v1.0.2 | 支持一键收获、种植、养殖，定时自动化任务 | 站点 |
-| 14 | [🌾 Vue-开心农场 (PlayletFram)](#14--vue-开心农场-playletfram) | v1.0.5 | 支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务 | 站点 |
-| 15 | [🏅 Vue-勋章墙Pro (MedalWallPro)](#15--vue-勋章墙pro-medalwallpro) | v1.2.3 | 站点勋章购买提醒、统计、展示 | 站点 |
-| 16 | [🌞 Sun-Panel助手 (SpanelHelper)](#16--sun-panel助手-spanelhelper) | v1.1 | 同步MP中已启用的站点到Sun-Panel指定分组 | 工具 |
-| 17 | [🚀 Vue-网络测速 (AutoSpeed)](#17--vue-网络测速-autospeed) | v1.1.0 | 使用Speedtest.net定时自动测速，支持手动触发，记录历史趋势 | 网络 |
-| 18 | [🌾 Vue-拾刻农场 (SkitFarm)](#18--vue-拾刻农场-skitfarm) | v1.0.0 | 支持Skit站点一键收获、种植、养殖，定时自动化任务 | 站点 |
-| 19 | [🌐 直连模式 (NoProxy)](#19--直连模式-noproxy) | v1.1.1 | 对指定域名的请求强制直连，绕过 MoviePilot 全局代理 | 网络 |
-| 20 | [📥 Vue-PTD站点导入 (PtdImporter)](#20--vue-ptd站点导入-ptdimporter) | v1.0.1 | 上传 PTD 备份并按 MoviePilot 标准站点批量导入/更新 | 站点,工具 |
-| 21 | [🛜 中兴问天Hosts (ZTEHosts)](#21--中兴问天hosts-ztehosts) | v1.0 | 定时将本地Hosts同步至中兴问天路由自定义Hosts | 网络 |
-| 22 | [🦆 Vue-光鸭云盘储存 (GuangyaDisk)](#22--vue-光鸭云盘储存-guangyadisk) | v1.1.0 | 使存储支持光鸭云盘 | 存储,工具 |
-| 23 | [🖼️ Vue-Zpic图床 (Zpic)](#23-%EF%B8%8F-vue-zpic图床-zpic) | v1.0.0 | 上传、阅览、管理 Zpic 图床 | 图片,工具 |
+| 13 | [🌾 Vue-好学农场 (MagicFram)](#13--vue-好学农场-magicfram) | v1.0.3 | 支持一键收获、种植、养殖，定时自动化任务 | 站点 |
+| 14 | [🌾 Vue-开心农场 (PlayletFram)](#14--vue-开心农场-playletfram) | v1.0.6 | 支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务 | 站点 |
+| 15 | [🌾 Vue-魔力农场 (NovahdFram)](#15--vue-魔力农场-novahdfram) | v1.0.0 | 支持 NovaHD 魔力农场一键收获、种植、养殖，定时自动化任务 | 站点 |
+| 16 | [🏅 Vue-勋章墙Pro (MedalWallPro)](#16--vue-勋章墙pro-medalwallpro) | v1.2.4 | 站点勋章购买提醒、统计、展示 | 站点 |
+| 17 | [🌞 Sun-Panel助手 (SpanelHelper)](#17--sun-panel助手-spanelhelper) | v1.1 | 同步MP中已启用的站点到Sun-Panel指定分组 | 工具 |
+| 18 | [🚀 Vue-网络测速 (AutoSpeed)](#18--vue-网络测速-autospeed) | v1.1.0 | 使用Speedtest.net定时自动测速，支持手动触发，记录历史趋势 | 网络 |
+| 19 | [🌾 Vue-拾刻农场 (SkitFarm)](#19--vue-拾刻农场-skitfarm) | v1.0.1 | 支持Skit站点一键收获、种植、养殖，定时自动化任务 | 站点 |
+| 20 | [🌐 直连模式 (NoProxy)](#20--直连模式-noproxy) | v1.1.1 | 对指定域名的请求强制直连，绕过 MoviePilot 全局代理 | 网络 |
+| 21 | [📥 Vue-PTD站点导入 (PtdImporter)](#21--vue-ptd站点导入-ptdimporter) | v1.0.1 | 上传 PTD 备份并按 MoviePilot 标准站点批量导入/更新 | 站点,工具 |
+| 22 | [🛜 中兴问天Hosts (ZTEHosts)](#22--中兴问天hosts-ztehosts) | v1.0 | 定时将本地Hosts同步至中兴问天路由自定义Hosts | 网络 |
+| 23 | [🦆 Vue-光鸭云盘储存 (GuangyaDisk)](#23--vue-光鸭云盘储存-guangyadisk) | v1.1.0 | 使存储支持光鸭云盘 | 存储,工具 |
+| 24 | [🖼️ Vue-Zpic图床 (Zpic)](#24-%EF%B8%8F-vue-zpic图床-zpic) | v1.0.0 | 上传、阅览、管理 Zpic 图床 | 图片,工具 |
 
 ### 1. 📢 外部消息转发 (MsgNotify)
 - 版本：v1.4.4
@@ -89,7 +90,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   </details>
 
 ### 3. 💬 群聊区 (GroupChatZone)
-- 版本：v2.3.2
+- 版本：v2.3.3
 - 功能：执行站点喊话、获取反馈、定时任务
 - 标签：站点
 - 特点：
@@ -102,6 +103,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v2.3.3: 修复藏宝阁与PTLGS站点喊话反馈获取逻辑，适配13City勋章检查/自动购买与反馈展示，移除独立织梦喊话开关并改为自动启用独立织梦喊话逻辑。
   - v2.3.2: 修复Ptskit站点获取反馈消息逻辑。
   - v2.3.1: 调整[启用重试通知]使用下拉选项，优化使用说明格式。
   - v2.3.0: 新增适配 FlareSolverr，支持开启渲染的站点绕过 Cloudflare 验证（需在站点编辑中开启浏览器仿真）。
@@ -307,7 +309,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   </details>
 
 ### 13. 🌾 Vue-好学农场 (MagicFram)
-- 版本：v1.0.2
+- 版本：v1.0.3
 - 功能：支持一键收获、种植、养殖，定时自动化任务。
 - 标签：站点
 - 特点：
@@ -319,13 +321,14 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.0.3: 统一任务通知格式，支持自动出售成功/失败/未盈利跳过明细展示。
   - v1.0.2: 优化仓库排序方法、添加分页阅览。
   - v1.0.1: 优化页面UI显示。
   - v1.0.0: 初始版本。
   </details>
 
 ### 14. 🌾 Vue-开心农场 (PlayletFram)
-- 版本：v1.0.5
+- 版本：v1.0.6
 - 功能：支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务。
 - 标签：站点
 - 特点：
@@ -337,6 +340,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.0.6: 统一任务通知格式，支持自动出售成功/失败/未盈利跳过明细展示。
   - v1.0.5: 修复PlayLet站点域名变更导致无法使用的错误。
   - v1.0.3: 调整图表刷新显示逻辑。
   - v1.0.2: 修复仓库显示错误、智能调度注册失败问题，增强代码健壮性。
@@ -344,8 +348,24 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   - v1.0.0: 初始版本。
   </details>
 
-### 15. 🏅 Vue-勋章墙Pro (MedalWallPro)
-- 版本：v1.2.3
+### 15. 🌾 Vue-魔力农场 (NovahdFram)
+- 版本：v1.0.0
+- 功能：支持 NovaHD 魔力农场一键收获、种植、养殖，定时自动化任务。
+- 标签：站点
+- 特点：
+  - 🌱 农场信息监控
+  - 📊 数据统计分析
+  - ⏰ 定时任务执行
+  - 🔄 自动操作功能
+- 更新说明：
+  <details>
+  <summary>点击查看更新历史</summary>
+  
+  - v1.0.0: 初始版本。
+  </details>
+
+### 16. 🏅 Vue-勋章墙Pro (MedalWallPro)
+- 版本：v1.2.4
 - 功能：站点勋章购买提醒、统计、展示。
 - 标签：站点
 - 特点：
@@ -358,6 +378,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.2.4: 优化勋章图片加载方式，移除图片 Base64 转换，改为通过插件图片代理加载，并增强缓存兼容与部分站点适配。
   - v1.2.3: PlayLet站点域名变更。
   - v1.2.1: 修复了部分站点勋章数据无法完全获取的问题，新增siqi站点勋章获取。
   - v1.2.0: 适配新版Rousipro站点，适配该站点勋章购买佩戴取下等操作，优化页面显示。
@@ -365,7 +386,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   - v1.0: 初始版本。
   </details>
 
-### 16. 🌞 Sun-Panel助手 (SpanelHelper)
+### 17. 🌞 Sun-Panel助手 (SpanelHelper)
 - 版本：v1.1
 - 功能：同步MP中已启用的站点到Sun-Panel指定分组。
 - 标签：工具
@@ -381,7 +402,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   - v1.0: 初始版本。
   </details>
 
-### 17. 🚀 Vue-网络测速 (AutoSpeed)
+### 18. 🚀 Vue-网络测速 (AutoSpeed)
 - 版本：v1.1.0
 - 功能：使用Speedtest.net定时自动测速，支持手动触发，记录历史趋势。
 - 标签：网络
@@ -398,8 +419,8 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   - v1.0.0: 初始版本。
   </details>
 
-### 18. 🌾 Vue-拾刻农场 (SkitFarm)
-- 版本：v1.0.0
+### 19. 🌾 Vue-拾刻农场 (SkitFarm)
+- 版本：v1.0.1
 - 功能：支持Skit站点一键收获、种植、养殖，定时自动化任务。
 - 标签：站点
 - 特点：
@@ -411,10 +432,11 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   <details>
   <summary>点击查看更新历史</summary>
   
+  - v1.0.1: 统一任务通知格式，支持自动出售成功/失败/未盈利跳过明细展示。
   - v1.0.0: 初始版本。
   </details>
 
-### 19. 🌐 直连模式 (NoProxy)
+### 20. 🌐 直连模式 (NoProxy)
 - 版本：v1.1.1
 - 功能：对指定域名的请求强制直连，绕过 MoviePilot 全局代理。
 - 标签：网络
@@ -434,7 +456,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   - v1.0.0: 初始版本：支持对 MP_SERVER_HOST 和额外配置主机强制直连，支持通配符域名匹配，绕过 MoviePilot 全局代理。
   </details>
 
-### 20. 📥 Vue-PTD站点导入 (PtdImporter)
+### 21. 📥 Vue-PTD站点导入 (PtdImporter)
 - 版本：v1.0.1
 - 功能：上传 PTD 备份并按 MoviePilot 标准站点批量导入/更新。
 - 标签：站点,工具
@@ -451,7 +473,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   - v1.0.0: 初始版本，支持 PTD 备份解析、标准站点匹配、批量导入/更新及移动端界面适配。
   </details>
 
-### 21. 🛜 中兴问天Hosts (ZTEHosts)
+### 22. 🛜 中兴问天Hosts (ZTEHosts)
 - 版本：v1.0
 - 功能：定时将本地Hosts同步至中兴问天路由自定义Hosts。
 - 标签：网络
@@ -467,7 +489,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   - v1.0: 初始版本。
   </details>
 
-### 22. 🦆 Vue-光鸭云盘储存 (GuangyaDisk)
+### 23. 🦆 Vue-光鸭云盘储存 (GuangyaDisk)
 - 版本：v1.1.0
 - 功能：使存储支持光鸭云盘。
 - 标签：存储,工具
@@ -488,7 +510,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
   - v1.0.0: 初始版本，支持光鸭云盘扫码登录、文件管理、整理刮削等操作。
   </details>
 
-### 23. 🖼️ Vue-Zpic图床 (Zpic)
+### 24. 🖼️ Vue-Zpic图床 (Zpic)
 - 版本：v1.0.0
 - 功能：上传、阅览、管理 Zpic 图床。
 - 标签：图片,工具
