@@ -24,7 +24,7 @@ class MedalWallPro(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Medal.png"
     # 插件版本
-    plugin_version = "1.2.4"
+    plugin_version = "1.2.5"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -555,8 +555,8 @@ class MedalWallPro(_PluginBase):
 
             if result.get("success"):
                 try:
+                    # 请求级缓存目前仍按 region 清理，但站点勋章缓存仅刷新当前站点，避免影响其他站点列表
                     self._cache.clear(region="medalwallpro_request")
-                    self._cache.clear(region="medalwallpro")
                     medals = self.get_medal_data(site_id)
                     self._cache.set(str(site_id), medals, region="medalwallpro")
                 except Exception as e:
@@ -599,8 +599,8 @@ class MedalWallPro(_PluginBase):
 
             if result.get("success"):
                 try:
+                    # 请求级缓存目前仍按 region 清理，但站点勋章缓存仅刷新当前站点，避免影响其他站点列表
                     self._cache.clear(region="medalwallpro_request")
-                    self._cache.clear(region="medalwallpro")
                     medals = self.get_medal_data(site_id)
                     self._cache.set(str(site_id), medals, region="medalwallpro")
                 except Exception as e:
