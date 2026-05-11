@@ -33,7 +33,7 @@ def form(site_options) -> list:
                                 },
                                 {
                                     'component': 'span',
-                                    'text': '基本设置'
+                                    'text': '基础设置'
                                 }
                             ]
                         },
@@ -214,7 +214,7 @@ def form(site_options) -> list:
                                                     }
                                                 }
                                             ]
-                                        }
+                                        },
                                     ]
                                 },
                                 {
@@ -371,26 +371,9 @@ def form(site_options) -> list:
                                                 {
                                                     'component': 'VSwitch',
                                                     'props': {
-                                                        'model': 'zm_independent',
-                                                        'label': '独立织梦喊话',
-                                                        'color': 'info'
-                                                    }
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            'component': 'VCol',
-                                            'props': {
-                                                'cols': 12,
-                                                'md': 3
-                                            },
-                                            'content': [
-                                                {
-                                                    'component': 'VSwitch',
-                                                    'props': {
                                                         'model': 'qingwa_daily_bonus',
                                                         'label': '青蛙福利购买',
-                                                        'color': 'success'
+                                                        'color': 'info'
                                                     }
                                                 }
                                             ]
@@ -407,6 +390,23 @@ def form(site_options) -> list:
                                                     'props': {
                                                         'model': 'longpt_daily_lottery',
                                                         'label': 'LongPT每日抽奖',
+                                                        'color': 'success'
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            'component': 'VCol',
+                                            'props': {
+                                                'cols': 12,
+                                                'md': 3
+                                            },
+                                            'content': [
+                                                {
+                                                    'component': 'VSwitch',
+                                                    'props': {
+                                                        'model': 'thirteencity_auto_buy_blessing',
+                                                        'label': '13City勋章购买',
                                                         'color': 'warning'
                                                     }
                                                 }
@@ -580,19 +580,19 @@ def form(site_options) -> list:
                                                     'props': {'class': 'd-flex align-items-start'},
                                                     'content': [
                                                         {'component': 'VIcon', 'props': {'color': 'error', 'class': 'mt-1 mr-2'}, 'text': 'mdi-application-settings'},
-                                                        {'component': 'div', 'props': {'class': 'text-subtitle-1 font-weight-regular mb-1'}, 'text': '独立织梦喊话功能'}
+                                                        {'component': 'div', 'props': {'class': 'text-subtitle-1 font-weight-regular mb-1'}, 'text': '织梦喊话说明'}
                                                     ]
                                                 },
                                                 {
                                                     'component': 'div',
                                                     'props': {'class': 'text-body-2 ml-8'},
                                                     'content': [
-                                                        {'component': 'div', 'text': '🎯 开启后织梦站点将独立执行喊话任务，与其他站点分开处理', 'props': {'class': 'mb-1'}},
-                                                        {'component': 'div', 'text': '⏰ 开启后获取织梦最新电力奖励邮件的时间，用于计算下次执行时间', 'props': {'class': 'mb-1'}},
-                                                        {'component': 'div', 'text': '🔄 关闭时织梦站点将与其他站点一起执行喊话任务，使用统一的执行周期', 'props': {'class': 'mb-1'}},
+                                                        {'component': 'div', 'text': '🎯 只要选中了织梦站点，插件就会自动使用独立织梦喊话逻辑，与其他站点分开处理', 'props': {'class': 'mb-1'}},
+                                                        {'component': 'div', 'text': '⏰ 插件会自动获取织梦最新电力奖励邮件时间，用于计算下次执行时间', 'props': {'class': 'mb-1'}},
+                                                        {'component': 'div', 'text': '🔄 普通站点继续按统一周期执行，织梦站点自动走独立调度', 'props': {'class': 'mb-1'}},
                                                         {'component': 'div', 'text': '⏱️ 独立织梦喊话间隔：可配置60-120秒之间的喊话间隔，避免过于频繁的喊话', 'props': {'class': 'mb-1'}},
                                                         {'component': 'div', 'text': '🛡️ 防重复执行：内置10分钟冷却机制，防止短时间内重复执行喊话任务', 'props': {'class': 'mb-1'}},
-                                                        {'component': 'div', 'text': '💡 建议开启此功能，可以更精确的执行喊话任务', 'props': {'class': 'mb-3'}},
+                                                        {'component': 'div', 'text': '💡 无需额外开关，选中织梦站点后会自动启用该逻辑', 'props': {'class': 'mb-3'}},
                                                         {'component': 'div', 'text': '📅 织梦定时器说明：', 'props': {'class': 'text-subtitle-2 font-weight-bold mt-2 mb-1'}},
                                                         {'component': 'div', 'text': '• 首次运行时会自动获织梦最新电力奖励邮件的时间，用于计算下次执行时间注册"群聊区 - 织梦定时任务"', 'props': {'class': 'mb-1'}},
                                                         {'component': 'div', 'text': '• 每次执行完喊话任务后会更新获取的邮件时间，确保定时准确', 'props': {'class': 'mb-1'}},
@@ -669,9 +669,9 @@ def form(site_options) -> list:
         "get_feedback": True,
         "feedback_timeout": 5,
         "use_proxy": True,
-        "zm_independent": True,
         "qingwa_daily_bonus": False,
         "longpt_daily_lottery": False,
+        "thirteencity_auto_buy_blessing": False,
         "retry_count": 2,
         "retry_interval": 10,
         "zm_interval": 60,

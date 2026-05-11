@@ -20,7 +20,7 @@ from app.helper.sites import SitesHelper
 from app.scheduler import Scheduler
 from app.log import logger
 from app.plugins import _PluginBase
-from app.plugins.groupchatzone.sites import ISiteHandler
+from .sites import ISiteHandler
 from app.schemas.types import EventType, NotificationType
 from app.utils.timer import TimerUtils
 
@@ -32,7 +32,7 @@ class GroupChatZone(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Octopus.png"
     # 插件版本
-    plugin_version = "2.3.2"
+    plugin_version = "2.3.3"
     # 插件作者
     plugin_author = "KoWming,madrays"
     # 作者主页
@@ -78,9 +78,9 @@ class GroupChatZone(_PluginBase):
     _get_feedback: bool = True     # 是否获取反馈
     _feedback_timeout: int = 5      # 获取反馈的超时时间(秒)
     _use_proxy: bool = True        # 是否使用代理
-    _zm_independent: bool = True  # 是否织梦独立运行
     _qingwa_daily_bonus: bool = False  # 是否青蛙每日福利领取
     _longpt_daily_lottery: bool = False  # 是否LongPT每日抽奖
+    _thirteencity_auto_buy_blessing: bool = False  # 是否13City自动购买诸神赐福勋章
     _retry_count: int = 2          # 喊话失败重试次数
     _retry_interval: int = 10      # 喊话失败重试间隔(分钟)
     _zm_interval: int = 60      # 独立织梦喊话间隔(秒)
@@ -115,7 +115,7 @@ class GroupChatZone(_PluginBase):
         self.siteoper = SiteOper()
         
         # 加载站点处理器
-        self._site_handlers = ModuleHelper.load('app.plugins.groupchatzone.sites', filter_func=lambda _, obj: hasattr(obj, 'match'))
+        self._site_handlers = ModuleHelper.load(f'{__package__}.sites', filter_func=lambda _, obj: hasattr(obj, 'match'))
 
         # 停止现有任务
         self.stop_service()
@@ -131,9 +131,9 @@ class GroupChatZone(_PluginBase):
             self._get_feedback = bool(config.get("get_feedback", True))
             self._feedback_timeout = int(config.get("feedback_timeout", 5))
             self._use_proxy = bool(config.get("use_proxy", True))
-            self._zm_independent = bool(config.get("zm_independent", True))
             self._qingwa_daily_bonus = bool(config.get("qingwa_daily_bonus", False))
             self._longpt_daily_lottery = bool(config.get("longpt_daily_lottery", False))
+            self._thirteencity_auto_buy_blessing = bool(config.get("thirteencity_auto_buy_blessing", False))
             self._retry_count = int(config.get("retry_count", 2))
             self._retry_interval = int(config.get("retry_interval", 10))
             self._retry_notify = bool(config.get("retry_notify", False))
@@ -190,7 +190,7 @@ class GroupChatZone(_PluginBase):
                     self._last_zm_execution_time = None
 
                     # 先启动织梦站点任务
-                    if self._zm_independent:
+                    if self._has_selected_zm_site():
                         self._scheduler.add_job(func=self.send_zm_site_messages, trigger='date',
                                             run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
                                             name="群聊区织梦服务")
@@ -232,6 +232,8 @@ class GroupChatZone(_PluginBase):
         site_info["feedback_timeout"] = self._feedback_timeout
         # 添加longpt_daily_lottery到site_info中
         site_info["longpt_daily_lottery"] = self._longpt_daily_lottery
+        # 添加13City自动购买诸神赐福勋章开关到site_info中
+        site_info["thirteencity_auto_buy_blessing"] = self._thirteencity_auto_buy_blessing
         # 添加retry_count到site_info中
         site_info["retry_count"] = self._retry_count
         # 添加retry_interval到site_info中
@@ -259,6 +261,22 @@ class GroupChatZone(_PluginBase):
     def get_state(self) -> bool:
         return self._enabled
 
+    def _has_selected_zm_site(self) -> bool:
+        """
+        是否选中了织梦站点。选中后默认使用独立织梦逻辑。
+        """
+        try:
+            if not self._chat_sites:
+                return False
+
+            for site_id in self._chat_sites:
+                site = self.siteoper.get(site_id)
+                if site and "织梦" in site.name:
+                    return True
+        except Exception as e:
+            logger.error(f"检测织梦站点失败: {str(e)}")
+        return False
+
     def __update_config(self):
         """
         更新配置
@@ -275,7 +293,6 @@ class GroupChatZone(_PluginBase):
                 "onlyonce": self._onlyonce,
                 "sites_messages": self._sites_messages,
                 "use_proxy": self._use_proxy,
-                "zm_independent": self._zm_independent,
                 "zm_mail_time": self._zm_mail_time,
                 "zm_interval": self._zm_interval,
                 "last_zm_execution_time": self._last_zm_execution_time.isoformat() if self._last_zm_execution_time else None,
@@ -284,6 +301,7 @@ class GroupChatZone(_PluginBase):
                 "max_zm_mail_retries": self._max_zm_mail_retries,
                 "qingwa_daily_bonus": self._qingwa_daily_bonus,
                 "longpt_daily_lottery": self._longpt_daily_lottery,
+                "thirteencity_auto_buy_blessing": self._thirteencity_auto_buy_blessing,
                 "retry_count": self._retry_count,
                 "retry_interval": self._retry_interval,
                 "retry_notify": self._retry_notify,
@@ -389,7 +407,7 @@ class GroupChatZone(_PluginBase):
             # 使用随机调度
             services.extend(self.__get_random_schedule())
 
-        if self._enabled and self._zm_independent:
+        if self._enabled and self._has_selected_zm_site():
             # 添加织梦定时任务
             if self._zm_mail_time:
                 try:
@@ -431,15 +449,10 @@ class GroupChatZone(_PluginBase):
                 return services
 
             # 检查是否有织梦站点被选中
-            has_zm_site = False
-            for site_id in self._chat_sites:
-                site = self.siteoper.get(site_id)
-                if site and "织梦" in site.name:
-                    has_zm_site = True
-                    break
-            
-            # 只有在有织梦站点被选中且开启独立织梦喊话开关时才添加定时任务
-            if has_zm_site and self._zm_independent:
+            has_zm_site = self._has_selected_zm_site()
+
+            # 只要选中了织梦站点，就自动添加独立织梦定时任务
+            if has_zm_site:
                 # 添加定时任务
                 services.append({
                     "id": "GroupChatZoneZm",
@@ -452,10 +465,7 @@ class GroupChatZone(_PluginBase):
                 })
                 logger.info(f"已添加织梦定时任务（date）：将在 {next_time.strftime('%Y-%m-%d %H:%M:%S')} 运行")
             else:
-                if has_zm_site:
-                    logger.info("有织梦站点但未开启独立织梦喊话开关，不添加织梦定时任务")
-                else:
-                    logger.info("没有选中织梦站点，不添加织梦定时任务")
+                logger.info("没有选中织梦站点，不添加织梦定时任务")
         
         # 如果有重试任务，添加到服务列表中
         if self._next_retry_time and self._next_retry_time > datetime.now(tz=pytz.timezone(settings.TZ)):
@@ -574,8 +584,9 @@ class GroupChatZone(_PluginBase):
             # 获取站点信息
             try:
                 all_sites = [site for site in self.sites.get_indexers() if not site.get("public")] + self.__custom_sites()
-                # 根据独立织梦喊话开关决定是否过滤织梦站点
-                do_sites = [site for site in all_sites if site.get("id") in self._chat_sites and (not site.get("name", "").startswith("织梦") or not self._zm_independent)]
+                # 选中织梦站点时，默认由独立织梦逻辑处理，普通任务中过滤织梦站点
+                has_zm_site = self._has_selected_zm_site()
+                do_sites = [site for site in all_sites if site.get("id") in self._chat_sites and (not site.get("name", "").startswith("织梦") or not has_zm_site)]
                 
                 if not do_sites:
                     logger.info("没有找到有效的站点")
@@ -990,6 +1001,7 @@ class GroupChatZone(_PluginBase):
                     for feedback in feedbacks:
                         message = feedback.get("message", "")
                         rewards = feedback.get("rewards", [])
+                        blessing_status = feedback.get("blessing_status") or {}
                         
                         if rewards:
                             notification_text += f"✏️ 消息: \"{message}\"\n"
@@ -1001,6 +1013,13 @@ class GroupChatZone(_PluginBase):
                                 
                                 if reward_type in ["raw_feedback","上传量", "下载量", "魔力值", "工分", "VIP", "彩虹ID", "电力", "象草", "青蛙", "火花", "啤酒瓶"]:
                                     notification_text += f"  {icon} {reward.get('description', '')}\n"
+
+                            if "13City" in site_name and blessing_status:
+                                auto_buy_text = "开启" if blessing_status.get("auto_buy_enabled") else "关闭"
+                                notification_text += "  ━━━━━━━━━━━━━━━━━\n"
+                                notification_text += f"  🎖️ 勋章自动购买: {auto_buy_text}\n"
+                                notification_text += f"  🏅 勋章状态: {blessing_status.get('medal_status', '未知')}\n"
+                                notification_text += f"  🛒 购买状态: {blessing_status.get('purchase_status', '未知')}\n"
                     
                     # 处理跳过的消息
                     for msg in skipped_messages:
