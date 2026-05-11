@@ -15,7 +15,6 @@ class BaseMedalSiteHandler(ABC):
         self._retry_times = 3
         self._retry_interval = 5
         self._use_proxy = False  # 默认禁用代理
-        self.image_cache = {}    # 图片缓存 {url: base64}
 
     @abstractmethod
     def match(self, site) -> bool:
@@ -55,6 +54,10 @@ class BaseMedalSiteHandler(ABC):
     def should_append_unmatched_user_medals(self) -> bool:
         """未匹配到商店勋章的用户勋章是否追加到结果中"""
         return True
+
+    def should_use_image_proxy(self) -> bool:
+        """当前站点图片是否需要走插件图片代理"""
+        return False
 
     @cached(region="medalwallpro_request", ttl=1800, skip_none=True)
     def _request_with_retry(self, url: str, cookies: str = None, **kwargs) -> Optional[Dict]:
@@ -105,6 +108,8 @@ class BaseMedalSiteHandler(ABC):
         """统一格式化勋章数据"""
         return {
             'medal_id': medal.get('medal_id', ''),   # 勋章ID
+            'site_id': medal.get('site_id', ''),     # 站点ID
+            'use_image_proxy': medal.get('use_image_proxy', False),  # 是否走图片代理
             'name': medal.get('name', ''),           # 勋章名称
             'description': medal.get('description', ''),  # 勋章描述
             'imageSmall': medal.get('imageSmall', ''),   # 勋章图片

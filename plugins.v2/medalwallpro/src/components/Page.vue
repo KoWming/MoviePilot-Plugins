@@ -13,6 +13,8 @@ const emit = defineEmits(['action', 'switch', 'close'])
 
 interface Medal {
   medal_id?: string | number
+  site_id?: string
+  use_image_proxy?: boolean
   name: string
   description: string
   imageSmall: string
@@ -487,9 +489,14 @@ function getCurrency(medal: Medal) {
   return medal.currency || '魔力'
 }
 
-// 后端已将 UBits 图片转换为 Base64 Data URI，直接返回即可
-function getProxiedImageUrl(imageUrl: string) {
-  return imageUrl || ''
+function getProxiedImageUrl(medal: Medal) {
+  const imageUrl = medal?.imageSmall || ''
+  if (!imageUrl) return ''
+  if (imageUrl.startsWith('data:')) return imageUrl
+  if (imageUrl.startsWith('http') && medal?.site_id && medal?.use_image_proxy) {
+    return `/api/v1/plugin/MedalWallPro/image_proxy?site_id=${encodeURIComponent(medal.site_id)}&imgurl=${encodeURIComponent(imageUrl)}`
+  }
+  return imageUrl
 }
 
 function formatPrice(price: string | number) {
@@ -762,7 +769,7 @@ function getStatusColor(medal: Medal) {
                     
                      <div class="d-flex justify-center align-center pt-2 px-2" style="height: 100px;" @click="toggleDetails(group.site)">
                          <v-img 
-                              :src="getProxiedImageUrl(medal.imageSmall)" 
+                              :src="getProxiedImageUrl(medal)" 
                                :class="['medal-stack-image', { 'circle-mask': needsCircleMask(medal), 'remove-black-bg': needsRemoveBlackBg(medal) }]"
                                contain
                                :max-height="getMedalSize(medal).stack"
@@ -834,7 +841,7 @@ function getStatusColor(medal: Medal) {
                     >
                        <!-- Image Section (Left) -->
                        <div class="d-flex justify-center align-center mr-3 flex-shrink-0" :style="{ width: getMedalSize(medal).detail + 'px', minWidth: getMedalSize(medal).detail + 'px' }">
-                          <v-img :src="getProxiedImageUrl(medal.imageSmall)" :max-height="getMedalSize(medal).detail" :max-width="getMedalSize(medal).detail" contain :class="['medal-image', { 'circle-mask': needsCircleMask(medal), 'remove-black-bg': needsRemoveBlackBg(medal) }]" loading="lazy"></v-img>
+                          <v-img :src="getProxiedImageUrl(medal)" :max-height="getMedalSize(medal).detail" :max-width="getMedalSize(medal).detail" contain :class="['medal-image', { 'circle-mask': needsCircleMask(medal), 'remove-black-bg': needsRemoveBlackBg(medal) }]" loading="lazy"></v-img>
                        </div>
                        
                        <!-- Content Section (Right) -->

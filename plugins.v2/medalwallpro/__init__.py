@@ -1,6 +1,9 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
+
 from apscheduler.triggers.cron import CronTrigger
+from fastapi import Response
 
 from app.core.config import settings
 from app.core.cache import Cache
@@ -10,6 +13,7 @@ from app.log import logger
 from app.plugins import _PluginBase
 from app.scheduler import Scheduler
 from app.schemas import NotificationType
+from app.utils.http import RequestUtils
 from .handlers import handler_manager
 
 class MedalWallPro(_PluginBase):
@@ -20,7 +24,7 @@ class MedalWallPro(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Medal.png"
     # 插件版本
-    plugin_version = "1.2.3"
+    plugin_version = "1.2.4"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -64,6 +68,38 @@ class MedalWallPro(_PluginBase):
             return int(val)
         except:
             return default
+
+    @staticmethod
+    def _get_root_domain(hostname: str) -> str:
+        """提取主域名，兼容常见多级公共后缀"""
+        if not hostname:
+            return ""
+        host = hostname.lower().strip('.')
+        parts = host.split('.')
+        if len(parts) <= 2:
+            return host
+
+        multi_part_suffixes = {
+            'com.cn', 'net.cn', 'org.cn', 'gov.cn', 'edu.cn',
+            'co.uk', 'org.uk', 'ac.uk', 'gov.uk',
+        }
+        suffix = '.'.join(parts[-2:])
+        if suffix in multi_part_suffixes and len(parts) >= 3:
+            return '.'.join(parts[-3:])
+        return '.'.join(parts[-2:])
+
+    @classmethod
+    def _is_allowed_image_host(cls, site_url: str, image_url: str) -> bool:
+        """校验图片主机是否可接受：同主机、子域名、或同主域 CDN/图床"""
+        site_host = (urlparse(site_url).hostname or '').lower().strip('.')
+        target_host = (urlparse(image_url).hostname or '').lower().strip('.')
+        if not site_host or not target_host:
+            return False
+        if target_host == site_host:
+            return True
+        if target_host.endswith(f'.{site_host}') or site_host.endswith(f'.{target_host}'):
+            return True
+        return cls._get_root_domain(target_host) == cls._get_root_domain(site_host)
 
     def __init__(self):
         super().__init__()
@@ -154,6 +190,13 @@ class MedalWallPro(_PluginBase):
                 "methods": ["GET"],
                 "auth": "bear",
                 "summary": "获取勋章数据"
+            },
+            {
+                "path": "/image_proxy",
+                "endpoint": self._image_proxy,
+                "methods": ["GET"],
+                "allow_anonymous": True,
+                "summary": "代理勋章图片"
             },
             {
                 "path": "/run",
@@ -320,6 +363,28 @@ class MedalWallPro(_PluginBase):
         all_sites = [site for site in self.sites.get_indexers() 
                      if not site.get("public") and site.get("name") not in self.FILTERED_SITES] + self.__custom_sites()
         return [{"title": site.get("name"), "value": site.get("id")} for site in all_sites]
+
+    def _enrich_medals_metadata(self, site_id: str, medals: List[Dict]) -> List[Dict]:
+        """为勋章数据补齐前端展示所需元数据，兼容旧缓存结构"""
+        if not medals:
+            return medals or []
+
+        use_image_proxy = False
+        try:
+            site = self.siteoper.get(site_id)
+            if site:
+                handler = handler_manager.get_handler(site)
+                if handler:
+                    use_image_proxy = handler.should_use_image_proxy()
+        except Exception:
+            pass
+
+        for medal in medals:
+            if not medal.get('site_id'):
+                medal['site_id'] = site_id
+            if 'use_image_proxy' not in medal:
+                medal['use_image_proxy'] = use_image_proxy
+        return medals
     
     def _fetch_site_data(self, site_id: str) -> List[Dict]:
         """
@@ -328,7 +393,9 @@ class MedalWallPro(_PluginBase):
         # 尝试从缓存获取
         cached_data = self._cache.get(str(site_id), region="medalwallpro")
         if cached_data is not None:
-            return cached_data
+            enriched_data = self._enrich_medals_metadata(site_id, cached_data)
+            self._cache.set(str(site_id), enriched_data, region="medalwallpro")
+            return enriched_data
             
         # 获取站点名称用于日志
         site_name = site_id
@@ -345,6 +412,7 @@ class MedalWallPro(_PluginBase):
         # 缓存未命中，进行抓取
         logger.info(f"站点 【{site_name}】 缓存未命中，开始抓取...")
         data = self.get_medal_data(site_id)
+        data = self._enrich_medals_metadata(site_id, data)
         
         # 写入缓存
         if data is not None:
@@ -368,6 +436,51 @@ class MedalWallPro(_PluginBase):
                 
         logger.info(f"API 获取勋章数据(缓存聚合): {len(all_medals)} 个")
         return all_medals
+
+    def _image_proxy(self, site_id: str, imgurl: str) -> Response:
+        """
+        代理勋章图片，自动携带站点 Cookie，避免前端跨域/防盗链问题
+        """
+        try:
+            if not site_id or not imgurl:
+                return Response(status_code=400, content="missing params")
+
+            site = self.siteoper.get(site_id)
+            if not site:
+                custom_site = next((s for s in self.__custom_sites() if s.get('id') == site_id), None)
+                if custom_site:
+                    site = custom_site
+
+            if not site:
+                return Response(status_code=404, content="site not found")
+
+            site_url = site.url if hasattr(site, 'url') else site.get('url')
+            site_cookie = site.cookie if hasattr(site, 'cookie') else site.get('cookie')
+            if not site_url:
+                return Response(status_code=400, content="invalid site")
+
+            if not self._is_allowed_image_host(site_url, imgurl):
+                return Response(status_code=403, content="forbidden image host")
+
+            headers = {
+                "User-Agent": settings.NORMAL_USER_AGENT,
+                "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+                "Referer": site_url,
+            }
+            proxies = settings.PROXY if self._use_proxy and hasattr(settings, 'PROXY') else None
+            res = RequestUtils(timeout=30, headers=headers, cookies=site_cookie, proxies=proxies).get_res(url=imgurl)
+            if not res or res.status_code != 200:
+                return Response(status_code=404, content="image fetch failed")
+
+            media_type = res.headers.get("Content-Type") or "image/jpeg"
+            return Response(
+                content=res.content,
+                media_type=media_type,
+                headers={"Cache-Control": "public, max-age=86400"}
+            )
+        except Exception as e:
+            logger.error(f"勋章图片代理失败: {e}")
+            return Response(status_code=500, content="image proxy failed")
 
     def _run_task(self) -> Dict[str, Any]:
         """
@@ -629,27 +742,14 @@ class MedalWallPro(_PluginBase):
             if handler:
                 handler._use_proxy = self._use_proxy
                 
-                # 注入图片缓存 (Base64)
-                # 从旧的缓存数据中提取 {original_image_url: base64_image}
-                cached_data = self._cache.get(str(site_id), region="medalwallpro")
-                if cached_data:
-                    img_cache = {}
-                    for m in cached_data:
-                        orig_url = m.get('original_image_url')
-                        img_small = m.get('imageSmall')
-                        # 只有当包含 Base64 数据且有原始 URL 时才缓存
-                        if orig_url and img_small and img_small.startswith('data:'):
-                            img_cache[orig_url] = img_small
-                    
-                    if img_cache:
-                        handler.image_cache = img_cache
-                        logger.debug(f"注入 {len(img_cache)} 个图片缓存到 {site.name} 处理器")
-                
             if not handler:
                 logger.error(f"未找到适配的站点处理器: {site.name}")
                 return []
                 
             medals = handler.fetch_medals(site)
+            for medal in medals:
+                medal['site_id'] = site_id
+                medal['use_image_proxy'] = handler.should_use_image_proxy()
             
             # 获取用户已拥有的勋章
             try:
@@ -716,6 +816,10 @@ class MedalWallPro(_PluginBase):
                         
             except Exception as e:
                 logger.error(f"合并用户勋章数据失败: {str(e)}")
+
+            for medal in medals:
+                medal['site_id'] = site_id
+                medal['use_image_proxy'] = handler.should_use_image_proxy()
             
             return medals
         except Exception as e:
