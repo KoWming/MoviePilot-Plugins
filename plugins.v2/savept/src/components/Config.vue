@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { onBeforeUnmount, reactive, ref } from 'vue'
 import { pluginRequest } from '../utils/savept'
 
 const props = defineProps({
@@ -17,13 +17,33 @@ const form = reactive({
   default_internal_only: false,
   notify: true,
   cron: '0 8 * * *',
+  use_proxy: true,
+  use_browser_emulation: false,
   ...props.initialConfig,
 })
+let messageTimer = null
+
+function clearMessageTimer() {
+  if (messageTimer) {
+    clearTimeout(messageTimer)
+    messageTimer = null
+  }
+}
+
+function scheduleMessageClose(type = 'info') {
+  clearMessageTimer()
+  const timeout = type === 'error' ? 5000 : 3000
+  messageTimer = setTimeout(() => {
+    message.show = false
+    messageTimer = null
+  }, timeout)
+}
 
 function pushMessage(text, type = 'info') {
   message.text = text
   message.type = type
   message.show = true
+  scheduleMessageClose(type)
 }
 
 async function saveConfig() {
@@ -38,6 +58,8 @@ async function saveConfig() {
         default_internal_only: !!form.default_internal_only,
         notify: !!form.notify,
         cron: form.cron,
+        use_proxy: !!form.use_proxy,
+        use_browser_emulation: !!form.use_browser_emulation,
       },
     })
     if (!result?.success) {
@@ -50,6 +72,10 @@ async function saveConfig() {
     saving.value = false
   }
 }
+
+onBeforeUnmount(() => {
+  clearMessageTimer()
+})
 </script>
 
 <template>
@@ -210,6 +236,100 @@ async function saveConfig() {
           </div>
           <label class="scfg-switch" style="--switch-checked-bg: #3b82f6;">
             <input v-model="form.default_internal_only" type="checkbox" />
+            <div class="scfg-switch__slider">
+              <div class="scfg-switch__circle">
+                <svg
+                  class="scfg-switch__cross"
+                  xml:space="preserve"
+                  style="enable-background:new 0 0 512 512"
+                  viewBox="0 0 365.696 365.696"
+                  y="0"
+                  x="0"
+                  height="6"
+                  width="6"
+                  xmlns:xlink="http://www.w3.org/1999/xlink"
+                  version="1.1"
+                  xmlns="http://www.w3.org/2000/svg"
+                ><g><path fill="currentColor" d="M243.188 182.86 356.32 69.726c12.5-12.5 12.5-32.766 0-45.247L341.238 9.398c-12.504-12.503-32.77-12.503-45.25 0L182.86 122.528 69.727 9.374c-12.5-12.5-32.766-12.5-45.247 0L9.375 24.457c-12.5 12.504-12.5 32.77 0 45.25l113.152 113.152L9.398 295.99c-12.503 12.503-12.503 32.769 0 45.25L24.48 356.32c12.5 12.5 32.766 12.5 45.247 0l113.132-113.132L295.99 356.32c12.503 12.5 32.769 12.5 45.25 0l15.081-15.082c12.5-12.504 12.5-32.77 0-45.25zm0 0" /></g></svg>
+                <svg
+                  class="scfg-switch__checkmark"
+                  xml:space="preserve"
+                  style="enable-background:new 0 0 512 512"
+                  viewBox="0 0 24 24"
+                  y="0"
+                  x="0"
+                  height="10"
+                  width="10"
+                  xmlns:xlink="http://www.w3.org/1999/xlink"
+                  version="1.1"
+                  xmlns="http://www.w3.org/2000/svg"
+                ><g transform="translate(-0.4, 0.2)"><path fill="currentColor" d="M9.707 19.121a.997.997 0 0 1-1.414 0l-5.646-5.647a1.5 1.5 0 0 1 0-2.121l.707-.707a1.5 1.5 0 0 1 2.121 0L9 14.171l9.525-9.525a1.5 1.5 0 0 1 2.121 0l.707.707a1.5 1.5 0 0 1 0 2.121z" /></g></svg>
+              </div>
+            </div>
+          </label>
+        </div>
+        <div
+          class="scfg-switch-item"
+          :class="{ 'scfg-switch-item--active': form.use_proxy }"
+          style="--scfg-accent: #8b5cf6"
+        >
+          <div class="scfg-switch-item__main">
+            <div class="scfg-switch-item__icon">
+              <v-icon icon="mdi-lan-connect" size="18" />
+            </div>
+            <div class="scfg-switch-item__text">
+              <span class="scfg-switch-item__label">使用代理</span>
+            </div>
+          </div>
+          <label class="scfg-switch" style="--switch-checked-bg: #8b5cf6;">
+            <input v-model="form.use_proxy" type="checkbox" />
+            <div class="scfg-switch__slider">
+              <div class="scfg-switch__circle">
+                <svg
+                  class="scfg-switch__cross"
+                  xml:space="preserve"
+                  style="enable-background:new 0 0 512 512"
+                  viewBox="0 0 365.696 365.696"
+                  y="0"
+                  x="0"
+                  height="6"
+                  width="6"
+                  xmlns:xlink="http://www.w3.org/1999/xlink"
+                  version="1.1"
+                  xmlns="http://www.w3.org/2000/svg"
+                ><g><path fill="currentColor" d="M243.188 182.86 356.32 69.726c12.5-12.5 12.5-32.766 0-45.247L341.238 9.398c-12.504-12.503-32.77-12.503-45.25 0L182.86 122.528 69.727 9.374c-12.5-12.5-32.766-12.5-45.247 0L9.375 24.457c-12.5 12.504-12.5 32.77 0 45.25l113.152 113.152L9.398 295.99c-12.503 12.503-12.503 32.769 0 45.25L24.48 356.32c12.5 12.5 32.766 12.5 45.247 0l113.132-113.132L295.99 356.32c12.503 12.5 32.769 12.5 45.25 0l15.081-15.082c12.5-12.504 12.5-32.77 0-45.25zm0 0" /></g></svg>
+                <svg
+                  class="scfg-switch__checkmark"
+                  xml:space="preserve"
+                  style="enable-background:new 0 0 512 512"
+                  viewBox="0 0 24 24"
+                  y="0"
+                  x="0"
+                  height="10"
+                  width="10"
+                  xmlns:xlink="http://www.w3.org/1999/xlink"
+                  version="1.1"
+                  xmlns="http://www.w3.org/2000/svg"
+                ><g transform="translate(-0.4, 0.2)"><path fill="currentColor" d="M9.707 19.121a.997.997 0 0 1-1.414 0l-5.646-5.647a1.5 1.5 0 0 1 0-2.121l.707-.707a1.5 1.5 0 0 1 2.121 0L9 14.171l9.525-9.525a1.5 1.5 0 0 1 2.121 0l.707.707a1.5 1.5 0 0 1 0 2.121z" /></g></svg>
+              </div>
+            </div>
+          </label>
+        </div>
+        <div
+          class="scfg-switch-item"
+          :class="{ 'scfg-switch-item--active': form.use_browser_emulation }"
+          style="--scfg-accent: #14b8a6"
+        >
+          <div class="scfg-switch-item__main">
+            <div class="scfg-switch-item__icon">
+              <v-icon icon="mdi-monitor-shimmer" size="18" />
+            </div>
+            <div class="scfg-switch-item__text">
+              <span class="scfg-switch-item__label">启用浏览器仿真</span>
+            </div>
+          </div>
+          <label class="scfg-switch" style="--switch-checked-bg: #14b8a6;">
+            <input v-model="form.use_browser_emulation" type="checkbox" />
             <div class="scfg-switch__slider">
               <div class="scfg-switch__circle">
                 <svg

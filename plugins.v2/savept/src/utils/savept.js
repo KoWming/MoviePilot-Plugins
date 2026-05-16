@@ -42,6 +42,17 @@ export function getStatusMeta(status) {
   }
 }
 
+export function getMpStatusMeta(status) {
+  switch (status) {
+    case 'owned':
+      return { label: 'MP已拥有', color: '#22c55e', icon: 'mdi-check-decagram', chipClass: 'owned' }
+    case 'available':
+      return { label: 'MP可添加', color: '#3b82f6', icon: 'mdi-plus-circle', chipClass: 'available' }
+    default:
+      return { label: 'MP未收录', color: '#94a3b8', icon: 'mdi-help-circle', chipClass: 'unsupported' }
+  }
+}
+
 export function normalizeText(value, fallback = '-') {
   const text = value == null ? '' : String(value).trim()
   return text || fallback

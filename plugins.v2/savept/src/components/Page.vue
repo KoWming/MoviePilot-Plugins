@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { buildNoticeSections, pluginRequest, tokenizeNoticeText } from '../utils/savept'
 
 const props = defineProps({
@@ -10,18 +10,36 @@ const emit = defineEmits(['switch', 'close'])
 
 const loading = reactive({ overview: false })
 const message = reactive({ show: false, type: 'info', text: '' })
-const summary = reactive({ total: 0, healthy: 0, critical: 0, closed: 0, internal: 0, external: 0, today_anniv: 0, years: 0 })
+const summary = reactive({ total: 0, healthy: 0, critical: 0, closed: 0, internal: 0, external: 0, today_anniv: 0, years: 0, mp_owned: 0 })
 const alerts = ref([])
 const sites = ref([])
 const fetchedAt = ref('')
 const warning = ref('')
 
 const noticeSections = computed(() => buildNoticeSections(alerts.value))
+let messageTimer = null
+
+function clearMessageTimer() {
+  if (messageTimer) {
+    clearTimeout(messageTimer)
+    messageTimer = null
+  }
+}
+
+function scheduleMessageClose(type = 'info') {
+  clearMessageTimer()
+  const timeout = type === 'error' ? 5000 : 3000
+  messageTimer = setTimeout(() => {
+    message.show = false
+    messageTimer = null
+  }, timeout)
+}
 
 function pushMessage(text, type = 'info') {
   message.text = text
   message.type = type
   message.show = true
+  scheduleMessageClose(type)
 }
 
 async function fetchOverview(showSuccess = false) {
@@ -51,6 +69,10 @@ async function fetchOverview(showSuccess = false) {
 
 onMounted(() => {
   fetchOverview()
+})
+
+onBeforeUnmount(() => {
+  clearMessageTimer()
 })
 </script>
 
@@ -143,9 +165,9 @@ onMounted(() => {
           <span class="spg-summary-pill__value">{{ summary.external }}</span>
         </div>
         <div class="spg-summary-pill spg-summary-pill--years">
-          <v-icon icon="mdi-calendar-range-outline" size="15" />
-          <span class="spg-summary-pill__text">覆盖年份</span>
-          <span class="spg-summary-pill__value">{{ summary.years }}</span>
+          <v-icon icon="mdi-check-decagram" size="15" />
+          <span class="spg-summary-pill__text">已拥有站点</span>
+          <span class="spg-summary-pill__value">{{ summary.mp_owned }}</span>
         </div>
       </div>
     </div>
@@ -284,6 +306,26 @@ onMounted(() => {
   gap: 10px;
 }
 
+.spg-vital--total {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.14), rgba(59, 130, 246, 0.05));
+  border-color: rgba(59, 130, 246, 0.22);
+}
+
+.spg-vital--healthy {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(16, 185, 129, 0.05));
+  border-color: rgba(16, 185, 129, 0.22);
+}
+
+.spg-vital--critical {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.14), rgba(239, 68, 68, 0.05));
+  border-color: rgba(239, 68, 68, 0.22);
+}
+
+.spg-vital--closed {
+  background: linear-gradient(135deg, rgba(100, 116, 139, 0.16), rgba(100, 116, 139, 0.06));
+  border-color: rgba(100, 116, 139, 0.24);
+}
+
 .spg-vital__head {
   display: flex;
   align-items: center;
@@ -300,6 +342,22 @@ onMounted(() => {
   justify-content: center;
   flex-shrink: 0;
   background: rgba(var(--v-theme-on-surface), 0.05);
+}
+
+.spg-vital--total .spg-vital__icon {
+  background: rgba(59, 130, 246, 0.14);
+}
+
+.spg-vital--healthy .spg-vital__icon {
+  background: rgba(16, 185, 129, 0.14);
+}
+
+.spg-vital--critical .spg-vital__icon {
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.spg-vital--closed .spg-vital__icon {
+  background: rgba(100, 116, 139, 0.18);
 }
 
 .spg-vital__label {
@@ -399,7 +457,13 @@ onMounted(() => {
 }
 
 .spg-summary-pill--years {
-  color: rgba(var(--v-theme-on-surface), 0.62);
+  color: #16a34a;
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.16);
+}
+
+.spg-summary-pill--years .spg-summary-pill__value {
+  color: #16a34a;
 }
 
 .spg-card,

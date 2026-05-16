@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { buildNoticeSections, buildSiteKeywords, getStatusMeta, pluginRequest, tokenizeNoticeText } from '../utils/savept'
+import { buildNoticeSections, buildSiteKeywords, getMpStatusMeta, getStatusMeta, pluginRequest, tokenizeNoticeText } from '../utils/savept'
 
 const props = defineProps({
   api: { type: Object, default: () => ({}) },
@@ -11,7 +11,7 @@ const emit = defineEmits([])
 
 const loading = ref(false)
 const message = reactive({ show: false, type: 'info', text: '' })
-const summary = reactive({ total: 0, healthy: 0, critical: 0, closed: 0, internal: 0, external: 0, today_anniv: 0, years: 0 })
+const summary = reactive({ total: 0, healthy: 0, critical: 0, closed: 0, internal: 0, external: 0, today_anniv: 0, years: 0, mp_owned: 0, mp_available: 0, mp_unsupported: 0 })
 const alerts = ref([])
 const sites = ref([])
 const yearGroups = ref([])
@@ -31,19 +31,45 @@ const typeOptions = [
   { label: '内站', value: '内站' },
   { label: '外站', value: '外站' },
 ]
+const mpFilterOptions = [
+  { label: '全部', value: '全部' },
+  { label: '已拥有', value: 'owned' },
+  { label: '可添加', value: 'available' },
+  { label: '未收录', value: 'unsupported' },
+]
 
 const filters = reactive({
   keyword: '',
   year: '全部',
+  mpStatus: '全部',
   status: '全部',
   type: '全部',
   anniversaryOnly: false,
 })
 
+let messageTimer = null
+
+function clearMessageTimer() {
+  if (messageTimer) {
+    clearTimeout(messageTimer)
+    messageTimer = null
+  }
+}
+
+function scheduleMessageClose(type = 'info') {
+  clearMessageTimer()
+  const timeout = type === 'error' ? 5000 : 3000
+  messageTimer = setTimeout(() => {
+    message.show = false
+    messageTimer = null
+  }, timeout)
+}
+
 function pushMessage(text, type = 'info') {
   message.text = text
   message.type = type
   message.show = true
+  scheduleMessageClose(type)
 }
 
 async function loadData(showSuccess = false) {
@@ -112,6 +138,8 @@ const yearOptions = computed(() => {
 
 const yearMenuOpen = ref(false)
 const yearMenuRef = ref(null)
+const mpStatusMenuOpen = ref(false)
+const mpStatusMenuRef = ref(null)
 const rootRef = ref(null)
 let scrollTarget = null
 let restoreScrollTargetPosition = ''
@@ -126,6 +154,12 @@ const filteredSites = computed(() => {
     }
     if (filters.year !== '全部' && site.year !== filters.year) {
       return false
+    }
+    if (filters.mpStatus !== '全部') {
+      const status = site.mp_status || 'unsupported'
+      if (status !== filters.mpStatus) {
+        return false
+      }
     }
     if (filters.status !== '全部') {
       const label = getStatusMeta(site.status).label
@@ -173,9 +207,26 @@ function selectYear(year) {
   yearMenuOpen.value = false
 }
 
+function mpStatusOptionLabel(value) {
+  const option = mpFilterOptions.find(item => item.value === value)
+  return option ? option.label : '全部'
+}
+
+function toggleMpStatusMenu() {
+  mpStatusMenuOpen.value = !mpStatusMenuOpen.value
+}
+
+function selectMpStatus(value) {
+  filters.mpStatus = value
+  mpStatusMenuOpen.value = false
+}
+
 function handleDocumentClick(event) {
   if (!yearMenuRef.value?.contains(event.target)) {
     yearMenuOpen.value = false
+  }
+  if (!mpStatusMenuRef.value?.contains(event.target)) {
+    mpStatusMenuOpen.value = false
   }
 }
 
@@ -244,6 +295,10 @@ function statusMeta(site) {
   return getStatusMeta(site.status)
 }
 
+function mpStatusMeta(site) {
+  return getMpStatusMeta(site.mp_status)
+}
+
 onMounted(() => {
   document.addEventListener('click', handleDocumentClick)
   scrollTarget = findScrollParent(rootRef.value)
@@ -265,6 +320,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  clearMessageTimer()
   document.removeEventListener('click', handleDocumentClick)
   window.removeEventListener('resize', handleScroll)
   if (scrollTarget === window) {
@@ -303,6 +359,11 @@ onBeforeUnmount(() => {
           <div class="spt-vital spt-vital--healthy">
             <span class="spt-vital__value">{{ summary.healthy }}</span>
             <span class="spt-vital__label">健康</span>
+          </div>
+          <div class="spt-vital__divider" />
+          <div class="spt-vital spt-vital--owned">
+            <span class="spt-vital__value">{{ summary.mp_owned }}</span>
+            <span class="spt-vital__label">已拥有</span>
           </div>
           <div class="spt-vital__divider" />
           <div class="spt-vital spt-vital--critical">
@@ -367,6 +428,28 @@ onBeforeUnmount(() => {
               @click.stop="selectYear(y)"
             >
               {{ yearOptionLabel(y) }}
+            </button>
+          </div>
+        </div>
+
+        <div class="spt-filters__divider" />
+
+        <div class="spt-filters__group spt-year-select" ref="mpStatusMenuRef">
+          <button class="spt-filters__select-btn" :class="{ 'spt-filters__select-btn--open': mpStatusMenuOpen }" @click.stop="toggleMpStatusMenu">
+            <v-icon icon="mdi-check-decagram" size="16" class="spt-filters__group-icon" />
+            <span class="spt-filters__select-label">{{ mpStatusOptionLabel(filters.mpStatus) }}</span>
+            <v-icon icon="mdi-chevron-down" size="16" class="spt-filters__select-chevron" :class="{ 'spt-filters__select-chevron--open': mpStatusMenuOpen }" />
+          </button>
+
+          <div v-if="mpStatusMenuOpen" class="spt-filters__dropdown">
+            <button
+              v-for="opt in mpFilterOptions"
+              :key="opt.value"
+              class="spt-filters__dropdown-item"
+              :class="{ 'spt-filters__dropdown-item--active': filters.mpStatus === opt.value }"
+              @click.stop="selectMpStatus(opt.value)"
+            >
+              {{ mpStatusOptionLabel(opt.value) }}
             </button>
           </div>
         </div>
@@ -507,11 +590,11 @@ onBeforeUnmount(() => {
                   <v-icon icon="mdi-clock-fast" size="12" />
                   {{ site.duration_text }}
                 </span>
+                <span v-if="site.anniversary_text" class="spt-tag spt-tag--anniversary">
+                  <v-icon icon="mdi-party-popper" size="12" />
+                  {{ site.anniversary_text }}
+                </span>
               </div>
-              <span v-if="site.anniversary_text" class="spt-tag spt-tag--anniversary">
-                <v-icon icon="mdi-party-popper" size="12" />
-                {{ site.anniversary_text }}
-              </span>
             </div>
 
             <!-- 主内容 -->
@@ -523,6 +606,16 @@ onBeforeUnmount(() => {
                   <div class="spt-card__name">{{ site.name }}</div>
                 </div>
                 <div class="spt-card__sub">开站 {{ site.open_time || '未知' }}<template v-if="site.close_time && site.close_time !== '未知'"> · 关站 {{ site.close_time }}</template></div>
+                <div v-if="site.mp_status || site.mp_site_name || site.mp_site_domain" class="spt-card__sub spt-card__sub--mp">
+                  <span v-if="site.mp_site_name || site.mp_site_domain" class="spt-card__mp-text">
+                    <span>{{ site.mp_site_name || site.name }}</span>
+                    <template v-if="site.mp_site_domain"> · {{ site.mp_site_domain }}</template>
+                  </span>
+                  <span v-if="site.mp_status" class="spt-tag spt-tag--mp" :class="`spt-tag--mp-${mpStatusMeta(site).chipClass}`">
+                    <v-icon :icon="mpStatusMeta(site).icon" size="12" />
+                    {{ site.mp_status_text || mpStatusMeta(site).label }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -539,7 +632,7 @@ onBeforeUnmount(() => {
     <div v-if="!loading && filteredSites.length === 0" class="spt-empty">
       <v-icon icon="mdi-monitor-eye" size="48" color="grey-lighten-1" />
       <p>没有匹配的站点</p>
-      <button class="spt-pill" @click="Object.assign(filters, { keyword: '', year: '全部', status: '全部', type: '全部', anniversaryOnly: false })">
+      <button class="spt-pill" @click="Object.assign(filters, { keyword: '', year: '全部', mpStatus: '全部', status: '全部', type: '全部', anniversaryOnly: false })">
         清除筛选
       </button>
     </div>
@@ -672,6 +765,7 @@ onBeforeUnmount(() => {
 
 .spt-vital--total .spt-vital__value { color: rgb(var(--v-theme-primary)); }
 .spt-vital--healthy .spt-vital__value { color: var(--spt-color-healthy); }
+.spt-vital--owned .spt-vital__value { color: #16a34a; }
 .spt-vital--critical .spt-vital__value { color: var(--spt-color-critical); }
 .spt-vital--closed .spt-vital__value { color: var(--spt-color-closed); }
 .spt-vital--anniv .spt-vital__value { color: var(--spt-color-anniv); }
@@ -1280,6 +1374,7 @@ onBeforeUnmount(() => {
 
 .spt-card {
   display: flex;
+  align-items: center;
   text-decoration: none;
   color: inherit;
   border-radius: var(--spt-radius);
@@ -1328,6 +1423,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
   min-height: 0;
+  min-width: 0;
 }
 
 .spt-card__badges-left {
@@ -1335,21 +1431,58 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .spt-tag {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  vertical-align: middle;
   gap: 3px;
   padding: 1px 8px;
   border-radius: var(--spt-radius-pill);
   font-size: 0.68rem;
   font-weight: 500;
+  white-space: nowrap;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.spt-tag :deep(.v-icon),
+.spt-tag .v-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .spt-tag--type {
   background: rgba(var(--v-theme-on-surface), 0.06);
   color: rgba(var(--v-theme-on-surface), 0.55);
+}
+
+.spt-tag--mp {
+  width: fit-content;
+  max-width: 100%;
+  padding-inline: 7px;
+  font-size: 0.66rem;
+}
+
+.spt-tag--mp-owned {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+
+.spt-tag--mp-available {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.spt-tag--mp-unsupported {
+  background: rgba(148, 163, 184, 0.14);
+  color: #64748b;
 }
 
 .spt-tag--duration {
@@ -1360,7 +1493,6 @@ onBeforeUnmount(() => {
 .spt-tag--anniversary {
   background: rgba(245, 158, 11, 0.1);
   color: var(--spt-color-anniv);
-  margin-left: auto;
 }
 
 /* 主内容行 */
@@ -1424,6 +1556,26 @@ onBeforeUnmount(() => {
   margin-top: 2px;
 }
 
+.spt-card__sub--mp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  color: rgba(var(--v-theme-primary), 0.78);
+}
+
+.spt-card__mp-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+}
+
+.spt-tag--mp {
+  margin-left: auto;
+}
+
 .spt-card--closed .spt-card__sub {
   color: rgba(var(--v-theme-on-surface), 0.38);
 }
@@ -1433,8 +1585,13 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-right: 12px;
+  position: static;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  margin-right: 10px;
   flex-shrink: 0;
+  opacity: 0.9;
   transition: all var(--spt-transition);
 }
 
@@ -1575,7 +1732,12 @@ onBeforeUnmount(() => {
     display: none;
   }
 
-  .spt-filters__search,
+  .spt-filters__search {
+    width: 100%;
+    min-width: 0;
+    grid-column: 1 / -1;
+  }
+
   .spt-year-select {
     width: 100%;
     min-width: 0;
@@ -1632,6 +1794,68 @@ onBeforeUnmount(() => {
   }
 
   .spt-grid { grid-template-columns: 1fr; }
+
+  .spt-card {
+    align-items: stretch;
+  }
+
+  .spt-card__body {
+    padding: 10px 36px 10px 12px;
+    gap: 6px;
+  }
+
+  .spt-card__badges {
+    padding-right: 4px;
+  }
+
+  .spt-card__badges-left {
+    gap: 4px;
+  }
+
+  .spt-tag {
+    padding: 1px 7px;
+    font-size: 0.64rem;
+  }
+
+  .spt-card__main {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .spt-card__icon {
+    width: 32px;
+    height: 32px;
+    margin-top: 1px;
+  }
+
+  .spt-card__name {
+    font-size: 0.84rem;
+  }
+
+  .spt-card__sub {
+    font-size: 0.72rem;
+    line-height: 1.35;
+  }
+
+  .spt-card__sub--mp {
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .spt-card__mp-text {
+    flex: 1 1 auto;
+  }
+
+  .spt-card__status-icon {
+    position: absolute;
+    top: 11px;
+    right: 10px;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    margin-right: 0;
+    opacity: 0.82;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1653,6 +1877,23 @@ onBeforeUnmount(() => {
 
   .spt-vital__divider {
     height: 18px;
+  }
+
+  .spt-card__body {
+    padding-right: 34px;
+  }
+
+  .spt-card__name {
+    font-size: 0.82rem;
+  }
+
+  .spt-card__sub {
+    font-size: 0.7rem;
+  }
+
+  .spt-card__status-icon {
+    top: 10px;
+    right: 8px;
   }
 }
 </style>
