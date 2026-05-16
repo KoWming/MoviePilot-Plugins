@@ -180,12 +180,13 @@
         "name": "Vue-PT监护室",
         "description": "展示 PT 站点运行状态、病危通知与站庆预告。",
         "labels": "站点,工具",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/savept.png",
         "author": "KoWming",
         "level": 2,
         "release": true,
         "history": {
+            "v1.1.1": "前端🎉 今天站庆！卡片增加庆祝动画效果。",
             "v1.1.0": "新增 MP 已拥有站点匹配与显示、使用代理开关、启用浏览器仿真开关；优化 AppPage 卡片标签与状态图标布局。",
             "v1.0.0": "初始版本。"
         }

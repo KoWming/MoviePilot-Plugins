@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { buildNoticeSections, buildSiteKeywords, getMpStatusMeta, getStatusMeta, pluginRequest, tokenizeNoticeText } from '../utils/savept'
 
 const props = defineProps({
@@ -19,6 +19,14 @@ const fetchedAt = ref('')
 const warning = ref('')
 const showBackToTop = ref(false)
 const backTopStyle = ref({})
+const prefersReducedMotion = ref(false)
+
+const celebrationCanvasRefs = new Map()
+const celebrationConfettiInstances = new Map()
+const celebrationConfettiTimers = new Map()
+let celebrationConfettiFactory = null
+let celebrationConfettiLoader = null
+let reducedMotionMediaQuery = null
 
 const statusOptions = [
   { label: '全部', value: '全部' },
@@ -212,6 +220,21 @@ function mpStatusOptionLabel(value) {
   return option ? option.label : '全部'
 }
 
+function getAnniversaryDisplayText(text) {
+  const raw = `${text || ''}`.trim()
+  if (!raw) {
+    return ''
+  }
+  if (raw.includes('今天站庆')) {
+    return '🎉 今天站庆！'
+  }
+  return raw.replace(/^emoji\s*站庆\s*/i, '').trim()
+}
+
+function isTodayAnniversaryText(text) {
+  return getAnniversaryDisplayText(text) === '🎉 今天站庆！'
+}
+
 function toggleMpStatusMenu() {
   mpStatusMenuOpen.value = !mpStatusMenuOpen.value
 }
@@ -299,6 +322,196 @@ function mpStatusMeta(site) {
   return getMpStatusMeta(site.mp_status)
 }
 
+function siteCelebrationKey(year, site) {
+  return `${year || site.year || '0000'}-${site.name || site.url || 'site'}`
+}
+
+const activeAnniversaryCardKeys = computed(() => {
+  const keys = []
+  for (const group of groupedSites.value) {
+    if (isYearGroupCollapsed(group.year)) {
+      continue
+    }
+    for (const site of group.items) {
+      if (isTodayAnniversaryText(site.anniversary_text)) {
+        keys.push(siteCelebrationKey(group.year, site))
+      }
+    }
+  }
+  return keys
+})
+
+function setCelebrationCanvasRef(cardKey, element) {
+  if (element) {
+    celebrationCanvasRefs.set(cardKey, element)
+    return
+  }
+  celebrationCanvasRefs.delete(cardKey)
+}
+
+function isCompactViewport() {
+  return typeof window !== 'undefined' && window.innerWidth <= 768
+}
+
+function celebrationLoopDelay() {
+  return isCompactViewport() ? 3600 : 2800
+}
+
+async function ensureCelebrationConfettiFactory() {
+  if (celebrationConfettiFactory) {
+    return celebrationConfettiFactory
+  }
+  if (!celebrationConfettiLoader) {
+    celebrationConfettiLoader = import('canvas-confetti')
+      .then((module) => {
+        celebrationConfettiFactory = module.default || module
+        return celebrationConfettiFactory
+      })
+      .catch((error) => {
+        console.error('[savept] 加载 canvas-confetti 失败', error)
+        celebrationConfettiLoader = null
+        return null
+      })
+  }
+  return celebrationConfettiLoader
+}
+
+async function ensureCelebrationConfettiInstance(cardKey) {
+  if (celebrationConfettiInstances.has(cardKey)) {
+    return celebrationConfettiInstances.get(cardKey)
+  }
+  const canvas = celebrationCanvasRefs.get(cardKey)
+  if (!canvas || prefersReducedMotion.value) {
+    return null
+  }
+  const factory = await ensureCelebrationConfettiFactory()
+  if (!factory || !celebrationCanvasRefs.has(cardKey)) {
+    return null
+  }
+  const instance = factory.create(canvas, {
+    resize: true,
+    useWorker: false,
+  })
+  celebrationConfettiInstances.set(cardKey, instance)
+  return instance
+}
+
+function celebrationBurstOptions(side = 'left') {
+  const compact = isCompactViewport()
+  return {
+    particleCount: compact ? (side === 'left' ? 10 : 8) : (side === 'left' ? 18 : 14),
+    angle: side === 'left' ? 52 : 128,
+    spread: compact ? 44 : 60,
+    startVelocity: compact ? 18 : 24,
+    scalar: compact ? 0.72 : 0.92,
+    ticks: compact ? 70 : 95,
+    gravity: compact ? 1.08 : 0.96,
+    drift: side === 'left' ? 0.08 : -0.08,
+    origin: side === 'left'
+      ? { x: compact ? 0.08 : 0.06, y: compact ? 0.94 : 0.92 }
+      : { x: compact ? 0.92 : 0.94, y: compact ? 0.94 : 0.92 },
+    colors: ['#f59e0b', '#facc15', '#fb7185', '#22c55e', '#38bdf8'],
+  }
+}
+
+function fireCelebrationBurst(confetti) {
+  confetti(celebrationBurstOptions('left'))
+  confetti(celebrationBurstOptions('right'))
+}
+
+function stopCelebrationLoop(cardKey) {
+  const timer = celebrationConfettiTimers.get(cardKey)
+  if (timer) {
+    clearTimeout(timer)
+  }
+  celebrationConfettiTimers.delete(cardKey)
+}
+
+function resetCelebrationConfetti(cardKey) {
+  stopCelebrationLoop(cardKey)
+  const instance = celebrationConfettiInstances.get(cardKey)
+  instance?.reset?.()
+}
+
+function destroyCelebrationConfetti(cardKey) {
+  resetCelebrationConfetti(cardKey)
+  celebrationConfettiInstances.delete(cardKey)
+}
+
+function queueCelebrationLoop(cardKey) {
+  stopCelebrationLoop(cardKey)
+  const timer = window.setTimeout(() => {
+    startCelebrationLoop(cardKey)
+  }, celebrationLoopDelay())
+  celebrationConfettiTimers.set(cardKey, timer)
+}
+
+async function startCelebrationLoop(cardKey) {
+  stopCelebrationLoop(cardKey)
+  if (prefersReducedMotion.value || document.visibilityState === 'hidden') {
+    return
+  }
+  const confetti = await ensureCelebrationConfettiInstance(cardKey)
+  if (!confetti || !celebrationCanvasRefs.has(cardKey)) {
+    return
+  }
+  fireCelebrationBurst(confetti)
+  if (!prefersReducedMotion.value && document.visibilityState !== 'hidden') {
+    queueCelebrationLoop(cardKey)
+  }
+}
+
+function syncCelebrationConfetti() {
+  if (typeof window === 'undefined') {
+    return
+  }
+  const activeKeys = new Set(activeAnniversaryCardKeys.value.filter(cardKey => celebrationCanvasRefs.has(cardKey)))
+
+  for (const cardKey of celebrationConfettiTimers.keys()) {
+    if (!activeKeys.has(cardKey)) {
+      stopCelebrationLoop(cardKey)
+    }
+  }
+
+  for (const cardKey of celebrationConfettiInstances.keys()) {
+    if (!activeKeys.has(cardKey)) {
+      destroyCelebrationConfetti(cardKey)
+    }
+  }
+
+  if (prefersReducedMotion.value || document.visibilityState === 'hidden') {
+    for (const cardKey of activeKeys) {
+      resetCelebrationConfetti(cardKey)
+    }
+    return
+  }
+
+  for (const cardKey of activeKeys) {
+    if (!celebrationConfettiTimers.has(cardKey)) {
+      startCelebrationLoop(cardKey)
+    }
+  }
+}
+
+function handleReducedMotionChange(event) {
+  prefersReducedMotion.value = !!event.matches
+  syncCelebrationConfetti()
+}
+
+function handleVisibilityChange() {
+  syncCelebrationConfetti()
+}
+
+watch(activeAnniversaryCardKeys, async () => {
+  await nextTick()
+  syncCelebrationConfetti()
+}, { flush: 'post' })
+
+watch(groupedSites, async () => {
+  await nextTick()
+  syncCelebrationConfetti()
+}, { flush: 'post' })
+
 onMounted(() => {
   document.addEventListener('click', handleDocumentClick)
   scrollTarget = findScrollParent(rootRef.value)
@@ -309,7 +522,18 @@ onMounted(() => {
       scrollTarget.style.position = 'relative'
     }
   }
+
+  reducedMotionMediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  prefersReducedMotion.value = reducedMotionMediaQuery.matches
+  if (reducedMotionMediaQuery.addEventListener) {
+    reducedMotionMediaQuery.addEventListener('change', handleReducedMotionChange)
+  } else {
+    reducedMotionMediaQuery.addListener(handleReducedMotionChange)
+  }
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+
   window.addEventListener('resize', handleScroll, { passive: true })
+  window.addEventListener('resize', syncCelebrationConfetti, { passive: true })
   if (scrollTarget === window) {
     window.addEventListener('scroll', handleScroll, { passive: true })
   } else {
@@ -322,7 +546,23 @@ onMounted(() => {
 onBeforeUnmount(() => {
   clearMessageTimer()
   document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  if (reducedMotionMediaQuery) {
+    if (reducedMotionMediaQuery.removeEventListener) {
+      reducedMotionMediaQuery.removeEventListener('change', handleReducedMotionChange)
+    } else {
+      reducedMotionMediaQuery.removeListener(handleReducedMotionChange)
+    }
+  }
+  for (const cardKey of celebrationConfettiTimers.keys()) {
+    stopCelebrationLoop(cardKey)
+  }
+  for (const cardKey of celebrationConfettiInstances.keys()) {
+    destroyCelebrationConfetti(cardKey)
+  }
+  celebrationCanvasRefs.clear()
   window.removeEventListener('resize', handleScroll)
+  window.removeEventListener('resize', syncCelebrationConfetti)
   if (scrollTarget === window) {
     window.removeEventListener('scroll', handleScroll)
   } else {
@@ -579,8 +819,15 @@ onBeforeUnmount(() => {
           target="_blank"
           rel="noreferrer noopener"
           class="spt-card"
-          :class="`spt-card--${site.status || 'unknown'}`"
+          :class="[`spt-card--${site.status || 'unknown'}`, { 'spt-card--anniversary-today': isTodayAnniversaryText(site.anniversary_text) }]"
         >
+          <div v-if="isTodayAnniversaryText(site.anniversary_text)" class="spt-card__celebration" aria-hidden="true">
+            <canvas :ref="element => setCelebrationCanvasRef(siteCelebrationKey(group.year, site), element)" class="spt-card__celebration-canvas" />
+            <span class="spt-card__spark spt-card__spark--one" />
+            <span class="spt-card__spark spt-card__spark--two" />
+            <span class="spt-card__spark spt-card__spark--three" />
+            <span class="spt-card__spark spt-card__spark--four" />
+          </div>
           <div class="spt-card__body">
             <!-- 顶部标签行 -->
             <div class="spt-card__badges">
@@ -588,11 +835,11 @@ onBeforeUnmount(() => {
                 <span class="spt-tag spt-tag--type">{{ site.site_type }}</span>
                 <span v-if="site.duration_text" class="spt-tag spt-tag--duration">
                   <v-icon icon="mdi-clock-fast" size="12" />
-                  {{ site.duration_text }}
+                  <span class="spt-tag__text">{{ site.duration_text }}</span>
                 </span>
-                <span v-if="site.anniversary_text" class="spt-tag spt-tag--anniversary">
-                  <v-icon icon="mdi-party-popper" size="12" />
-                  {{ site.anniversary_text }}
+                <span v-if="site.anniversary_text" class="spt-tag spt-tag--anniversary" :class="{ 'spt-tag--anniversary-today': isTodayAnniversaryText(site.anniversary_text) }">
+                  <v-icon v-if="!isTodayAnniversaryText(site.anniversary_text)" icon="mdi-party-popper" size="12" />
+                  <span class="spt-tag__text">{{ getAnniversaryDisplayText(site.anniversary_text) }}</span>
                 </span>
               </div>
             </div>
@@ -1373,8 +1620,7 @@ onBeforeUnmount(() => {
 }
 
 .spt-card {
-  display: flex;
-  align-items: center;
+  display: block;
   text-decoration: none;
   color: inherit;
   border-radius: var(--spt-radius);
@@ -1409,7 +1655,6 @@ onBeforeUnmount(() => {
 }
 
 .spt-card__body {
-  flex: 1;
   min-width: 0;
   padding: 10px 12px;
   display: flex;
@@ -1447,6 +1692,16 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   line-height: 1.2;
   flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.spt-tag__text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spt-tag :deep(.v-icon),
@@ -1490,9 +1745,90 @@ onBeforeUnmount(() => {
   color: rgb(var(--v-theme-primary));
 }
 
+.spt-card--anniversary-today {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(250, 204, 21, 0.18), transparent 26%),
+    radial-gradient(circle at 88% 22%, rgba(244, 114, 182, 0.12), transparent 24%),
+    linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(255, 255, 255, 0));
+}
+
+.spt-card__celebration {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.spt-card__celebration-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.spt-card__spark {
+  position: absolute;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.spt-card__spark {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(250, 204, 21, 0.95) 45%, rgba(250, 204, 21, 0) 100%);
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.45);
+  animation: spt-celebration-spark 2.8s ease-in-out infinite;
+}
+
+.spt-card__spark--one { top: 10px; left: 92px; animation-delay: 0s; }
+.spt-card__spark--two { top: 16px; left: 136px; width: 5px; height: 5px; animation-delay: .6s; }
+.spt-card__spark--three { top: 30px; right: 46px; animation-delay: 1.15s; }
+.spt-card__spark--four { top: 42px; right: 90px; width: 4px; height: 4px; animation-delay: 1.75s; }
+
+.spt-card__body,
+.spt-card__status-icon {
+  position: relative;
+  z-index: 1;
+}
+
 .spt-tag--anniversary {
   background: rgba(245, 158, 11, 0.1);
   color: var(--spt-color-anniv);
+}
+
+.spt-tag--anniversary-today {
+  background: rgba(245, 158, 11, 0.16);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.08), 0 4px 14px rgba(245, 158, 11, 0.12);
+}
+
+@keyframes spt-celebration-spark {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(0.65); opacity: 0; }
+  20% { opacity: .95; }
+  45% { transform: translate3d(4px, -6px, 0) scale(1); opacity: 1; }
+  75% { transform: translate3d(-3px, -11px, 0) scale(.8); opacity: .35; }
+}
+
+@keyframes spt-celebration-confetti {
+  0%, 100% { transform: translate3d(0, -4px, 0) rotate(-10deg) scaleY(.8); opacity: 0; }
+  18% { opacity: .95; }
+  55% { transform: translate3d(6px, 10px, 0) rotate(14deg) scaleY(1); opacity: .88; }
+  82% { transform: translate3d(-4px, 18px, 0) rotate(-8deg) scaleY(.92); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spt-card__spark,
+  .spt-card:hover .spt-card__status-icon,
+  .spt-pulse-icon::after {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .spt-card__spark {
+    opacity: 0 !important;
+  }
 }
 
 /* 主内容行 */
@@ -1582,15 +1918,15 @@ onBeforeUnmount(() => {
 
 /* 状态图标（卡片右侧） */
 .spt-card__status-icon {
+  position: absolute;
+  top: 12px;
+  right: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: static;
   width: 20px;
   height: 20px;
   min-width: 20px;
-  margin-right: 10px;
-  flex-shrink: 0;
   opacity: 0.9;
   transition: all var(--spt-transition);
 }
@@ -1810,12 +2146,39 @@ onBeforeUnmount(() => {
 
   .spt-card__badges-left {
     gap: 4px;
+    width: 100%;
   }
 
   .spt-tag {
     padding: 1px 7px;
     font-size: 0.64rem;
+    max-width: 100%;
   }
+
+  .spt-tag--duration,
+  .spt-tag--anniversary {
+    max-width: 100%;
+  }
+
+  .spt-tag--anniversary {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    align-self: flex-start;
+  }
+
+  .spt-card__celebration {
+    inset: 0 6px 0 0;
+  }
+
+  .spt-card__celebration-canvas {
+    inset: 0;
+  }
+
+  .spt-card__spark--one { top: 8px; left: 84px; }
+  .spt-card__spark--two { top: 14px; left: 122px; }
+  .spt-card__spark--three { top: 24px; right: 42px; }
+  .spt-card__spark--four { top: 34px; right: 78px; }
 
   .spt-card__main {
     align-items: flex-start;
@@ -1882,6 +2245,20 @@ onBeforeUnmount(() => {
   .spt-card__body {
     padding-right: 34px;
   }
+
+  .spt-card__celebration {
+    inset: 0 4px 0 0;
+  }
+
+  .spt-card__spark {
+    width: 5px;
+    height: 5px;
+  }
+
+  .spt-card__spark--one { top: 8px; left: 76px; }
+  .spt-card__spark--two { top: 13px; left: 110px; }
+  .spt-card__spark--three { top: 22px; right: 38px; }
+  .spt-card__spark--four { top: 30px; right: 70px; }
 
   .spt-card__name {
     font-size: 0.82rem;

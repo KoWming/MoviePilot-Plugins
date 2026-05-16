@@ -10,6 +10,7 @@
     "build": "npm run build:web && node build-zip.js"
   },
   "dependencies": {
+    "canvas-confetti": "^1.9.4",
     "vue": "^3.3.4",
     "vuetify": "^3.3.15"
   },
