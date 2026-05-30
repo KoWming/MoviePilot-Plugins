@@ -17,6 +17,7 @@ from .dubhe_handler import DubheMedalHandler
 from .siqi_handler import SiqiMedalHandler
 from .rousipro_handler import RousiProMedalHandler
 from .city13_handler import City13MedalHandler
+from .agsvpt_handler import AgsvptMedalHandler
 
 
 class MedalHandlerManager:
@@ -35,6 +36,7 @@ class MedalHandlerManager:
             DubheMedalHandler(),  # 优先处理天枢站点
             SiqiMedalHandler(),  # 优先处理思齐站点
             City13MedalHandler(),  # 优先处理 13City 站点
+            AgsvptMedalHandler(),  # 优先处理 AGSVPT 站点
             RousiProMedalHandler(),  # 优先处理 Rousi Pro 站点
             OffMedalHandler(),  # 优先处理自由农场站点
             HHanMedalHandler(),  # 优先处理憨憨站点
