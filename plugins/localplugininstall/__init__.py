@@ -35,7 +35,7 @@ class LocalPluginInstall(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/LocalPluginInstall.png"
     # 插件版本
-    plugin_version = "1.4.0"
+    plugin_version = "1.4.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -58,7 +58,7 @@ class LocalPluginInstall(_PluginBase):
         "backup_enabled": True,                   # 启用备份
         "backup_retention": 10,                  # 备份保留份数
         "temp_path": "/tmp/moviepilot/upload",    # 临时文件路径
-        "max_file_size": 10 * 1024 * 1024,        # 最大文件大小 10MB
+        "max_file_size": 20 * 1024 * 1024,        # 最大文件大小 20MB
         "allowed_extensions": ["zip"],            # 允许的文件扩展名
     }
 
@@ -1397,7 +1397,7 @@ class LocalPluginInstall(_PluginBase):
                 return;
             }}
             const file = fileInput.files[0];
-            const maxSize = {self._config.get('max_file_size', 10*1024*1024)};
+            const maxSize = {self._config.get('max_file_size', 20*1024*1024)};
             if (file.size > maxSize) {{
                  showNotice(`文件大小超过限制 (${{(maxSize / 1024 / 1024).toFixed(1)}}MB)`);
                  return;
