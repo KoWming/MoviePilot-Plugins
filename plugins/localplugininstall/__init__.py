@@ -16,6 +16,7 @@ from fastapi import UploadFile, File, Body
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
+from app.helper.plugin import PluginHelper
 from app.plugins import _PluginBase
 from app.log import logger
 from app.utils.system import SystemUtils
@@ -35,7 +36,7 @@ class LocalPluginInstall(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/LocalPluginInstall.png"
     # 插件版本
-    plugin_version = "1.4.1"
+    plugin_version = "1.4.2"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -596,6 +597,14 @@ class LocalPluginInstall(_PluginBase):
         Scheduler().update_plugin_job(plugin_id)
         register_plugin_api(plugin_id)
         Command().init_commands(plugin_id)
+
+        # 刷新持久化备份，确保容器更新后插件可恢复
+        try:
+            PluginHelper.refresh_persistent_plugin_backup(plugin_id)
+            logger.info(f"已刷新插件 {plugin_id} 的持久化备份")
+        except Exception as e:
+            logger.warning(f"刷新插件 {plugin_id} 持久化备份失败: {e}")
+
         return dependencies_status
 
     def _restore_plugin_install(self, plugin_id: str, backup_file: str) -> Tuple[bool, str, Dict[str, Any]]:
