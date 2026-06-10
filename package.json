@@ -205,13 +205,14 @@
     "name": "Sun-Panel助手",
     "description": "同步MP中已启用的站点到Sun-Panel指定分组",
     "labels": "工具",
-    "version": "1.1",
+    "version": "1.2",
     "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/sun-panel.png",
     "author": "KoWming",
     "level": 1,
     "v2": true,
     "release": true,
     "history": {
+      "v1.2": "修复站点卡片匹配逻辑，改用站点域名作为唯一标识避免删除重建后卡片错乱；新增卡片描述内容配置，支持写入加入时间、上传量、下载量，公开站点自动标注；同步时按加入时间排序；修复无效API调用导致的异常。PS：由于唯一标识变更，建议删除原有分组或使用新分组名称进行同步。",
       "v1.1": "新增自定义域名设置。",
       "v1.0": "初始版本。"
     }

@@ -26,7 +26,7 @@ class SpanelHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/sun-panel.png"
     # 插件版本
-    plugin_version = "1.1"
+    plugin_version = "1.2"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -44,11 +44,6 @@ class SpanelHelper(_PluginBase):
         "bilibili": "playletpt"
     }
 
-    # 加载顺序
-    plugin_order = 20
-    # 可使用的用户级别
-    auth_level = 1
-
     # 私有属性
     _enabled = False
     _custom_domains = ""
@@ -61,6 +56,7 @@ class SpanelHelper(_PluginBase):
     _notify = True # 默认开启通知
     _force_update = False # 强制更新
     _icon_repo_url = "" # 图标库URL
+    _description_fields: List[str] = [] # 描述字段选择
     _scheduler: Optional[BackgroundScheduler] = None
 
     def init_plugin(self, config: dict = None):
@@ -79,6 +75,7 @@ class SpanelHelper(_PluginBase):
             self._force_update = config.get("force_update")
             self._icon_repo_url = config.get("icon_repo_url")
             self._custom_domains = config.get("custom_domains") or ""
+            self._description_fields = config.get("description_fields") or []
 
         # 确保数据目录存在
         self._data_path = Path(settings.CONFIG_PATH) / "plugins" / "spanelhelper"
@@ -109,6 +106,7 @@ class SpanelHelper(_PluginBase):
                 "force_update": self._force_update,
                 "icon_repo_url": self._icon_repo_url,
                 "custom_domains": self._custom_domains,
+                "description_fields": self._description_fields,
             })
 
     def get_service(self) -> List[Dict[str, Any]]:
@@ -173,9 +171,12 @@ class SpanelHelper(_PluginBase):
                             {'component': 'VDivider'},
                             {'component': 'VCardText', 'content': [
                                 {'component': 'VRow', 'content': [
-                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VTextField', 'props': {'model': 'spanel_url', 'label': '接口地址', 'placeholder': 'http://ip:port', 'autocomplete': 'off'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VTextField', 'props': {'model': 'spanel_token', 'label': 'Token', 'type': 'password', 'placeholder': 'OpenAPI Token', 'autocomplete': 'new-password'}}]},
-                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 4}, 'content': [{'component': 'VTextField', 'props': {'model': 'group_name', 'label': '同步分组名称', 'placeholder': 'MoviePilot', 'autocomplete': 'off'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 6}, 'content': [{'component': 'VTextField', 'props': {'model': 'spanel_url', 'label': '接口地址', 'placeholder': 'http://ip:port', 'autocomplete': 'off'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 6}, 'content': [{'component': 'VTextField', 'props': {'model': 'spanel_token', 'label': 'Token', 'type': 'password', 'placeholder': 'OpenAPI Token', 'autocomplete': 'new-password'}}]},
+                                ]},
+                                {'component': 'VRow', 'content': [
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 6}, 'content': [{'component': 'VTextField', 'props': {'model': 'group_name', 'label': '同步分组名称', 'placeholder': 'MoviePilot', 'autocomplete': 'off'}}]},
+                                    {'component': 'VCol', 'props': {'cols': 12, 'md': 6}, 'content': [{'component': 'VSelect', 'props': {'model': 'description_fields', 'label': '卡片描述内容', 'multiple': True, 'chips': True, 'clearable': True, 'items': [{'title': '加入时间', 'value': 'join_at'}, {'title': '上传量', 'value': 'upload'}, {'title': '下载量', 'value': 'download'}]}}]},
                                 ]},
                                 {'component': 'VRow', 'content': [
                                     {'component': 'VCol', 'props': {'cols': 12, 'md': 6}, 'content': [{'component': 'VTextField', 'props': {'model': 'icon_repo_url', 'label': '图标库URL', 'placeholder': 'https://example.com/icons.zip'}}]},
@@ -319,6 +320,7 @@ class SpanelHelper(_PluginBase):
             "notify": True,
             "force_update": False,
             "icon_repo_url": "",
+            "description_fields": [],
             "custom_domains": ""
         }
 
@@ -373,7 +375,18 @@ class SpanelHelper(_PluginBase):
                     self.post_message(mtype=NotificationType.Plugin, title="【☀️Sun-Panel助手】同步失败", text=f"❌ 无法获取或创建分组: {self._group_name}")
                 return
 
-            # 3. 同步站点
+            # 3. 按加入时间排序站点（确保新创建的卡片按加入时间排列）
+            def _get_join_at(site):
+                try:
+                    userdatas = SiteOper().get_userdata_by_domain(site.domain)
+                    if userdatas and userdatas[0].join_at:
+                        return userdatas[0].join_at
+                except Exception:
+                    pass
+                return "9999-12-31"  # 无加入时间的排到最后
+            sites.sort(key=_get_join_at)
+
+            # 4. 同步站点
             success_count = 0
             fail_count = 0
             total_count = len(sites)
@@ -421,6 +434,21 @@ class SpanelHelper(_PluginBase):
             "token": self._spanel_token,
             "Content-Type": "application/json"
         }
+
+    @staticmethod
+    def __format_size(size_bytes: float) -> str:
+        """
+        将字节数格式化为可读的大小字符串
+        """
+        if not size_bytes or size_bytes <= 0:
+            return "0 B"
+        units = ["B", "KB", "MB", "GB", "TB", "PB"]
+        unit_index = 0
+        size = float(size_bytes)
+        while size >= 1024 and unit_index < len(units) - 1:
+            size /= 1024
+            unit_index += 1
+        return f"{size:.1f} {units[unit_index]}"
 
     def _get_proxies(self):
         """
@@ -631,9 +659,12 @@ class SpanelHelper(_PluginBase):
         """
         同步单个站点
         """
-        # 使用 MP 站点ID作为唯一标识的一部分，确保唯一性
-        item_only_name = f"mp_site_{site.id}"
-        
+        # 使用站点域名Key作为唯一标识（比站点ID更稳定，删除重建后不变）
+        if not site.domain:
+            logger.warning(f"站点 {site.name} 无domain标识，跳过同步")
+            return False
+        item_only_name = f"mp_site_{site.domain}"
+
         # URL 替换逻辑：使用自定义域名配置
         site_url = site.url
         custom_mapping = custom_mapping or {}
@@ -644,10 +675,14 @@ class SpanelHelper(_PluginBase):
         # 移除末尾斜杠以更好对比
         site_url = site_url.rstrip('/') if site_url else ""
 
-        # 检查项目是否存在并获取详情
-        check_url = f"{self._spanel_url.rstrip('/')}/openapi/v1/item/getInfoByOnlyName"
+        # URL为空时跳过该站点
+        if not site_url:
+            logger.warning(f"站点 {site.name} 无有效URL，跳过同步")
+            return False
+
+        # 通过onlyName查询已有项目
         remote_item = None
-        
+        check_url = f"{self._spanel_url.rstrip('/')}/openapi/v1/item/getInfoByOnlyName"
         try:
             res = RequestUtils(headers=self.__get_request_headers()).post_res(check_url, json={"onlyName": item_only_name})
             if res and res.status_code == 200:
@@ -659,16 +694,45 @@ class SpanelHelper(_PluginBase):
 
         # 准备目标数据
         target_title = site.name
-        
+
+        # 根据配置生成卡片描述
+        site_description = ""
+        desc_parts = []
+        try:
+            userdatas = SiteOper().get_userdata_by_domain(site.domain)
+            if userdatas:
+                userdata = userdatas[0]
+                if "join_at" in self._description_fields:
+                    if userdata.join_at:
+                        join_at = userdata.join_at
+                        # 格式化：只保留年月日部分
+                        if " " in join_at:
+                            join_at = join_at.split(" ")[0]
+                        elif "T" in join_at:
+                            join_at = join_at.split("T")[0]
+                        desc_parts.append(f"加入时间: {join_at}")
+                    else:
+                        desc_parts.append("加入时间: 未知")
+                if "upload" in self._description_fields and userdata.upload:
+                    desc_parts.append(f"⬆️: {self.__format_size(userdata.upload)}")
+                if "download" in self._description_fields and userdata.download:
+                    desc_parts.append(f"⬇️: {self.__format_size(userdata.download)}")
+            if site.public == 1:
+                desc_parts.append("公开站点")
+        except Exception as e:
+            logger.debug(f"获取站点 {site.name} 描述信息失败: {e}")
+        site_description = "\n".join(desc_parts)
+
         # 判断是否需要更新
         need_update = False
         action = "创建"
         
         if remote_item:
             action = "更新"
-            # 对比字段: Title, URL
+            # 对比字段: Title, URL, Description
             remote_url = remote_item.get("url", "").rstrip('/')
             remote_title = remote_item.get("title", "")
+            remote_desc = remote_item.get("description", "")
             
             # 分组对比
             is_group_diff = False
@@ -687,7 +751,8 @@ class SpanelHelper(_PluginBase):
                 need_update = True
                 logger.info(f"强制更新开启: {site.name}, 将执行更新")
             elif (remote_title != target_title or 
-                remote_url != site_url or 
+                remote_url != site_url or
+                remote_desc != site_description or
                 is_group_diff):
                 need_update = True
                 logger.info(f"站点信息变更: {site.name}, 将执行更新")
@@ -724,6 +789,7 @@ class SpanelHelper(_PluginBase):
             "onlyName": item_only_name,
             "title": target_title,
             "url": site_url,
+            "description": site_description,
             "iconUrl": icon_url,
             "isSaveIcon": True 
         }
@@ -746,7 +812,6 @@ class SpanelHelper(_PluginBase):
 
         # 发送请求
         if action == "更新":
-            # 更新时不传 lanUrl 和 description，起到保留原有值的作用
             update_url = f"{self._spanel_url.rstrip('/')}/openapi/v1/item/update"
             return self.__send_item_request(update_url, payload, site.name, "更新")
         else:
