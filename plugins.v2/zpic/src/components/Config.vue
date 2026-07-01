@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { onBeforeUnmount, computed, onMounted, reactive, ref } from 'vue'
 import { pluginRequest } from '../utils/zpic'
 
 const props = defineProps({
@@ -16,6 +16,23 @@ const form = reactive({
   open_token: '',
   ...props.initialConfig,
 })
+let messageTimer = null
+
+function clearMessageTimer() {
+  if (messageTimer) {
+    clearTimeout(messageTimer)
+    messageTimer = null
+  }
+}
+
+function scheduleMessageClose(type = 'info') {
+  clearMessageTimer()
+  const timeout = type === 'error' ? 5000 : 3000
+  messageTimer = setTimeout(() => {
+    message.show = false
+    messageTimer = null
+  }, timeout)
+}
 
 // ── 系统设置（从 Zpic API 实时获取） ──
 const sysConfig = reactive({
@@ -37,6 +54,7 @@ function pushMessage(text, type = 'info') {
   message.text = text
   message.type = type
   message.show = true
+  scheduleMessageClose(type)
 }
 
 async function fetchSystemConfig() {
@@ -120,6 +138,10 @@ async function saveSystemConfig() {
 onMounted(() => {
   fetchSystemConfig()
 })
+
+onBeforeUnmount(() => {
+  clearMessageTimer()
+})
 </script>
 
 <template>
@@ -153,6 +175,17 @@ onMounted(() => {
       </div>
     </div>
 
+    <!-- 消息提示 -->
+    <Transition name="zp-toast-slide">
+      <div v-if="message.show" class="zp-toast" :class="`zp-toast--${message.type}`">
+        <v-icon :icon="message.type === 'success' ? 'mdi-check-circle' : message.type === 'error' ? 'mdi-alert-circle' : 'mdi-information'" size="18" />
+        <span>{{ message.text }}</span>
+        <button class="zp-toast__close" @click="message.show = false">
+          <v-icon icon="mdi-close" size="16" />
+        </button>
+      </div>
+    </Transition>
+
     <!-- 配置列 -->
     <div class="zp-config-col">
 
@@ -160,64 +193,65 @@ onMounted(() => {
       <div class="zp-card">
         <div class="zp-card__header">
           <span class="zp-card__title d-flex align-center">
-            <v-icon icon="mdi-tune-vertical" size="18" color="#8b5cf6" class="mr-1"></v-icon>
-            基础配置
+            <v-icon icon="mdi-toggle-switch-outline" size="18" color="#8b5cf6" class="mr-1" />
+            基础设置
           </span>
         </div>
-
-        <!-- 启用开关 -->
-        <div class="zp-switch-row">
-          <div class="zp-switch-item">
-            <span class="zp-row__text">
-              <v-icon icon="mdi-power-plug" size="20" :color="form.enabled ? '#a78bfa' : 'grey'" class="mr-2"></v-icon>
-              启用插件
-            </span>
-            <label class="switch" style="--switch-checked-bg: #a78bfa;">
-              <input v-model="form.enabled" type="checkbox" />
-              <div class="slider">
-                <div class="circle">
-                  <svg class="cross" xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 365.696 365.696" y="0" x="0" height="6" width="6" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg"><g><path data-original="#000000" fill="currentColor" d="M243.188 182.86 356.32 69.726c12.5-12.5 12.5-32.766 0-45.247L341.238 9.398c-12.504-12.503-32.77-12.503-45.25 0L182.86 122.528 69.727 9.374c-12.5-12.5-32.766-12.5-45.247 0L9.375 24.457c-12.5 12.504-12.5 32.77 0 45.25l113.152 113.152L9.398 295.99c-12.503 12.503-12.503 32.769 0 45.25L24.48 356.32c12.5 12.5 32.766 12.5 45.247 0l113.132-113.132L295.99 356.32c12.503 12.5 32.769 12.5 45.25 0l15.081-15.082c12.5-12.504 12.5-32.77 0-45.25zm0 0"></path></g></svg>
-                  <svg class="checkmark" xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 24 24" y="0" x="0" height="10" width="10" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg"><g transform="translate(-0.4, 0.2)"><path data-original="#000000" fill="currentColor" d="M9.707 19.121a.997.997 0 0 1-1.414 0l-5.646-5.647a1.5 1.5 0 0 1 0-2.121l.707-.707a1.5 1.5 0 0 1 2.121 0L9 14.171l9.525-9.525a1.5 1.5 0 0 1 2.121 0l.707.707a1.5 1.5 0 0 1 0 2.121z"></path></g></svg>
+<div class="zp-row">
+          <div class="zp-row__col">
+            <div class="zp-switch-grid">
+              <div
+                class="zp-switch-item"
+                :class="{ 'zp-switch-item--active': form.enabled }"
+                style="--zp-accent: 139, 92, 246"
+              >
+                <div class="zp-switch-item__main">
+                  <div class="zp-switch-item__icon">
+                    <v-icon icon="mdi-power-plug" size="18" />
+                  </div>
+                  <div class="zp-switch-item__text">
+                    <span class="zp-switch-item__label">启用插件</span>
+                  </div>
                 </div>
+                <label class="zp-toggle" style="--switch-checked-bg: #8b5cf6;">
+                  <input v-model="form.enabled" type="checkbox" />
+                  <div class="zp-toggle__slider">
+                    <div class="zp-toggle__circle">
+                      <svg class="zp-toggle__cross" xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 365.696 365.696" y="0" x="0" height="6" width="6" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg"><g><path fill="currentColor" d="M243.188 182.86 356.32 69.726c12.5-12.5 12.5-32.766 0-45.247L341.238 9.398c-12.504-12.503-32.77-12.503-45.25 0L182.86 122.528 69.727 9.374c-12.5-12.5-32.766-12.5-45.247 0L9.375 24.457c-12.5 12.504-12.5 32.77 0 45.25l113.152 113.152L9.398 295.99c-12.503 12.503-12.503 32.769 0 45.25L24.48 356.32c12.5 12.5 32.766 12.5 45.247 0l113.132-113.132L295.99 356.32c12.503 12.5 32.769 12.5 45.25 0l15.081-15.082c12.5-12.504 12.5-32.77 0-45.25zm0 0" /></g></svg>
+                      <svg class="zp-toggle__checkmark" xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 24 24" y="0" x="0" height="10" width="10" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg"><g transform="translate(-0.4, 0.2)"><path fill="currentColor" d="M9.707 19.121a.997.997 0 0 1-1.414 0l-5.646-5.647a1.5 1.5 0 0 1 0-2.121l.707-.707a1.5 1.5 0 0 1 2.121 0L9 14.171l9.525-9.525a1.5 1.5 0 0 1 2.121 0l.707.707a1.5 1.5 0 0 1 0 2.121z" /></g></svg>
+                    </div>
+                  </div>
+                </label>
               </div>
-            </label>
+            </div>
+          </div>
+          <div class="zp-row__col">
+            <v-text-field
+              v-model="form.open_token"
+              label="开放令牌（Open Token）"
+              :type="showToken ? 'text' : 'password'"
+              variant="outlined"
+              density="compact"
+              class="zp-input"
+              hide-details
+              autocomplete="off"
+              prepend-inner-icon="mdi-key-variant"
+            >
+              <template #append-inner>
+                <v-btn
+                  variant="text"
+                  density="comfortable"
+                  size="x-small"
+                  icon
+                  class="zp-token-eye-btn"
+                  @click.stop="showToken = !showToken"
+                >
+                  <v-icon :icon="showToken ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" size="18" />
+                </v-btn>
+              </template>
+            </v-text-field>
           </div>
         </div>
-      </div>
-
-      <!-- 开放令牌卡片 -->
-      <div class="zp-card">
-        <div class="zp-card__header">
-          <span class="zp-card__title d-flex align-center">
-            <v-icon icon="mdi-key-chain" size="18" color="#f59e0b" class="mr-1"></v-icon>
-            开放令牌
-          </span>
-        </div>
-
-        <v-text-field
-          v-model="form.open_token"
-          label="开放令牌（Open Token）"
-          :type="showToken ? 'text' : 'password'"
-          variant="outlined"
-          density="compact"
-          class="zp-input"
-          hide-details
-          autocomplete="off"
-          prepend-inner-icon="mdi-key-variant"
-        >
-          <template #append-inner>
-            <v-btn
-              variant="text"
-              density="comfortable"
-              size="x-small"
-              icon
-              class="zp-token-eye-btn"
-              @click.stop="showToken = !showToken"
-            >
-              <v-icon :icon="showToken ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" size="18" />
-            </v-btn>
-          </template>
-        </v-text-field>
 
         <div class="zp-token-hint">
           <v-icon icon="mdi-information-outline" size="14" class="zp-token-hint__icon" />
@@ -229,7 +263,7 @@ onMounted(() => {
       <div class="zp-card">
         <div class="zp-card__header">
           <span class="zp-card__title d-flex align-center">
-            <v-icon icon="mdi-cog-sync-outline" size="18" color="#10b981" class="mr-1"></v-icon>
+            <v-icon icon="mdi-cog-sync-outline" size="18" color="#10b981" class="mr-1" />
             系统设置
           </span>
           <v-btn
@@ -258,53 +292,83 @@ onMounted(() => {
 
         <!-- 设置内容 -->
         <template v-else-if="sysLoaded">
-          <!-- 图片压缩 & 水印（同一行各占一半） -->
-          <div class="zp-switch-row zp-switch-row--dual">
+          <div class="zp-switch-grid">
             <!-- 图片压缩 -->
-            <div class="zp-switch-item">
-              <span class="zp-row__text">
-                <v-icon icon="mdi-image-size-select-large" size="18" :color="sysConfig.compress ? '#10b981' : 'grey'" class="mr-1"></v-icon>
-                <span class="zp-setting-label">
-                  图片压缩
-                  <span class="zp-setting-desc">自动压缩以节省空间</span>
-                </span>
-              </span>
-              <label class="switch" style="--switch-checked-bg: #10b981;">
+            <div
+              class="zp-switch-item"
+              :class="{ 'zp-switch-item--active': sysConfig.compress }"
+              style="--zp-accent: 16, 185, 129"
+            >
+              <div class="zp-switch-item__main">
+                <div class="zp-switch-item__icon">
+                  <v-icon icon="mdi-image-size-select-large" size="18" />
+                </div>
+                <div class="zp-switch-item__text">
+                  <span class="zp-switch-item__label">图片压缩</span>
+                  <span class="zp-switch-item__desc">自动压缩以节省空间</span>
+                </div>
+              </div>
+              <label class="zp-toggle" style="--switch-checked-bg: #10b981;">
                 <input v-model="sysConfig.compress" type="checkbox" />
-                <div class="slider">
-                  <div class="circle">
-                    <svg class="cross" xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 365.696 365.696" y="0" x="0" height="6" width="6" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg"><g><path data-original="#000000" fill="currentColor" d="M243.188 182.86 356.32 69.726c12.5-12.5 12.5-32.766 0-45.247L341.238 9.398c-12.504-12.503-32.77-12.503-45.25 0L182.86 122.528 69.727 9.374c-12.5-12.5-32.766-12.5-45.247 0L9.375 24.457c-12.5 12.504-12.5 32.77 0 45.25l113.152 113.152L9.398 295.99c-12.503 12.503-12.503 32.769 0 45.25L24.48 356.32c12.5 12.5 32.766 12.5 45.247 0l113.132-113.132L295.99 356.32c12.503 12.5 32.769 12.5 45.25 0l15.081-15.082c12.5-12.504 12.5-32.77 0-45.25zm0 0"></path></g></svg>
-                    <svg class="checkmark" xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 24 24" y="0" x="0" height="10" width="10" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg"><g transform="translate(-0.4, 0.2)"><path data-original="#000000" fill="currentColor" d="M9.707 19.121a.997.997 0 0 1-1.414 0l-5.646-5.647a1.5 1.5 0 0 1 0-2.121l.707-.707a1.5 1.5 0 0 1 2.121 0L9 14.171l9.525-9.525a1.5 1.5 0 0 1 2.121 0l.707.707a1.5 1.5 0 0 1 0 2.121z"></path></g></svg>
+                <div class="zp-toggle__slider">
+                  <div class="zp-toggle__circle">
+                    <svg class="zp-toggle__cross" xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 365.696 365.696" y="0" x="0" height="6" width="6" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg"><g><path fill="currentColor" d="M243.188 182.86 356.32 69.726c12.5-12.5 12.5-32.766 0-45.247L341.238 9.398c-12.504-12.503-32.77-12.503-45.25 0L182.86 122.528 69.727 9.374c-12.5-12.5-32.766-12.5-45.247 0L9.375 24.457c-12.5 12.504-12.5 32.77 0 45.25l113.152 113.152L9.398 295.99c-12.503 12.503-12.503 32.769 0 45.25L24.48 356.32c12.5 12.5 32.766 12.5 45.247 0l113.132-113.132L295.99 356.32c12.503 12.5 32.769 12.5 45.25 0l15.081-15.082c12.5-12.504 12.5-32.77 0-45.25zm0 0" /></g></svg>
+                    <svg class="zp-toggle__checkmark" xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 24 24" y="0" x="0" height="10" width="10" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg"><g transform="translate(-0.4, 0.2)"><path fill="currentColor" d="M9.707 19.121a.997.997 0 0 1-1.414 0l-5.646-5.647a1.5 1.5 0 0 1 0-2.121l.707-.707a1.5 1.5 0 0 1 2.121 0L9 14.171l9.525-9.525a1.5 1.5 0 0 1 2.121 0l.707.707a1.5 1.5 0 0 1 0 2.121z" /></g></svg>
                   </div>
                 </div>
               </label>
             </div>
             <!-- 文字水印 -->
-            <div class="zp-switch-item" :class="{ 'zp-switch-item--disabled': !isVipSubscription }">
-              <span class="zp-row__text">
-                <v-icon icon="mdi-watermark" size="18" :color="isVipSubscription && sysConfig.watermark_enabled ? '#06b6d4' : 'grey'" class="mr-1"></v-icon>
-                <span class="zp-setting-label">
-                  文字水印
-                  <span class="zp-setting-desc">{{ isVipSubscription ? '为上传图片添加文字水印' : 'VIP 订阅可用' }}</span>
-                </span>
-              </span>
-              <label class="switch" style="--switch-checked-bg: #06b6d4;" :class="{ 'switch--disabled': !isVipSubscription }">
+            <div
+              class="zp-switch-item"
+              :class="{ 'zp-switch-item--active': isVipSubscription && sysConfig.watermark_enabled, 'zp-switch-item--disabled': !isVipSubscription }"
+              style="--zp-accent: 6, 182, 212"
+            >
+              <div class="zp-switch-item__main">
+                <div class="zp-switch-item__icon">
+                  <v-icon icon="mdi-watermark" size="18" />
+                </div>
+                <div class="zp-switch-item__text">
+                  <span class="zp-switch-item__label">文字水印</span>
+                  <span class="zp-switch-item__desc">{{ isVipSubscription ? '为上传图片添加文字水印' : 'VIP 订阅可用' }}</span>
+                </div>
+              </div>
+              <label class="zp-toggle" style="--switch-checked-bg: #06b6d4;" :class="{ 'zp-toggle--disabled': !isVipSubscription }">
                 <input v-model="sysConfig.watermark_enabled" type="checkbox" :disabled="!isVipSubscription" />
-                <div class="slider">
-                  <div class="circle">
-                    <svg class="cross" xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 365.696 365.696" y="0" x="0" height="6" width="6" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg"><g><path data-original="#000000" fill="currentColor" d="M243.188 182.86 356.32 69.726c12.5-12.5 12.5-32.766 0-45.247L341.238 9.398c-12.504-12.503-32.77-12.503-45.25 0L182.86 122.528 69.727 9.374c-12.5-12.5-32.766-12.5-45.247 0L9.375 24.457c-12.5 12.504-12.5 32.77 0 45.25l113.152 113.152L9.398 295.99c-12.503 12.503-12.503 32.769 0 45.25L24.48 356.32c12.5 12.5 32.766 12.5 45.247 0l113.132-113.132L295.99 356.32c12.503 12.5 32.769 12.5 45.25 0l15.081-15.082c12.5-12.504 12.5-32.77 0-45.25zm0 0"></path></g></svg>
-                    <svg class="checkmark" xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 24 24" y="0" x="0" height="10" width="10" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg"><g transform="translate(-0.4, 0.2)"><path data-original="#000000" fill="currentColor" d="M9.707 19.121a.997.997 0 0 1-1.414 0l-5.646-5.647a1.5 1.5 0 0 1 0-2.121l.707-.707a1.5 1.5 0 0 1 2.121 0L9 14.171l9.525-9.525a1.5 1.5 0 0 1 2.121 0l.707.707a1.5 1.5 0 0 1 0 2.121z"></path></g></svg>
+                <div class="zp-toggle__slider">
+                  <div class="zp-toggle__circle">
+                    <svg class="zp-toggle__cross" xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 365.696 365.696" y="0" x="0" height="6" width="6" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg"><g><path fill="currentColor" d="M243.188 182.86 356.32 69.726c12.5-12.5 12.5-32.766 0-45.247L341.238 9.398c-12.504-12.503-32.77-12.503-45.25 0L182.86 122.528 69.727 9.374c-12.5-12.5-32.766-12.5-45.247 0L9.375 24.457c-12.5 12.504-12.5 32.77 0 45.25l113.152 113.152L9.398 295.99c-12.503 12.503-12.503 32.769 0 45.25L24.48 356.32c12.5 12.5 32.766 12.5 45.247 0l113.132-113.132L295.99 356.32c12.503 12.5 32.769 12.5 45.25 0l15.081-15.082c12.5-12.504 12.5-32.77 0-45.25zm0 0" /></g></svg>
+                    <svg class="zp-toggle__checkmark" xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 24 24" y="0" x="0" height="10" width="10" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg"><g transform="translate(-0.4, 0.2)"><path fill="currentColor" d="M9.707 19.121a.997.997 0 0 1-1.414 0l-5.646-5.647a1.5 1.5 0 0 1 0-2.121l.707-.707a1.5 1.5 0 0 1 2.121 0L9 14.171l9.525-9.525a1.5 1.5 0 0 1 2.121 0l.707.707a1.5 1.5 0 0 1 0 2.121z" /></g></svg>
                   </div>
                 </div>
               </label>
             </div>
+          <!-- 存储域名 -->
+            <div class="zp-switch-item" style="--zp-accent: 59, 130, 246">
+              <div class="zp-switch-item__main">
+                <div class="zp-switch-item__icon">
+                  <v-icon icon="mdi-dns-outline" size="18" />
+                </div>
+                <div class="zp-storage-select-wrap">
+                  <v-select
+                    v-model="sysConfig.storage_domain"
+                    :items="sysConfig.storage_domains"
+                    label="存储域名"
+                    density="compact"
+                    variant="outlined"
+                    hide-details
+                    class="zp-storage-select"
+                    clearable
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="zp-system-fields">
-            <!-- 水印文字（条件显示） -->
-            <v-expand-transition>
+          <!-- 水印文字 -->
+          <v-expand-transition>
+            <div v-if="isVipSubscription && sysConfig.watermark_enabled" class="zp-sys-watermark-field">
               <v-text-field
-                v-if="isVipSubscription && sysConfig.watermark_enabled"
                 v-model="sysConfig.watermark_text"
                 label="文字水印"
                 density="compact"
@@ -315,33 +379,9 @@ onMounted(() => {
                 placeholder="请输入水印文字内容"
                 clearable
               />
-            </v-expand-transition>
-
-            <!-- 存储域名 -->
-            <v-select
-              v-model="sysConfig.storage_domain"
-              :items="sysConfig.storage_domains"
-              label="存储域名"
-              density="compact"
-              variant="outlined"
-              hide-details
-              class="zp-input"
-              prepend-inner-icon="mdi-dns-outline"
-              placeholder="选择图片存储 CDN 域名"
-              clearable
-            >
-              <template #item="{ props: itemProps }">
-                <v-list-item v-bind="itemProps" density="compact" class="zp-domain-list-item">
-                  <template #prepend>
-                    <v-icon icon="mdi-link-variant" size="16" />
-                  </template>
-                  <template #title>
-                    <span class="zp-domain-item">{{ itemProps.title }}</span>
-                  </template>
-                </v-list-item>
-              </template>
-            </v-select>
-          </div>
+              <div class="zp-field-hint">仅 VIP 订阅可用，开启水印后显示此字段</div>
+            </div>
+          </v-expand-transition>
 
           <!-- 保存系统设置按钮 -->
           <div class="zp-sys-save-actions">
@@ -353,7 +393,7 @@ onMounted(() => {
               @click="saveSystemConfig"
               class="zp-sys-save-btn"
             >
-              <v-icon icon="mdi-content-save-check-outline" size="16" class="mr-1"></v-icon>
+              <v-icon icon="mdi-content-save-check-outline" size="16" class="mr-1" />
               保存系统设置
             </v-btn>
           </div>
@@ -366,30 +406,43 @@ onMounted(() => {
     <div class="zp-card">
       <div class="zp-card__header">
         <span class="zp-card__title d-flex align-center">
-          <v-icon icon="mdi-book-open-page-variant-outline" size="18" color="#6366f1" class="mr-1"></v-icon>
-          使用说明
+          <v-icon icon="mdi-book-information-variant" size="18" color="#0ea5e9" class="mr-1" />
+          关于 Zpic
         </span>
       </div>
-      <div class="zp-desc-content">
-        <div class="zp-desc-item">
-          <v-icon icon="mdi-numeric-1-circle-outline" size="16" color="primary" class="mr-2" />
-          <span><strong>登录方式：</strong>在状态页通过验证码完成登录，登录后站点地址与邮箱自动缓存。</span>
+
+      <div class="zp-guide">
+        <div class="zp-guide__section">
+          <p class="zp-guide__paragraph">📷 使用 Zpic 图床插件，轻松管理您的图片上传与存储。</p>
+          <p class="zp-guide__paragraph">🔑 <strong>登录方式：</strong>在状态页通过验证码完成登录，登录后站点地址与邮箱自动缓存。</p>
+          <p class="zp-guide__paragraph">🔐 <strong>登录令牌：</strong>登录成功后自动获取并缓存，失效时插件会自动清空。</p>
+          <p class="zp-guide__paragraph">🔓 <strong>开放令牌：</strong>用于调用开放 API（上传图片、相册管理），需在 Zpic 后台生成。</p>
         </div>
-        <div class="zp-desc-item">
-          <v-icon icon="mdi-numeric-2-circle-outline" size="16" color="primary" class="mr-2" />
-          <span><strong>登录令牌：</strong>登录成功后自动获取并缓存，失效时插件会自动清空。</span>
-        </div>
-        <div class="zp-desc-item">
-          <v-icon icon="mdi-numeric-3-circle-outline" size="16" color="primary" class="mr-2" />
-          <span><strong>开放令牌：</strong>用于调用开放 API（上传图片、相册管理），需在 Zpic 后台生成。</span>
+
+        <div class="zp-guide__divider" />
+
+        <div class="zp-guide__contact">
+          <a
+            class="zp-contact-link"
+            href="https://www.imgurl.org/user/register"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span>📝</span>
+            <span>注册 Zpic</span>
+          </a>
+          <a
+            class="zp-contact-link"
+            href="https://www.imgurl.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span>🌐</span>
+            <span>访问官网</span>
+          </a>
         </div>
       </div>
     </div>
-
-    <!-- 消息提示 -->
-    <v-snackbar v-model="message.show" :color="message.type" :timeout="2400" location="top">
-      {{ message.text }}
-    </v-snackbar>
   </div>
 </template>
 
@@ -400,10 +453,10 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-height: 400px;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   color: rgba(var(--v-theme-on-surface), 0.85);
-  min-height: 400px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 8px;
 }
@@ -413,17 +466,22 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 16px;
+  padding-bottom: 8px;
 }
 
-.zp-topbar__left,
-.zp-topbar__right {
+.zp-topbar__left {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  flex: 1;
 }
 
 .zp-topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-shrink: 0;
 }
 
@@ -447,11 +505,16 @@ onMounted(() => {
   font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.3px;
+  color: rgba(var(--v-theme-on-surface), 0.85);
 }
 
 .zp-topbar__sub {
   font-size: 11px;
   color: rgba(var(--v-theme-on-surface), 0.55);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── 配置列 ── */
@@ -459,6 +522,84 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* ── Toast ── */
+.zp-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 0.82rem;
+  background: rgba(var(--v-theme-on-surface), 0.03);
+  backdrop-filter: blur(20px) saturate(150%);
+  border: 0.5px solid rgba(var(--v-theme-on-surface), 0.08);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.zp-toast--success {
+  background: rgba(34, 197, 94, 0.08);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.15);
+}
+
+.zp-toast--error {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.15);
+}
+
+.zp-toast--info {
+  background: rgba(var(--v-theme-info), 0.08);
+  color: rgb(var(--v-theme-info));
+  border-color: rgba(var(--v-theme-info), 0.15);
+}
+
+.zp-toast__close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.6;
+  display: flex;
+  transition: opacity 0.2s ease;
+}
+
+.zp-toast__close:hover { opacity: 1; }
+
+.zp-toast-slide-enter-active,
+.zp-toast-slide-leave-active { transition: all 0.3s ease; }
+.zp-toast-slide-enter-from,
+.zp-toast-slide-leave-to { opacity: 0; transform: translateY(-8px); }
+
+/* ── 行布局 ── */
+.zp-row {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.zp-row__col {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 行布局内开关网格占满整列 */
+.zp-row__col .zp-switch-grid {
+  grid-template-columns: 1fr;
+}
+
+/* 行布局内输入框匹配开关卡片高度 */
+.zp-row :deep(.v-field) {
+  min-height: 58px;
+  align-items: center;
+}
+
+.zp-row :deep(.v-field__input) {
+  align-items: center;
+  padding-block: 8px;
 }
 
 /* ── 卡片 ── */
@@ -471,83 +612,139 @@ onMounted(() => {
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .zp-card__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
 
 .zp-card__title {
   font-size: 13px;
   font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.85);
 }
 
-/* ── 开关行 ── */
-.zp-switch-row {
-  display: flex;
+/* ── 分隔线 ── */
+.zp-divider {
+  height: 0.5px;
+  background: rgba(var(--v-theme-on-surface), 0.08);
+  margin: 0 -4px;
+}
+
+/* ── 开关网格 ── */
+.zp-switch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
-  flex-wrap: nowrap;
-  justify-content: flex-start;
-}
-
-/* 双列并排：图片压缩 & 水印各占一半 */
-.zp-switch-row--dual {
-  gap: 8px;
-}
-
-.zp-switch-row--dual .zp-switch-item {
-  flex: 1 1 50%;
-  min-width: 0;
-}
-
-.zp-switch-row--dual .zp-switch-item .zp-row__text {
-  font-size: 12px;
-}
-
-.zp-switch-row--dual .zp-switch-item .zp-setting-desc {
-  font-size: 10px;
-}
-
-.zp-switch-row--dual .switch {
-  margin-left: 6px;
-  --switch-width: 32px;
-  --switch-height: 18px;
-  --circle-diameter: 14px;
-}
-
-.zp-switch-row--dual .switch svg.checkmark {
-  width: 8px;
-  height: 8px;
-}
-
-.zp-switch-row--dual .switch svg.cross {
-  width: 5px;
-  height: 5px;
 }
 
 .zp-switch-item {
   display: flex;
-  flex: 1 1 0;
-  min-width: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 8px 0;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(var(--v-theme-on-surface), 0.025);
+  border: 0.5px solid rgba(var(--v-theme-on-surface), 0.06);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.zp-switch-item--active {
+  background: rgba(var(--zp-accent, 139, 92, 246), 0.06);
+  border-color: rgba(var(--zp-accent, 139, 92, 246), 0.12);
 }
 
 .zp-switch-item--disabled {
-  opacity: 0.72;
+  opacity: 0.55;
 }
 
-.zp-row__text {
+.zp-switch-item__main {
   display: flex;
   align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.zp-switch-item__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  background: rgba(var(--v-theme-on-surface), 0.04);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.zp-switch-item--active .zp-switch-item__icon {
+  background: rgba(var(--zp-accent, 139, 92, 246), 0.12);
+  color: rgb(var(--zp-accent, 139, 92, 246));
+}
+
+.zp-switch-item__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.zp-switch-item__label {
   font-size: 13px;
+  font-weight: 500;
   color: rgba(var(--v-theme-on-surface), 0.85);
+}
+
+.zp-switch-item__desc {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(var(--v-theme-on-surface), 0.45);
+}
+
+/* ── 自定义开关 (.zp-toggle) ── */
+.zp-toggle {
+  --switch-width: 36px;
+  --switch-height: 20px;
+  --switch-bg: rgba(var(--v-theme-on-surface), 0.22);
+  --switch-checked-bg: rgb(var(--v-theme-primary));
+  --switch-offset: calc((var(--switch-height) - var(--circle-diameter)) / 2);
+  --switch-transition: all .2s cubic-bezier(0.27, 0.2, 0.25, 1.51);
+  --circle-diameter: 16px;
+  --circle-bg: #fff;
+  --circle-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+  --circle-checked-shadow: -1px 1px 2px rgba(0, 0, 0, 0.2);
+  --circle-transition: var(--switch-transition);
+  --icon-transition: all .2s cubic-bezier(0.27, 0.2, 0.25, 1.51);
+  --icon-cross-color: rgba(0, 0, 0, 0.4);
+  --icon-cross-size: 6px;
+  --icon-checkmark-color: var(--switch-checked-bg);
+  --icon-checkmark-size: 10px;
+  flex-shrink: 0;
+  user-select: none;
+}
+.zp-toggle input { display: none; }
+.zp-toggle svg { transition: var(--icon-transition); position: absolute; height: auto; }
+.zp-toggle__checkmark { width: var(--icon-checkmark-size); color: var(--icon-checkmark-color); transform: scale(0); }
+.zp-toggle__cross { width: var(--icon-cross-size); color: var(--icon-cross-color); }
+.zp-toggle__slider { box-sizing: border-box; width: var(--switch-width); height: var(--switch-height); background: var(--switch-bg); border-radius: 999px; display: flex; align-items: center; position: relative; transition: var(--switch-transition); cursor: pointer; }
+.zp-toggle__circle { width: var(--circle-diameter); height: var(--circle-diameter); background: var(--circle-bg); border-radius: inherit; box-shadow: var(--circle-shadow); display: flex; align-items: center; justify-content: center; transition: var(--circle-transition); z-index: 1; position: absolute; left: var(--switch-offset); }
+.zp-toggle__slider::before { content: ""; position: absolute; width: calc(var(--circle-diameter) / 2); height: calc(var(--circle-diameter) / 4 - 1px); left: calc(var(--switch-offset) + (var(--circle-diameter) / 4)); background: var(--circle-bg); border-radius: 1px; transition: all .2s ease-in-out; }
+.zp-toggle input:checked + .zp-toggle__slider { background: var(--switch-checked-bg); }
+.zp-toggle input:checked + .zp-toggle__slider .zp-toggle__checkmark { transform: scale(1); }
+.zp-toggle input:checked + .zp-toggle__slider .zp-toggle__cross { transform: scale(0); }
+.zp-toggle input:checked + .zp-toggle__slider::before { left: calc(100% - var(--circle-diameter) / 2 - (var(--circle-diameter) / 4) - var(--switch-offset)); }
+.zp-toggle input:checked + .zp-toggle__slider .zp-toggle__circle { left: calc(100% - var(--circle-diameter) - var(--switch-offset)); box-shadow: var(--circle-checked-shadow); }
+.zp-toggle input:disabled + .zp-toggle__slider,
+.zp-toggle--disabled .zp-toggle__slider {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ── 输入框 ── */
@@ -588,68 +785,56 @@ onMounted(() => {
   color: rgba(var(--v-theme-on-surface), 0.4);
 }
 
-/* ── 说明列表 ── */
-.zp-desc-content {
+/* ── 字段区块 ── */
+.zp-field {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
-.zp-desc-item {
+.zp-field__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+}
+
+.zp-field__title-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zp-field__title-icon {
+  flex-shrink: 0;
+}
+
+.zp-field__title-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.zp-field__label {
   font-size: 13px;
-  line-height: 1.6;
-  color: rgba(var(--v-theme-on-surface), 0.78);
+  font-weight: 500;
+  color: rgba(var(--v-theme-on-surface), 0.82);
 }
 
-.zp-desc-item strong {
-  font-weight: 600;
+.zp-field-hint {
+  font-size: 11px;
+  color: rgba(var(--v-theme-on-surface), 0.42);
+  line-height: 1.5;
 }
 
-/* ── 自定义开关 ── */
-.switch {
-  --switch-width: 36px;
-  --switch-height: 20px;
-  --switch-bg: rgba(var(--v-theme-on-surface), 0.22);
-  --switch-checked-bg: rgb(var(--v-theme-primary));
-  --switch-offset: calc((var(--switch-height) - var(--circle-diameter)) / 2);
-  --switch-transition: all .2s cubic-bezier(0.27, 0.2, 0.25, 1.51);
-  --circle-diameter: 16px;
-  --circle-bg: #fff;
-  --circle-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
-  --circle-checked-shadow: -1px 1px 2px rgba(0, 0, 0, 0.2);
-  --circle-transition: var(--switch-transition);
-  --icon-transition: all .2s cubic-bezier(0.27, 0.2, 0.25, 1.51);
-  --icon-cross-color: rgba(0, 0, 0, 0.4);
-  --icon-cross-size: 6px;
-  --icon-checkmark-color: var(--switch-checked-bg);
-  --icon-checkmark-size: 10px;
-  --effect-width: calc(var(--circle-diameter) / 2);
-  --effect-height: calc(var(--effect-width) / 2 - 1px);
-  --effect-bg: var(--circle-bg);
-  --effect-border-radius: 1px;
-  --effect-transition: all .2s ease-in-out;
-  display: inline-block;
-  margin-left: 10px;
-  user-select: none;
+/* ── 表单网格 ── */
+.zp-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
-.switch input { display: none; }
-.switch svg { transition: var(--icon-transition); position: absolute; height: auto; }
-.switch .checkmark { width: var(--icon-checkmark-size); color: var(--icon-checkmark-color); transform: scale(0); }
-.switch .cross { width: var(--icon-cross-size); color: var(--icon-cross-color); }
-.slider { box-sizing: border-box; width: var(--switch-width); height: var(--switch-height); background: var(--switch-bg); border-radius: 999px; display: flex; align-items: center; position: relative; transition: var(--switch-transition); cursor: pointer; }
-.circle { width: var(--circle-diameter); height: var(--circle-diameter); background: var(--circle-bg); border-radius: inherit; box-shadow: var(--circle-shadow); display: flex; align-items: center; justify-content: center; transition: var(--circle-transition); z-index: 1; position: absolute; left: var(--switch-offset); }
-.slider::before { content: ""; position: absolute; width: var(--effect-width); height: var(--effect-height); left: calc(var(--switch-offset) + (var(--effect-width) / 2)); background: var(--effect-bg); border-radius: var(--effect-border-radius); transition: var(--effect-transition); }
-.switch input:checked+.slider { background: var(--switch-checked-bg); }
-.switch input:checked+.slider .checkmark { transform: scale(1); }
-.switch input:checked+.slider .cross { transform: scale(0); }
-.switch input:checked+.slider::before { left: calc(100% - var(--effect-width) - (var(--effect-width) / 2) - var(--switch-offset)); }
-.switch input:checked+.slider .circle { left: calc(100% - var(--circle-diameter) - var(--switch-offset)); box-shadow: var(--circle-checked-shadow); }
-.switch input:disabled+.slider,
-.switch--disabled .slider {
-  opacity: 0.5;
-  cursor: not-allowed;
+
+.zp-form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 /* ── 刷新按钮 ── */
@@ -669,26 +854,6 @@ onMounted(() => {
   padding: 20px 0;
   font-size: 13px;
   color: rgba(var(--v-theme-on-surface), 0.45);
-}
-
-/* ── 设置标签 ── */
-.zp-setting-label {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.zp-setting-desc {
-  font-size: 11px;
-  font-weight: 400;
-  color: rgba(var(--v-theme-on-surface), 0.45);
-}
-
-/* ── 系统设置字段 ── */
-.zp-system-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 
 /* ── 域名下拉 ── */
@@ -728,6 +893,94 @@ onMounted(() => {
   font-weight: 500;
 }
 
+/* ── 系统存储选择器 ── */
+.zp-storage-select-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.zp-storage-select :deep(.v-field) {
+  min-height: unset;
+  box-shadow: none;
+}
+
+.zp-storage-select :deep(.v-field__outline) {
+  --v-field-border-width: 1px;
+  color: rgba(var(--v-theme-on-surface), 0.12);
+}
+
+.zp-storage-select :deep(.v-field__input) {
+  padding-block: 0;
+  font-size: 13px;
+}
+
+/* 空值时聚焦不上浮，仅选择值后才上浮 */
+.zp-storage-select :deep(.v-field--focused:not(.v-field--active) .v-field-label--floating) {
+  transform: translateY(0) scale(1) !important;
+  opacity: 1 !important;
+}
+.zp-storage-select :deep(.v-field--focused:not(.v-field--active) .v-field__outline__notch) {
+  border-color: transparent !important;
+}
+
+/* ── 系统水印文字字段 ── */
+.zp-sys-watermark-field {
+  margin-top: 16px;
+}
+
+/* ── 关于 / 指南 ── */
+.zp-guide {
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.zp-guide__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.zp-guide__paragraph {
+  margin: 0;
+  color: rgba(var(--v-theme-on-surface), 0.78);
+}
+
+.zp-guide__divider {
+  height: 0.5px;
+  background: rgba(var(--v-theme-on-surface), 0.08);
+  margin: 2px 0;
+}
+
+.zp-guide__contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.zp-contact-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  background: rgba(var(--v-theme-surface), 0.72);
+  color: rgba(var(--v-theme-on-surface), 0.82);
+}
+
+.zp-contact-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
 /* ── 响应式 ── */
 @media (max-width: 768px) {
   .zp-config {
@@ -749,6 +1002,11 @@ onMounted(() => {
     justify-content: flex-end;
   }
 
+  .zp-row {
+    flex-direction: column;
+  }
+
+
   .zp-topbar__right :deep(.v-btn-group) {
     gap: 0;
   }
@@ -758,40 +1016,12 @@ onMounted(() => {
     padding-inline: 0 !important;
   }
 
-  .zp-switch-row {
-    flex-wrap: wrap;
+  .zp-switch-grid {
+    grid-template-columns: 1fr;
   }
 
-  .zp-switch-item {
-    flex: 1 1 100%;
-  }
-
-  /* 移动端双列还原为单列 */
-  .zp-switch-row--dual .zp-switch-item {
-    flex: 1 1 100%;
-  }
-
-  .zp-switch-row--dual .zp-switch-item .zp-row__text {
-    font-size: 13px;
-  }
-
-  .zp-switch-row--dual .zp-switch-item .zp-setting-desc {
-    font-size: 11px;
-  }
-
-  .zp-switch-row--dual .switch {
-    --switch-width: 36px;
-    --switch-height: 20px;
-    --circle-diameter: 16px;
-    margin-left: 10px;
-  }
-
-  .zp-switch-row--dual .switch svg.checkmark {
-    width: var(--icon-checkmark-size);
-  }
-
-  .zp-switch-row--dual .switch svg.cross {
-    width: var(--icon-cross-size);
+  .zp-form-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -169,12 +169,13 @@
         "name": "Vue-Zpic图床",
         "description": "上传、阅览、管理 Zpic 图床。",
         "labels": "图片,工具",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Photoview_A.png",
         "author": "KoWming",
         "level": 1,
         "release": true,
         "history": {
+            "v1.0.1": "优化设置页面样式，增加注册访问超链接。",
             "v1.0.0": "初始版本，支持验证码登录、用户状态查看、相册管理与图片分页浏览。"
         }
     },

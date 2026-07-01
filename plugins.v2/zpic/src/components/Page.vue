@@ -362,9 +362,14 @@ watch(privacyMode, value => {
                   hide-details
                 />
               </div>
-              <v-btn block color="primary" :loading="loginLoading" @click="doLogin" prepend-icon="mdi-login">
-                登录 Zpic
-              </v-btn>
+              <div class="d-flex ga-2">
+                <v-btn class="flex-grow-1" variant="outlined" color="primary" href="https://www.imgurl.org/user/register" target="_blank" prepend-icon="mdi-account-plus-outline">
+                  前往注册
+                </v-btn>
+                <v-btn class="flex-grow-1" color="primary" :loading="loginLoading" @click="doLogin" prepend-icon="mdi-login">
+                  登录 Zpic
+                </v-btn>
+              </div>
             </template>
           </div>
 
