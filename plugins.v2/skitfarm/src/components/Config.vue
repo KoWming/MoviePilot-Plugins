@@ -220,7 +220,7 @@
                 <v-divider class="my-1"></v-divider>
                 <div class="px-3 py-2">
                   <v-row>
-                    <v-col cols="12">
+                    <v-col cols="12" md="6">
                       <v-text-field
                         v-model.number="config.auto_sell_threshold"
                         label="最低盈利百分比 (%)"
@@ -228,10 +228,29 @@
                         type="number"
                         variant="outlined"
                         density="compact"
-                        :min="0"
+                        :min="-50"
                         :max="50"
-                        :rules="[v => v === null || v === '' || (Number(v) >= 0 && Number(v) <= 50) || '百分比必须在0-50之间']"
-                        hint="只有利润率(现价-成本)/成本 达到此数值才出售。设为0则不限制 (最大50%)。"
+                        :rules="[v => v === null || v === '' || (Number(v) >= -50 && Number(v) <= 50) || '百分比必须在-50到50之间']"
+                        hint="自动出售利润率区间下限。"
+                        persistent-hint
+                        prepend-inner-icon="mdi-percent-outline"
+                        :disabled="saving"
+                        class="text-caption"
+                        hide-details="auto"
+                      ></v-text-field>
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model.number="config.auto_sell_threshold_max"
+                        label="最高盈利百分比 (%)"
+                        placeholder="50"
+                        type="number"
+                        variant="outlined"
+                        density="compact"
+                        :min="-50"
+                        :max="50"
+                        :rules="[v => v === null || v === '' || (Number(v) >= -50 && Number(v) <= 50) || '百分比必须在-50到50之间']"
+                        hint="只有利润率在最低~最高区间内才自动出售。"
                         persistent-hint
                         prepend-inner-icon="mdi-percent-outline"
                         :disabled="saving"
@@ -401,6 +420,7 @@ const config = reactive({
   auto_plant: false,
   auto_sell: false,
   auto_sell_threshold: 0,
+  auto_sell_threshold_max: 50,
   expiry_sale_enabled: false,
   use_proxy: false,
   retry_count: 3,
@@ -470,6 +490,7 @@ const loadConfig = async () => {
       config.auto_plant = res.auto_plant !== undefined ? res.auto_plant : false;
       config.auto_sell = res.auto_sell !== undefined ? res.auto_sell : false;
       config.auto_sell_threshold = res.auto_sell_threshold !== undefined ? res.auto_sell_threshold : 0;
+      config.auto_sell_threshold_max = res.auto_sell_threshold_max !== undefined ? res.auto_sell_threshold_max : 50;
       config.expiry_sale_enabled = res.expiry_sale_enabled !== undefined ? res.expiry_sale_enabled : false;
       config.use_proxy = res.use_proxy !== undefined ? res.use_proxy : false;
       config.retry_count = res.retry_count !== undefined ? res.retry_count : 3;
@@ -536,6 +557,7 @@ watch(() => props.initialConfig, (newConfig) => {
     config.auto_plant = newConfig.auto_plant || false;
     config.auto_sell = newConfig.auto_sell || false;
     config.auto_sell_threshold = newConfig.auto_sell_threshold || 0;
+    config.auto_sell_threshold_max = newConfig.auto_sell_threshold_max !== undefined ? newConfig.auto_sell_threshold_max : 50;
     config.expiry_sale_enabled = newConfig.expiry_sale_enabled || false;
     config.use_proxy = newConfig.use_proxy || false;
     config.retry_count = newConfig.retry_count !== undefined ? newConfig.retry_count : 3;

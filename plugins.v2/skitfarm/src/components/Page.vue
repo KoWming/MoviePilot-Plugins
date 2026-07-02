@@ -9,6 +9,23 @@
         </v-card-title>
         <v-card-text class="pa-4">
           确定要一键出售仓库中的所有物品吗？
+          <div v-if="sellProfitSummary.available" class="mt-3 pa-3 rounded bg-grey-lighten-5">
+            <div class="d-flex justify-space-between text-caption mb-1">
+              <span class="text-grey-darken-1">预计出售总价值</span>
+              <span class="font-weight-medium">{{ sellProfitSummary.totalValue }}</span>
+            </div>
+            <div class="d-flex justify-space-between text-caption mb-1">
+              <span class="text-grey-darken-1">预计成本</span>
+              <span class="font-weight-medium">{{ sellProfitSummary.totalCost }}</span>
+            </div>
+            <div class="d-flex justify-space-between text-body-2 font-weight-bold">
+              <span>预计盈亏</span>
+              <span :class="sellProfitSummary.profit >= 0 ? 'text-red' : 'text-green'">
+                {{ sellProfitSummary.profitText }}
+              </span>
+            </div>
+          </div>
+          <div v-else class="text-caption text-grey mt-3">暂无成本数据，无法计算预计盈亏。</div>
           <div class="text-caption text-grey mt-2">此操作不可撤销。</div>
         </v-card-text>
         <v-card-actions>
@@ -347,7 +364,9 @@
                     <th>物品名称</th>
                     <th class="text-center">数量</th>
                     <th class="text-center">收获时间</th>
-                    <th class="text-center">剩余时间</th>
+                    <th class="text-center">过期时间</th>
+                    <th class="text-center">单价</th>
+                    <th class="text-center">总价值</th>
                     <th class="text-center">操作</th>
                   </tr>
                 </thead>
@@ -357,10 +376,12 @@
                     <td class="text-center">{{ item.quantity }}</td>
                     <td class="text-center">{{ item.harvest_time }}</td>
                     <td class="text-center">
-                      <span :class="{'text-red': item.remaining_time && item.remaining_time.includes('分') && !item.remaining_time.includes('小时')}">
-                        {{ item.remaining_time }}
+                      <span :class="{'text-red': warehouseExpireText(item) && warehouseExpireText(item).includes('分') && !warehouseExpireText(item).includes('小时')}">
+                        {{ warehouseExpireText(item) }}
                       </span>
                     </td>
+                    <td class="text-center">{{ item.unit_price || '-' }}</td>
+                    <td class="text-center font-weight-medium">{{ item.total_value || '-' }}</td>
                     <td class="text-center">
                       <v-btn size="small" color="error" variant="text" @click="sell(item.key)" :loading="loading">出售</v-btn>
                     </td>
@@ -525,6 +546,51 @@ const emptyCropsCount = computed(() => {
 
 const emptyAnimalsCount = computed(() => {
   return animals.value.filter(item => item.state === 'empty').length;
+});
+
+const parseNumber = (value) => {
+  const num = parseFloat(String(value ?? '').replace(/,/g, '').replace(/[^\d.-]/g, ''));
+  return Number.isFinite(num) ? num : 0;
+};
+
+const formatNumber = (value) => {
+  return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+};
+
+const sellProfitSummary = computed(() => {
+  const costMap = new Map();
+  market.value.forEach(item => {
+    const cost = parseNumber(item.last_price);
+    if (item.name && cost > 0) {
+      costMap.set(item.name, cost);
+    }
+  });
+
+  let totalValue = 0;
+  let totalCost = 0;
+  let matchedCount = 0;
+
+  warehouse.value.forEach(item => {
+    const quantity = parseNumber(item.quantity) || 1;
+    const cost = costMap.get(item.name);
+    if (!cost) return;
+
+    const value = parseNumber(item.total_value) || (parseNumber(item.unit_price) * quantity);
+    totalValue += value;
+    totalCost += cost * quantity;
+    matchedCount += 1;
+  });
+
+  const profit = totalValue - totalCost;
+  const sign = profit >= 0 ? '+' : '-';
+
+  return {
+    available: matchedCount > 0,
+    totalValue: formatNumber(totalValue),
+    totalCost: formatNumber(totalCost),
+    profit,
+    profitText: `${sign}${formatNumber(Math.abs(profit))}`
+  };
 });
 
 // 预定义颜色盘
@@ -881,6 +947,11 @@ const parseTime = (timeStr) => {
   return totalMinutes;
 };
 
+// 兼容旧缓存字段和新版站点“过期时间”字段
+const warehouseExpireText = (item) => {
+  return item?.expire_time || item?.remaining_time || '';
+};
+
 // 排序后的仓库数据
 const sortedWarehouse = computed(() => {
   if (!warehouse.value) return [];
@@ -892,8 +963,8 @@ const sortedWarehouse = computed(() => {
   }
   
   return data.sort((a, b) => {
-    const timeA = parseTime(a.remaining_time);
-    const timeB = parseTime(b.remaining_time);
+    const timeA = parseTime(warehouseExpireText(a));
+    const timeB = parseTime(warehouseExpireText(b));
     
     if (sortOrder.value === 'asc') {
       // 最近过期优先 (剩余时间小的在前)

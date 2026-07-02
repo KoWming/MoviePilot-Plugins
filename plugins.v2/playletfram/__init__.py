@@ -25,7 +25,7 @@ class PlayletFram(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/playletfram.png"
     # 插件版本
-    plugin_version = "1.0.6"
+    plugin_version = "1.1.0"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -53,7 +53,8 @@ class PlayletFram(_PluginBase):
     _cookie: Optional[str] = None
     _auto_plant: bool = False  # 自动种植
     _auto_sell: bool = False   # 自动出售
-    _auto_sell_threshold: float = 0.0 # 自动出售阈值
+    _auto_sell_threshold: float = 0.0 # 自动出售最低盈利阈值（兼容旧配置）
+    _auto_sell_threshold_max: float = 20.0 # 自动出售最高盈利阈值
     _expiry_sale_enabled: bool = False # 临期自动出售
     _use_proxy: bool = False   # 使用代理
     _retry_count: int = 3      # 重试次数
@@ -127,6 +128,7 @@ class PlayletFram(_PluginBase):
                 self._auto_plant = self._to_bool(config.get("auto_plant", False))
                 self._auto_sell = self._to_bool(config.get("auto_sell", False))
                 self._auto_sell_threshold = self._to_float(config.get("auto_sell_threshold"), 0.0)
+                self._auto_sell_threshold_max = self._to_float(config.get("auto_sell_threshold_max"), 20.0)
                 self._expiry_sale_enabled = self._to_bool(config.get("expiry_sale_enabled", False))
                 self._use_proxy = self._to_bool(config.get("use_proxy", False))
                 self._retry_count = self._to_int(config.get("retry_count"), 3)
@@ -295,6 +297,7 @@ class PlayletFram(_PluginBase):
             "auto_plant": self._auto_plant,
             "auto_sell": self._auto_sell,
             "auto_sell_threshold": self._auto_sell_threshold,
+            "auto_sell_threshold_max": self._auto_sell_threshold_max,
             "expiry_sale_enabled": self._expiry_sale_enabled,
             "use_proxy": self._use_proxy,
             "retry_count": self._retry_count,
@@ -561,7 +564,7 @@ class PlayletFram(_PluginBase):
     def _run_auto_sell(self) -> Dict[str, Any]:
         """执行自动出售"""
         try:
-            result = self._sell_all()
+            result = self._sell_all({"use_threshold": True})
             if result.get("success"):
                  msg = result.get('msg')
                  logger.info(f"{self.plugin_name}: 自动出售成功 - {msg}")
@@ -1086,6 +1089,10 @@ class PlayletFram(_PluginBase):
 
     def _sell_all(self, payload: dict = None) -> dict:
         """API: 一键出售"""
+        if payload is None:
+            payload = {}
+
+        use_threshold = bool(payload.get("use_threshold", False))
         
         # 1. 获取最新仓库数据
         data = self.get_farm_data()
@@ -1106,7 +1113,9 @@ class PlayletFram(_PluginBase):
         timeout_limit = 30
         
         market_map = {}
-        if self._auto_sell_threshold > 0:
+        min_profit = min(self._auto_sell_threshold, self._auto_sell_threshold_max)
+        max_profit = max(self._auto_sell_threshold, self._auto_sell_threshold_max)
+        if use_threshold:
             for m in data.get("market", []):
                 market_map[m["name"]] = m
 
@@ -1122,7 +1131,7 @@ class PlayletFram(_PluginBase):
             if not key:
                 continue
                 
-            if self._auto_sell_threshold > 0 and name in market_map:
+            if use_threshold and name in market_map:
                 m_item = market_map[name]
                 try:
                     price_str = re.sub(r'[^\d.]', '', str(m_item.get("price", "0")))
@@ -1135,12 +1144,12 @@ class PlayletFram(_PluginBase):
                     
                     if cost_price > 0:
                         profit_pct = (current_price - cost_price) / cost_price * 100
-                        if profit_pct < self._auto_sell_threshold:
-                            logger.info(f"{self.plugin_name}: {name} 盈利 {profit_pct:.2f}% < 阈值 {self._auto_sell_threshold}%，跳过出售")
+                        if profit_pct < min_profit or profit_pct > max_profit:
+                            logger.info(f"{self.plugin_name}: {name} 盈利 {profit_pct:.2f}% 不在区间 {min_profit:.2f}%~{max_profit:.2f}%，跳过出售")
                             skip_count += 1
                             skip_items.append(name)
                             continue
-                    elif self._auto_sell_threshold > 0:
+                    else:
                          logger.info(f"{self.plugin_name}: {name} 成本价未知，无法计算盈利，跳过出售")
                          skip_count += 1
                          skip_items.append(name)
@@ -1253,6 +1262,7 @@ class PlayletFram(_PluginBase):
             self._auto_plant = self._to_bool(config_payload.get("auto_plant", self._auto_plant))
             self._auto_sell = self._to_bool(config_payload.get("auto_sell", self._auto_sell))
             self._auto_sell_threshold = self._to_float(config_payload.get("auto_sell_threshold"), self._auto_sell_threshold)
+            self._auto_sell_threshold_max = self._to_float(config_payload.get("auto_sell_threshold_max"), self._auto_sell_threshold_max)
             self._expiry_sale_enabled = self._to_bool(config_payload.get("expiry_sale_enabled", self._expiry_sale_enabled))
             self._use_proxy = self._to_bool(config_payload.get("use_proxy", self._use_proxy))
             self._retry_count = self._to_int(config_payload.get("retry_count"), self._retry_count)
@@ -1266,6 +1276,7 @@ class PlayletFram(_PluginBase):
                 "auto_plant": self._auto_plant,
                 "auto_sell": self._auto_sell,
                 "auto_sell_threshold": self._auto_sell_threshold,
+                "auto_sell_threshold_max": self._auto_sell_threshold_max,
                 "expiry_sale_enabled": self._expiry_sale_enabled,
                 "use_proxy": self._use_proxy,
                 "retry_count": self._retry_count,

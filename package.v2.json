@@ -42,12 +42,13 @@
         "name": "Vue-好学农场",
         "description": "支持一键收获、种植、养殖，定时自动化任务。",
         "labels": "站点",
-        "version": "1.0.3",
+        "version": "1.0.4",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/magicfram.png",
         "author": "KoWming",
         "level": 2,
         "release": true,
         "history": {
+            "v1.0.4": "新增自动出售盈利百分比区间设置，优化一键出售显示盈亏。",
             "v1.0.3": "统一任务通知格式，支持自动出售成功/失败/未盈利跳过明细展示。",
             "v1.0.2": "优化仓库排序方法、添加分页阅览。",
             "v1.0.1": "优化页面UI显示。",
@@ -58,12 +59,13 @@
         "name": "Vue-魔力农场",
         "description": "支持 NovaHD 魔力农场一键收获、种植、养殖，定时自动化任务。",
         "labels": "站点",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/novahdfram.png",
         "author": "KoWming",
         "level": 2,
         "release": true,
         "history": {
+            "v1.0.1": "新增自动出售盈利百分比区间设置，优化一键出售显示盈亏。",
             "v1.0.0": "初始版本。"
         }
     },
@@ -71,12 +73,13 @@
         "name": "Vue-开心农场",
         "description": "支持PlayLet站点开心农场一键收获、种植、养殖，定时自动化任务。",
         "labels": "站点",
-        "version": "1.0.6",
+        "version": "1.1.0",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/playletfram.png",
         "author": "KoWming",
         "level": 2,
         "release": true,
         "history": {
+            "v1.1.0": "新增自动出售盈利百分比区间设置，优化一键出售显示盈亏。",
             "v1.0.6": "统一任务通知格式，支持自动出售成功/失败/未盈利跳过明细展示。",
             "v1.0.5": "修复PlayLet站点域名变更导致无法使用的错误。",
             "v1.0.3": "调整图表刷新显示逻辑。",
@@ -123,12 +126,13 @@
         "name": "Vue-拾刻农场",
         "description": "支持Skit站点一键收获、种植、养殖，定时自动化任务。",
         "labels": "站点",
-        "version": "1.0.1",
+        "version": "1.1.0",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/skitfarm.png",
         "author": "KoWming",
         "level": 2,
         "release": true,
         "history": {
+            "v1.1.0": "适配新版仓库字段显示，新增自动出售盈利百分比区间设置，优化一键出售显示盈亏。",
             "v1.0.1": "统一任务通知格式，支持自动出售成功/失败/未盈利跳过明细展示。",
             "v1.0.0": "初始版本。"
         }

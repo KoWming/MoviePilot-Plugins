@@ -23,7 +23,7 @@ class SkitFarm(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/skitfarm.png"
     # 插件版本
-    plugin_version = "1.0.1"
+    plugin_version = "1.1.0"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -42,7 +42,8 @@ class SkitFarm(_PluginBase):
     _cookie: Optional[str] = None
     _auto_plant: bool = False  # 自动种植
     _auto_sell: bool = False   # 自动出售
-    _auto_sell_threshold: float = 0.0 # 自动出售阈值
+    _auto_sell_threshold: float = 0.0 # 自动出售最低盈利阈值（兼容旧配置）
+    _auto_sell_threshold_max: float = 50.0 # 自动出售最高盈利阈值
     _expiry_sale_enabled: bool = False # 临期自动出售
     _use_proxy: bool = False   # 使用代理
     _retry_count: int = 3      # 重试次数
@@ -92,6 +93,7 @@ class SkitFarm(_PluginBase):
                 self._auto_plant = self._to_bool(config.get("auto_plant", False))
                 self._auto_sell = self._to_bool(config.get("auto_sell", False))
                 self._auto_sell_threshold = self._to_float(config.get("auto_sell_threshold"), 0.0)
+                self._auto_sell_threshold_max = self._to_float(config.get("auto_sell_threshold_max"), 50.0)
                 self._expiry_sale_enabled = self._to_bool(config.get("expiry_sale_enabled", False))
                 self._use_proxy = self._to_bool(config.get("use_proxy", False))
                 self._retry_count = self._to_int(config.get("retry_count"), 3)
@@ -248,6 +250,7 @@ class SkitFarm(_PluginBase):
             "auto_plant": self._auto_plant,
             "auto_sell": self._auto_sell,
             "auto_sell_threshold": self._auto_sell_threshold,
+            "auto_sell_threshold_max": self._auto_sell_threshold_max,
             "expiry_sale_enabled": self._expiry_sale_enabled,
             "use_proxy": self._use_proxy,
             "retry_count": self._retry_count,
@@ -451,7 +454,7 @@ class SkitFarm(_PluginBase):
     def _run_auto_sell(self) -> Dict[str, Any]:
         """执行自动出售"""
         try:
-            result = self._sell_all()
+            result = self._sell_all({"use_threshold": True})
             if result.get("success"):
                  msg = result.get('msg')
                  logger.info(f"{self.plugin_name}: 自动出售成功 - {msg}")
@@ -534,7 +537,7 @@ class SkitFarm(_PluginBase):
             while retry_count <= max_retries:
                 try:
                     if method.upper() == "POST":
-                        response = requests.post(url, headers=headers, data=data, proxies=proxies, timeout=30)
+                        response = requests.post(url, headers=headers, params=params, data=data, proxies=proxies, timeout=30)
                     else:
                         response = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=30)
                         
@@ -596,25 +599,45 @@ class SkitFarm(_PluginBase):
         items = []
         rows = table.xpath('.//tr[position()>1]')
         for row in rows:
-            cells = row.xpath('.//td/text()')
-            link = row.xpath('.//a/@href')
+            tds = row.xpath('./td')
+            cells = [" ".join(td.xpath('.//text()')).strip() for td in tds]
+            link = row.xpath('.//a[contains(@class, "sell-btn")]/@href') or row.xpath('.//a/@href')
             
-            if len(cells) >= 4:
+            if len(cells) >= 8:
+                item = {
+                    "name": cells[1].strip(),
+                    "quantity": cells[2].strip(),
+                    "harvest_time": cells[3].strip(),
+                    "expire_time": cells[4].strip(),
+                    "remaining_time": cells[4].strip(),
+                    "unit_price": cells[5].strip(),
+                    "total_value": cells[6].strip(),
+                    "key": ""
+                }
+            elif len(cells) >= 4:
                 item = {
                     "name": cells[0].strip(),
                     "quantity": cells[1].strip(),
                     "harvest_time": cells[2].strip(),
-                    "remaining_time": cells[3].strip() if len(cells) > 3 else "",
+                    "expire_time": cells[3].strip(),
+                    "remaining_time": cells[3].strip(),
+                    "unit_price": "",
+                    "total_value": "",
                     "key": ""
                 }
+            else:
+                continue
                 
-                # 提取 key 从链接
-                if link:
-                    match = re.search(r'key=([^&]+)', link[0])
-                    if match:
-                        item["key"] = match.group(1)
-                
-                items.append(item)
+            # 优先从批量出售复选框提取 key，兼容单个出售链接
+            checkbox_value = row.xpath('.//input[@name="batch_keys[]"]/@value')
+            if checkbox_value:
+                item["key"] = checkbox_value[0]
+            elif link:
+                match = re.search(r'key=([^&]+)', link[0])
+                if match:
+                    item["key"] = match.group(1)
+            
+            items.append(item)
         return items
 
     def _parse_farm_item(self, item_element, item_type="crop"):
@@ -954,8 +977,13 @@ class SkitFarm(_PluginBase):
             return {"success": True, "msg": "出售成功"}
         return {"success": False, "msg": "出售失败"}
 
-    def _sell_all(self):
-        """一键出售"""
+    def _sell_all(self, payload: dict = None):
+        """一键出售：使用新版站点批量出售接口"""
+        if payload is None:
+            payload = {}
+
+        use_threshold = bool(payload.get("use_threshold", False))
+
         # 1. 获取最新仓库数据
         data = self.get_farm_data()
         if not data or "warehouse" not in data:
@@ -971,29 +999,26 @@ class SkitFarm(_PluginBase):
         success_items = []
         fail_items = []
         skip_items = []
-        start_time = time.time()
-        timeout_limit = 25 # 25秒超时保护
+        sell_keys = []
+        sell_items = []
         
-        # 构建市场价格映射 (用于计算利润)
+        # 构建市场价格映射 (用于区间利润检测)
         market_map = {}
-        if self._auto_sell_threshold > 0:
+        min_profit = min(self._auto_sell_threshold, self._auto_sell_threshold_max)
+        max_profit = max(self._auto_sell_threshold, self._auto_sell_threshold_max)
+        if use_threshold:
             for m in data.get("market", []):
                 market_map[m["name"]] = m
 
-        # 2. 遍历出售
+        # 2. 筛选需要出售的仓库 key
         for item in warehouse:
-            # 超时检查
-            if time.time() - start_time > timeout_limit:
-                logger.warning(f"{self.plugin_name}: 一键出售执行超时，已中断。")
-                break
-
             key = item.get("key")
             name = item.get("name")
             if not key:
                 continue
             
-            # 盈利检查
-            if self._auto_sell_threshold > 0 and name in market_map:
+            # 自动出售盈利区间检查
+            if use_threshold and name in market_map:
                 m_item = market_map[name]
                 try:
                     # 获取当前价格
@@ -1009,32 +1034,57 @@ class SkitFarm(_PluginBase):
                     
                     if cost_price > 0:
                         profit_pct = (current_price - cost_price) / cost_price * 100
-                        if profit_pct < self._auto_sell_threshold:
-                            logger.info(f"{self.plugin_name}: {name} 盈利 {profit_pct:.2f}% < 阈值 {self._auto_sell_threshold}%，跳过出售")
+                        if profit_pct < min_profit or profit_pct > max_profit:
+                            logger.info(f"{self.plugin_name}: {name} 盈利 {profit_pct:.2f}% 不在区间 {min_profit:.2f}%~{max_profit:.2f}%，跳过出售")
                             skip_count += 1
                             skip_items.append(name)
                             continue
                 except Exception as e:
                     logger.warning(f"{self.plugin_name}: 计算 {name} 盈利出错: {e}，默认出售")
 
-            res = self._sell_item({"key": key})
-            if res and res.get("success"):
-                success_count += 1
-                success_items.append(name)
-                # 缩短延时到 0.2s
-                time.sleep(0.2)
-            else:
-                fail_count += 1
-                fail_items.append(name)
+            sell_keys.append(key)
+            sell_items.append(name)
+
+        if not sell_keys:
+            msg = "没有符合出售条件的物品"
+            if skip_count > 0:
+                msg += f"，跳过 {skip_count} 个(未达盈利阈值)"
+            return {
+                "success": True,
+                "msg": msg,
+                "success_count": 0,
+                "fail_count": 0,
+                "skip_count": skip_count,
+                "success_items": [],
+                "fail_items": [],
+                "skip_items": skip_items
+            }
+
+        # 3. 新版站点批量出售接口：POST batch_keys[]
+        site_url, _ = self._get_site_info()
+        if not site_url:
+            site_url = "https://www.ptskit.org"
+        url = f"{site_url}/magic_farm.php"
+        response = self._request(
+            url,
+            method="POST",
+            params={"action": "batch_sell", "page": 1, "sort": "expire_asc"},
+            data={"batch_keys[]": sell_keys}
+        )
+
+        if response:
+            success_count = len(sell_keys)
+            success_items = sell_items
+        else:
+            fail_count = len(sell_keys)
+            fail_items = sell_items
                 
         msg = f"一键出售完成: 成功 {success_count} 个, 失败 {fail_count} 个"
         if skip_count > 0:
             msg += f", 跳过 {skip_count} 个(未达盈利阈值)"
-        if time.time() - start_time > timeout_limit:
-            msg += " (超时中断)"
             
         return {
-            "success": True, 
+            "success": fail_count == 0, 
             "msg": msg,
             "success_count": success_count,
             "fail_count": fail_count,
@@ -1122,6 +1172,7 @@ class SkitFarm(_PluginBase):
             self._auto_plant = self._to_bool(config_payload.get("auto_plant", self._auto_plant))
             self._auto_sell = self._to_bool(config_payload.get("auto_sell", self._auto_sell))
             self._auto_sell_threshold = self._to_float(config_payload.get("auto_sell_threshold"), self._auto_sell_threshold)
+            self._auto_sell_threshold_max = self._to_float(config_payload.get("auto_sell_threshold_max"), self._auto_sell_threshold_max)
             self._expiry_sale_enabled = self._to_bool(config_payload.get("expiry_sale_enabled", self._expiry_sale_enabled))
             self._use_proxy = self._to_bool(config_payload.get("use_proxy", self._use_proxy))
             self._retry_count = self._to_int(config_payload.get("retry_count"), self._retry_count)
@@ -1135,6 +1186,7 @@ class SkitFarm(_PluginBase):
                 "auto_plant": self._auto_plant,
                 "auto_sell": self._auto_sell,
                 "auto_sell_threshold": self._auto_sell_threshold,
+                "auto_sell_threshold_max": self._auto_sell_threshold_max,
                 "expiry_sale_enabled": self._expiry_sale_enabled,
                 "use_proxy": self._use_proxy,
                 "retry_count": self._retry_count,
