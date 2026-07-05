@@ -88,6 +88,19 @@
             "v1.0.0": "初始版本。"
         }
     },
+    "SiqiFram": {
+        "name": "Vue-思齐农场",
+        "description": "农场管理、种植、收获、偷菜、点赞。",
+        "labels": "站点",
+        "version": "1.0.0",
+        "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/siqi.png",
+        "author": "KoWming",
+        "level": 2,
+        "release": true,
+        "history": {
+            "v1.0.0": "初始版本，农场管理、种植、收获、偷菜、点赞。"
+        }
+    },
     "MedalWallPro": {
         "name": "Vue-勋章墙Pro",
         "description": "站点勋章购买提醒、统计、展示。",
