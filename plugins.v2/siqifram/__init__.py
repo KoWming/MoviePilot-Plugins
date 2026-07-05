@@ -1,3 +1,6 @@
+import asyncio
+import concurrent.futures
+import json
 import time
 import base64
 import html
@@ -8,11 +11,17 @@ from typing import Any, Dict, List, Optional, Tuple
 from apscheduler.triggers.cron import CronTrigger
 
 from app.log import logger
+from app.core.plugin import PluginManager
 from app.core.config import settings
 from app.plugins import _PluginBase
 from app.scheduler import Scheduler
 from app.schemas import NotificationType
 from app.db.site_oper import SiteOper
+
+try:
+    from app.agent.tools.impl.recognize_captcha import RecognizeCaptchaTool
+except ImportError:
+    RecognizeCaptchaTool = None
 
 # 验证码识别重试次数
 _CAPTCHA_RETRY = 3
@@ -26,7 +35,7 @@ class SiqiFram(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/siqi.png"
     # 插件版本
-    plugin_version = "1.0.0"
+    plugin_version = "1.0.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -165,10 +174,24 @@ class SiqiFram(_PluginBase):
             }]
         return []
 
+    def _runtime_plugin_id(self) -> str:
+        """获取 MP 运行态中的真实插件 ID，避免大小写或分身 ID 不一致。"""
+        try:
+            running_plugins = PluginManager().running_plugins or {}
+            for plugin_id, plugin in running_plugins.items():
+                if plugin is self or plugin.__class__ is self.__class__:
+                    return plugin_id
+        except Exception as e:
+            logger.debug(f"{self.plugin_name}: 获取运行态插件ID失败: {e}")
+        return self.__class__.__name__
+
     def stop_service(self):
         """停止并移除插件定时任务。"""
         try:
-            Scheduler().remove_plugin_job(self.__class__.__name__.lower())
+            scheduler = Scheduler()
+            plugin_ids = {self._runtime_plugin_id(), self.__class__.__name__, self.__class__.__name__.lower()}
+            for plugin_id in plugin_ids:
+                scheduler.remove_plugin_job(plugin_id)
         except Exception as e:
             logger.debug(f"{self.plugin_name} 停止服务失败: {e}")
 
@@ -229,7 +252,11 @@ class SiqiFram(_PluginBase):
         config["cron"] = self._normalize_cron(config.get("cron"))
         self.update_config(config)
         self.init_plugin(config)
-        Scheduler().update_plugin_job(self.__class__.__name__.lower())
+        scheduler = Scheduler()
+        plugin_id = self._runtime_plugin_id()
+        for legacy_plugin_id in {self.__class__.__name__, self.__class__.__name__.lower()} - {plugin_id}:
+            scheduler.remove_plugin_job(legacy_plugin_id)
+        scheduler.update_plugin_job(plugin_id)
         return {"success": True, "message": "配置已保存", "config": self._get_config()}
 
     def _get_status(self) -> Dict[str, Any]:
@@ -570,12 +597,10 @@ class SiqiFram(_PluginBase):
         if not getattr(settings, "AI_AGENT_ENABLE", False):
             logger.warning(f"{self.plugin_name}: AI 智能助手未启用，跳过 AI 识别")
             return None
+        if RecognizeCaptchaTool is None:
+            logger.warning(f"{self.plugin_name}: RecognizeCaptchaTool 不可用")
+            return None
         try:
-            from app.agent.tools.impl.recognize_captcha import RecognizeCaptchaTool
-            import asyncio
-            import json
-            import concurrent.futures
-
             cookie_res = self.__get_cookie()
             cookie = cookie_res.get("cookie", "")
             _, user_agent = self._get_site_info()
@@ -608,8 +633,6 @@ class SiqiFram(_PluginBase):
                     logger.info(f"{self.plugin_name}: AI 识别验证码结果: {text}")
                     return text
             logger.warning(f"{self.plugin_name}: AI 识别无结果: {result}")
-        except ImportError:
-            logger.warning(f"{self.plugin_name}: RecognizeCaptchaTool 不可用")
         except Exception as e:
             logger.warning(f"{self.plugin_name}: AI 识别异常: {e}")
         return None

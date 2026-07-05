@@ -92,12 +92,13 @@
         "name": "Vue-思齐农场",
         "description": "农场管理、种植、收获、偷菜、点赞。",
         "labels": "站点",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/siqi.png",
         "author": "KoWming",
         "level": 2,
         "release": true,
         "history": {
+            "v1.0.1": "修复自动任务调度失败的问题。",
             "v1.0.0": "初始版本，农场管理、种植、收获、偷菜、点赞。"
         }
     },
