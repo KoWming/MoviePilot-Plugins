@@ -23,7 +23,7 @@ class SkitFarm(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/skitfarm.png"
     # 插件版本
-    plugin_version = "1.1.0"
+    plugin_version = "1.1.1"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -86,7 +86,8 @@ class SkitFarm(_PluginBase):
             self._siteoper = SiteOper()
 
             if config:
-                self._enabled = self._to_bool(config.get("enabled", False))
+                if "enabled" in config:
+                    self._enabled = self._to_bool(config["enabled"])
                 self._cron = config.get("cron") or "0 */4 * * *"
                 self._cookie = config.get("cookie")
                 self._notify = self._to_bool(config.get("notify", False))

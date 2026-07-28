@@ -24,7 +24,7 @@ class MedalWallPro(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Medal.png"
     # 插件版本
-    plugin_version = "1.2.6"
+    plugin_version = "1.2.7"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -114,7 +114,8 @@ class MedalWallPro(_PluginBase):
             self.stop_service()
             
             if config:
-                self._enabled = self._to_bool(config.get("enabled", False))
+                if "enabled" in config:
+                    self._enabled = self._to_bool(config["enabled"])
                 self._notify = self._to_bool(config.get("notify", False))
                 self._use_proxy = self._to_bool(config.get("use_proxy", True))
                 self._retry_times = self._to_int(config.get("retry_times"), 3)
@@ -310,7 +311,8 @@ class MedalWallPro(_PluginBase):
     def _save_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """保存配置"""
         try:
-            self._enabled = self._to_bool(config.get("enabled", False))
+            if "enabled" in config:
+                self._enabled = self._to_bool(config["enabled"])
             self._notify = self._to_bool(config.get("notify", False))
             self._use_proxy = self._to_bool(config.get("use_proxy", True))
             self._retry_times = self._to_int(config.get("retry_times"), 3)

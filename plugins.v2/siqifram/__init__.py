@@ -35,7 +35,7 @@ class SiqiFram(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/siqi.png"
     # 插件版本
-    plugin_version = "1.0.1"
+    plugin_version = "1.0.2"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -115,7 +115,8 @@ class SiqiFram(_PluginBase):
             self._siteoper = SiteOper()
             self._cron = self._normalize_cron(self._cron)
             if config:
-                self._enabled = self._to_bool(config.get("enabled", False))
+                if "enabled" in config:
+                    self._enabled = self._to_bool(config["enabled"])
                 self._notify = self._to_bool(config.get("notify", True))
                 self._cron = self._normalize_cron(config.get("cron"))
                 self._cookie = config.get("cookie") or ""
