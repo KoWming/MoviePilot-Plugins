@@ -54,14 +54,32 @@
             <div class="siqi-switch-main"><v-icon icon="mdi-robot" size="18" /><div><div class="siqi-switch-label">AI辅助验证码识别</div><div class="siqi-switch-desc">{{ aiAvailable ? '基础识别失败后使用AI智能助手识别验证码重试一键收获' : '未检测到AI智能助手配置（需启用MP智能助手）' }}</div></div></div>
             <v-switch v-model="config.use_ai_captcha" color="indigo" hide-details density="compact" :disabled="!aiAvailable" />
           </div>
-          <VCronField
-            v-model="config.cron"
-            label="Cron表达式"
-            hint="默认每 4 小时执行一次，例如：5 */4 * * *"
-            persistent-hint
-            density="compact"
-            class="siqi-input siqi-cron-field"
-          />
+          <div class="siqi-schedule-card siqi-schedule-card--delay">
+            <div class="siqi-schedule-card__head">
+              <v-icon icon="mdi-timer-outline" size="17" />
+              <span>收获执行延迟（分钟）(0-30，默认 2)</span>
+            </div>
+            <v-text-field
+              v-model.number="config.harvest_delay_minutes"
+              type="number"
+              min="0"
+              max="30"
+              density="compact"
+              variant="outlined"
+              class="siqi-input siqi-harvest-delay-field"
+            />
+          </div>
+          <div class="siqi-schedule-card siqi-schedule-card--cron">
+            <div class="siqi-schedule-card__head">
+              <v-icon icon="mdi-calendar-clock-outline" size="17" />
+              <span>Cron 兜底巡检 (例如：5 */4 * * *)</span>
+            </div>
+            <VCronField
+              v-model="config.cron"
+              density="compact"
+              class="siqi-input siqi-cron-field"
+            />
+          </div>
         </div>
       </div>
 
@@ -133,9 +151,9 @@
 import { reactive, ref, onMounted } from 'vue'
 
 const props = defineProps({ api: Object, initialConfig: { type: Object, default: () => ({}) } })
-const emit = defineEmits(['switch', 'close'])
+const emit = defineEmits(['switch', 'close', 'config-updated'])
 const PLUGIN_ID = 'SiqiFram'
-const config = reactive({ enabled: false, notify: true, cron: '5 */4 * * *', cookie: '', seed_id: '1', auto_plant: true, auto_harvest: true, auto_sell: false, auto_steal: false, auto_like: false, use_proxy: false, use_ai_captcha: false, retry_count: 2, retry_interval: 3, ...props.initialConfig })
+const config = reactive({ enabled: false, notify: true, cron: '5 */4 * * *', cookie: '', seed_id: '1', auto_plant: true, auto_harvest: true, auto_sell: false, auto_steal: false, auto_like: false, use_proxy: false, use_ai_captcha: false, harvest_delay_minutes: 2, retry_count: 2, retry_interval: 3, ...props.initialConfig })
 const loading = ref(false)
 const saving = ref(false)
 const seedLoading = ref(false)
@@ -199,9 +217,12 @@ async function loadSeeds() {
 }
 
 async function saveConfig() {
+  const delay = Number(config.harvest_delay_minutes)
+  config.harvest_delay_minutes = Number.isFinite(delay) ? Math.min(30, Math.max(0, Math.trunc(delay))) : 2
   saving.value = true
   try {
     const res = await apiPost('/config', { ...config })
+    if (res.success && res.config) emit('config-updated', res.config)
     show(res.message || (res.success ? '保存成功' : '保存失败'), res.success ? 'success' : 'error')
   } catch (e) {
     show(`保存失败：${e.message}`, 'error')
@@ -222,7 +243,7 @@ onMounted(() => {
 .siqi-toast{position:fixed!important;top:18px!important;left:50%!important;transform:translateX(-50%)!important;z-index:99999!important;width:min(520px,calc(100vw - 32px))!important;margin:0!important;box-shadow:0 12px 36px rgba(15,23,42,.18)!important;border-radius:12px!important}
 .siqi-config-col{display:flex;flex-direction:column;gap:16px}.siqi-card{background:rgba(var(--v-theme-on-surface),.03);backdrop-filter:blur(20px) saturate(150%);border-radius:14px;border:.5px solid rgba(var(--v-theme-on-surface),.08);box-shadow:0 2px 10px rgba(0,0,0,.05);padding:14px 16px;display:flex;flex-direction:column;gap:14px}.siqi-card__header{display:flex;align-items:center;justify-content:space-between;gap:12px}.siqi-card__title{font-size:13px;font-weight:700;color:rgba(var(--v-theme-on-surface),.85)}
 .siqi-switch-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.siqi-switch-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border-radius:12px;background:rgba(var(--v-theme-on-surface),.025);border:.5px solid rgba(var(--v-theme-on-surface),.06);transition:background .2s ease,border-color .2s ease,transform .2s ease}.siqi-switch-item:hover{transform:translateY(-1px)}.siqi-switch-item--active{background:rgba(var(--siqi-accent,34,197,94),.07);border-color:rgba(var(--siqi-accent,34,197,94),.18)}.siqi-switch-main{display:flex;align-items:center;gap:10px;min-width:0;flex:1;color:rgba(var(--v-theme-on-surface),.58)}.siqi-switch-item--active .siqi-switch-main{color:rgb(var(--siqi-accent,34,197,94))}.siqi-switch-label{font-size:13px;font-weight:600;color:rgba(var(--v-theme-on-surface),.86)}.siqi-switch-desc{font-size:11px;color:rgba(var(--v-theme-on-surface),.46);line-height:1.35;margin-top:1px}.siqi-switch-item :deep(.v-switch){flex:0 0 auto}.siqi-switch-item :deep(.v-selection-control){min-height:unset}.siqi-switch-item :deep(.v-input__details){display:none}
-.siqi-form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.siqi-cron-field{grid-column:span 2}.siqi-input :deep(.v-field){border-radius:12px}.siqi-input :deep(.v-field__loader){left:1px;right:1px;width:auto;border-radius:12px 12px 0 0;overflow:hidden}.seed-select :deep(.v-input__control){border-radius:12px;clip-path:inset(-10px 0 0 0 round 12px)}.seed-select :deep(.v-input__loader){left:1px!important;right:1px!important;width:auto!important;margin:0!important;overflow:hidden!important;border-radius:12px 12px 0 0!important}.seed-select :deep(.v-progress-linear){border-radius:12px 12px 0 0;overflow:hidden}.siqi-secret-input :deep(textarea){-webkit-text-security:disc}.siqi-secret-toggle{min-width:28px;width:28px;height:28px;color:rgba(var(--v-theme-on-surface),.55)}.siqi-secret-toggle :deep(.v-btn__overlay),.siqi-secret-toggle :deep(.v-btn__underlay){display:none}.siqi-field-hint{font-size:11px;line-height:1.5;color:rgba(var(--v-theme-on-surface),.48);margin-top:-6px}
+.siqi-schedule-card{min-width:0;padding:9px 12px 6px;border-radius:12px;border:.5px solid rgba(var(--v-theme-on-surface),.08);background:rgba(var(--v-theme-on-surface),.025);box-shadow:inset 0 1px 0 rgba(255,255,255,.04);transition:transform .2s ease,border-color .2s ease,background .2s ease}.siqi-schedule-card:hover{transform:translateY(-1px);border-color:rgba(34,197,94,.2);background:rgba(34,197,94,.035)}.siqi-schedule-card__head{display:flex;align-items:center;gap:7px;margin-bottom:6px;font-size:12px;font-weight:700;color:rgba(var(--v-theme-on-surface),.72)}.siqi-schedule-card__head .v-icon{color:#22c55e}.siqi-schedule-card :deep(.v-input__details){display:none}.siqi-schedule-card :deep(.v-field){background:rgba(var(--v-theme-surface),.36);transition:border-color .2s ease,box-shadow .2s ease}.siqi-schedule-card :deep(.v-field--focused){box-shadow:0 0 0 3px rgba(34,197,94,.1)}.siqi-cron-field,.siqi-harvest-delay-field{min-width:0}.siqi-form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.siqi-input :deep(.v-field){border-radius:12px}.siqi-input :deep(.v-field__loader){left:1px;right:1px;width:auto;border-radius:12px 12px 0 0;overflow:hidden}.seed-select :deep(.v-input__control){border-radius:12px;clip-path:inset(-10px 0 0 0 round 12px)}.seed-select :deep(.v-input__loader){left:1px!important;right:1px!important;width:auto!important;margin:0!important;overflow:hidden!important;border-radius:12px 12px 0 0!important}.seed-select :deep(.v-progress-linear){border-radius:12px 12px 0 0;overflow:hidden}.siqi-secret-input :deep(textarea){-webkit-text-security:disc}.siqi-secret-toggle{min-width:28px;width:28px;height:28px;color:rgba(var(--v-theme-on-surface),.55)}.siqi-secret-toggle :deep(.v-btn__overlay),.siqi-secret-toggle :deep(.v-btn__underlay){display:none}.siqi-field-hint{font-size:11px;line-height:1.5;color:rgba(var(--v-theme-on-surface),.48);margin-top:-6px}
 @media(max-width:900px){.siqi-switch-grid,.siqi-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:600px){.siqi-config{padding:14px}.siqi-topbar{align-items:flex-start;gap:10px}.siqi-topbar__left{min-width:0}.siqi-topbar__right :deep(.v-btn){min-width:36px!important;padding-inline:0!important}.siqi-switch-grid,.siqi-form-grid{grid-template-columns:1fr}.siqi-cron-field{grid-column:span 1}.siqi-switch-item{align-items:center}}
+@media(max-width:600px){.siqi-config{padding:14px}.siqi-topbar{align-items:flex-start;gap:10px}.siqi-topbar__left{min-width:0}.siqi-topbar__right :deep(.v-btn){min-width:36px!important;padding-inline:0!important}.siqi-switch-grid,.siqi-form-grid{grid-template-columns:1fr}.siqi-switch-item{align-items:center}}
 </style>

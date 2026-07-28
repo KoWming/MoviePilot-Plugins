@@ -8,10 +8,10 @@
         </v-tabs>
         <v-window v-model="tab">
           <v-window-item value="page">
-            <Page :api="api" :initial-config="config" @switch="tab = $event" @close="closePlugin" />
+            <Page :api="api" @switch="tab = $event" @close="closePlugin" />
           </v-window-item>
           <v-window-item value="config">
-            <Config :api="api" :initial-config="config" @switch="tab = $event" @close="closePlugin" />
+            <Config :api="api" @switch="tab = $event" @close="closePlugin" />
           </v-window-item>
         </v-window>
       </v-container>
@@ -20,12 +20,11 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { ref } from 'vue'
 import Page from './components/Page.vue'
 import Config from './components/Config.vue'
 
 const tab = ref('page')
-const config = reactive({ enabled: false, notify: true, cron: '5 */4 * * *', seed_id: '1' })
 const api = {
   get: async (url) => (await fetch(url)).json(),
   post: async (url, data = {}) => (await fetch(url, {

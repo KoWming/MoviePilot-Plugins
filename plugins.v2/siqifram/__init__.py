@@ -6,8 +6,9 @@ import base64
 import html
 import re
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
+from zoneinfo import ZoneInfo
 from apscheduler.triggers.cron import CronTrigger
 
 from app.log import logger
@@ -35,7 +36,7 @@ class SiqiFram(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/siqi.png"
     # 插件版本
-    plugin_version = "1.0.2"
+    plugin_version = "1.0.3"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -72,12 +73,14 @@ class SiqiFram(_PluginBase):
     _use_proxy: bool = False
     # 是否启用 AI 辅助验证码识别
     _use_ai_captcha: bool = False
+    # 作物预计成熟后的延迟执行分钟数
+    _harvest_delay_minutes: int = 2
+    # 下一次动态收获与补种任务时间
+    _next_run_time: Optional[datetime] = None
     # 请求失败重试次数
     _retry_count: int = 2
     # 请求失败重试间隔（秒）
     _retry_interval: int = 3
-    # 默认站点地址
-    _site_url: str = "https://si-qi.xyz"
     # 站点管理操作实例
     _siteoper = None
 
@@ -109,7 +112,7 @@ class SiqiFram(_PluginBase):
             return default
 
     def init_plugin(self, config: Optional[dict] = None) -> None:
-        """初始化插件配置，并根据站点信息更新基础地址。"""
+        """初始化插件配置与运行状态。"""
         try:
             self.stop_service()
             self._siteoper = SiteOper()
@@ -128,16 +131,18 @@ class SiqiFram(_PluginBase):
                 self._auto_like = self._to_bool(config.get("auto_like", False))
                 self._use_proxy = self._to_bool(config.get("use_proxy", False))
                 self._use_ai_captcha = self._to_bool(config.get("use_ai_captcha", False))
+                self._harvest_delay_minutes = max(0, min(30, self._to_int(
+                    config.get("harvest_delay_minutes"), 2
+                )))
                 self._retry_count = self._to_int(config.get("retry_count"), 2)
                 self._retry_interval = self._to_int(config.get("retry_interval"), 3)
-
-            site_url, _ = self._get_site_info()
-            if site_url:
-                self._site_url = site_url.rstrip("/")
 
             if not self._enabled:
                 logger.info(f"{self.plugin_name} 服务未启用")
                 return
+            next_harvest_at = self._to_int(self.get_data("next_harvest_at"), 0)
+            if next_harvest_at > int(time.time()):
+                self._next_run_time = self._build_next_run_time(next_harvest_at)
             logger.info(f"{self.plugin_name}: 已启用，CRON={self._cron}")
         except Exception as e:
             logger.error(f"{self.plugin_name} 服务启动失败: {e}")
@@ -164,16 +169,32 @@ class SiqiFram(_PluginBase):
         return []
 
     def get_service(self) -> List[Dict[str, Any]]:
-        """注册插件定时任务服务。"""
-        if self._enabled and self._cron:
-            return [{
-                "id": "siqifram",
-                "name": "思齐农场 - 定时任务",
-                "trigger": CronTrigger.from_crontab(self._cron, timezone=settings.TZ),
+        """注册动态成熟任务与低频兜底巡检任务。"""
+        if not self._enabled:
+            return []
+
+        services = [{
+            "id": "siqifram",
+            "name": "思齐农场 - 定时巡检",
+            "trigger": CronTrigger.from_crontab(self._cron, timezone=settings.TZ),
+            "func": self._farm_task,
+            "func_kwargs": {"reschedule": True},
+        }]
+        if self._next_run_time and self._next_run_time > datetime.now(self._timezone()):
+            services.append({
+                "id": "siqifram-harvest",
+                "name": "思齐农场 - 成熟收获",
+                "trigger": "date",
                 "func": self._farm_task,
-                "kwargs": {}
-            }]
-        return []
+                "func_kwargs": {"reschedule": True},
+                "kwargs": {"run_date": self._next_run_time},
+            })
+        return services
+
+    @staticmethod
+    def _timezone() -> ZoneInfo:
+        """将 MoviePilot 配置时区转换为时区对象。"""
+        return ZoneInfo(settings.TZ)
 
     def _runtime_plugin_id(self) -> str:
         """获取 MP 运行态中的真实插件 ID，避免大小写或分身 ID 不一致。"""
@@ -202,8 +223,8 @@ class SiqiFram(_PluginBase):
             {"path": "/config", "endpoint": self._get_config, "methods": ["GET"], "auth": "bear", "summary": "获取配置"},
             {"path": "/config", "endpoint": self._save_config, "methods": ["POST"], "auth": "bear", "summary": "保存配置"},
             {"path": "/status", "endpoint": self._get_status, "methods": ["GET"], "auth": "bear", "summary": "插件状态"},
-            {"path": "/data", "endpoint": self._get_data, "methods": ["GET"], "auth": "bear", "summary": "农场数据"},
-            {"path": "/refresh", "endpoint": self._refresh_data, "methods": ["POST"], "auth": "bear", "summary": "刷新数据"},
+            {"path": "/data", "endpoint": self._get_data, "methods": ["GET"], "auth": "bear", "summary": "获取缓存农场数据"},
+            {"path": "/refresh", "endpoint": self._refresh_data, "methods": ["POST"], "auth": "bear", "summary": "刷新农场数据"},
             {"path": "/plant", "endpoint": self._plant, "methods": ["POST"], "auth": "bear", "summary": "种植"},
             {"path": "/plant-fill", "endpoint": self._plant_fill_empty, "methods": ["POST"], "auth": "bear", "summary": "一键种植空地"},
             {"path": "/buy-plot-slot", "endpoint": self._buy_plot_slot, "methods": ["POST"], "auth": "bear", "summary": "购买菜地坑位"},
@@ -241,6 +262,7 @@ class SiqiFram(_PluginBase):
             "auto_like": self._auto_like,
             "use_proxy": self._use_proxy,
             "use_ai_captcha": self._use_ai_captcha,
+            "harvest_delay_minutes": self._harvest_delay_minutes,
             "ai_available": getattr(settings, "AI_AGENT_ENABLE", False),
             "retry_count": self._retry_count,
             "retry_interval": self._retry_interval,
@@ -251,8 +273,16 @@ class SiqiFram(_PluginBase):
         if config is None:
             config = {}
         config["cron"] = self._normalize_cron(config.get("cron"))
+        config["harvest_delay_minutes"] = max(0, min(30, self._to_int(
+            config.get("harvest_delay_minutes"), 2
+        )))
         self.update_config(config)
         self.init_plugin(config)
+        next_harvest_at = self._to_int(self.get_data("next_harvest_at"), 0)
+        self._next_run_time = (
+            self._build_next_run_time(next_harvest_at)
+            if next_harvest_at > int(time.time()) else None
+        )
         scheduler = Scheduler()
         plugin_id = self._runtime_plugin_id()
         for legacy_plugin_id in {self.__class__.__name__, self.__class__.__name__.lower()} - {plugin_id}:
@@ -273,9 +303,11 @@ class SiqiFram(_PluginBase):
         }
 
     def _get_next_run_time(self) -> str:
-        """获取定时任务下一次运行时间。"""
+        """优先返回按最早成熟时间安排的下一次任务。"""
         if not self._enabled or not self._cron:
             return "未配置定时任务"
+        if self._next_run_time and self._next_run_time > datetime.now(self._timezone()):
+            return self._next_run_time.strftime("%Y-%m-%d %H:%M:%S")
         try:
             scheduler = Scheduler()
             for task in scheduler.list():
@@ -286,7 +318,7 @@ class SiqiFram(_PluginBase):
         return f"按配置执行: {self._cron}"
 
     def _get_site_info(self) -> Tuple[Optional[str], Optional[str]]:
-        """从站点管理中读取思齐站点地址和 User-Agent。"""
+        """从 MoviePilot 站点管理读取已配置的思齐站点地址和 User-Agent。"""
         try:
             if not self._siteoper:
                 return None, None
@@ -295,7 +327,8 @@ class SiqiFram(_PluginBase):
                 site = self._siteoper.get_by_domain("siqi.xyz")
             if not site:
                 return None, None
-            return getattr(site, "url", None), getattr(site, "ua", None)
+            site_url = str(getattr(site, "url", "") or "").strip().rstrip("/")
+            return site_url or None, getattr(site, "ua", None)
         except Exception as e:
             logger.warning(f"{self.plugin_name}: 获取站点信息失败: {e}")
             return None, None
@@ -323,7 +356,9 @@ class SiqiFram(_PluginBase):
         if not path:
             return {"success": False, "message": "缺少 path 参数"}
         site_url, user_agent = self._get_site_info()
-        base_url = (site_url or self._site_url).rstrip("/")
+        if not site_url:
+            return {"success": False, "message": "未在 MoviePilot 站点管理中找到思齐站点地址"}
+        base_url = site_url
         image_url = f"{base_url}/{path.lstrip('/')}"
         headers = {
             "user-agent": user_agent or "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132 Safari/537.36",
@@ -354,7 +389,10 @@ class SiqiFram(_PluginBase):
             return None
 
         site_url, user_agent = self._get_site_info()
-        base_url = (site_url or self._site_url).rstrip("/")
+        if not site_url:
+            logger.error(f"{self.plugin_name}: 未在 MoviePilot 站点管理中找到思齐站点地址")
+            return None
+        base_url = site_url
         user_agent = user_agent or "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132 Safari/537.36"
         url = f"{base_url}/plant_game.php"
         headers = {
@@ -395,18 +433,20 @@ class SiqiFram(_PluginBase):
             return {"success": False, "message": "站点返回非 JSON 数据", "raw": text}
 
     def _get_data(self) -> Dict[str, Any]:
-        """获取农场数据并缓存最新状态。"""
-        data = self.get_farm_data()
-        if data.get("success"):
-            self.save_data("farm_status", data)
-        return data
+        """返回最近一次成功获取的农场缓存，避免打开页面触发站点请求。"""
+        data = self.get_data("farm_status")
+        if isinstance(data, dict) and data.get("success"):
+            return {**data, "cached": True}
+        return {"success": False, "message": "暂无缓存数据，请手动刷新"}
 
-    def _refresh_data(self, payload: dict = None) -> Dict[str, Any]:
-        """手动刷新农场数据并记录刷新时间。"""
+    def _refresh_data(self, payload: Optional[dict] = None) -> Dict[str, Any]:
+        """请求站点获取最新农场数据并更新缓存。"""
         data = self.get_farm_data()
         if data.get("success"):
+            data["cached"] = False
             self.save_data("farm_status", data)
             self.save_data("last_run", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            self._schedule_next_harvest(data)
         return data
 
     def get_farm_data(self) -> Dict[str, Any]:
@@ -480,6 +520,43 @@ class SiqiFram(_PluginBase):
             harvest_time = 0
         return harvest_time > 0 and harvest_time <= (now or int(time.time()))
 
+    def _build_next_run_time(self, harvest_time: int) -> datetime:
+        """根据成熟时间与用户延迟设置计算下一次执行时刻。"""
+        return datetime.fromtimestamp(harvest_time, tz=self._timezone()) + timedelta(
+            minutes=self._harvest_delay_minutes
+        )
+
+    def _schedule_next_harvest(
+        self, data: Dict[str, Any], reschedule: bool = True
+    ) -> None:
+        """基于最早未成熟作物安排一次性精准收获任务。"""
+        now = int(time.time())
+        harvest_times = []
+        for plot in data.get("user_lands") or []:
+            if not plot.get("seed_id") or self._is_plot_ready(plot, now):
+                continue
+            try:
+                harvest_time = int(float(plot.get("harvest_time") or 0))
+            except Exception:
+                continue
+            if harvest_time > now:
+                harvest_times.append(harvest_time)
+
+        next_harvest_at = min(harvest_times) if harvest_times else 0
+        self.save_data("next_harvest_at", next_harvest_at)
+        self._next_run_time = self._build_next_run_time(next_harvest_at) if next_harvest_at else None
+        if not self._enabled or not reschedule:
+            return
+
+        try:
+            Scheduler().update_plugin_job(self._runtime_plugin_id())
+            if self._next_run_time:
+                logger.info(
+                    f"{self.plugin_name}: 下次成熟任务 {self._next_run_time.strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+        except Exception as e:
+            logger.warning(f"{self.plugin_name}: 更新成熟任务失败: {e}")
+
     def _plant(self, payload: dict = None) -> Dict[str, Any]:
         """在指定坑位种植作物。"""
         payload = payload or {}
@@ -549,7 +626,10 @@ class SiqiFram(_PluginBase):
     def _ocr_captcha(self, image_url: str) -> Optional[str]:
         """通过 MP OCR 服务识别验证码图片，返回识别文本或 None"""
         site_url, user_agent = self._get_site_info()
-        base_url = (site_url or self._site_url).rstrip("/")
+        if not site_url:
+            logger.error(f"{self.plugin_name}: 未在 MoviePilot 站点管理中找到思齐站点地址")
+            return None
+        base_url = site_url
         # 处理相对路径
         full_url = image_url if image_url.startswith("http") else f"{base_url}/{image_url.lstrip('/')}"
         headers = {
@@ -916,12 +996,13 @@ class SiqiFram(_PluginBase):
             self.save_data(f"auto_{action}_done_result", result.get("msg") or result.get("message") or "已完成")
 
     def _save_latest_if_success(self, result: Dict[str, Any]) -> None:
-        """接口成功后刷新并缓存最新农场状态。"""
+        """接口成功后刷新、缓存并重排最新成熟任务。"""
         if result.get("success"):
             fresh = self.get_farm_data()
             if fresh.get("success"):
                 self.save_data("farm_status", fresh)
                 self.save_data("last_run", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                self._schedule_next_harvest(fresh)
 
     @staticmethod
     def _format_plant_task_message(message: Any) -> str:
@@ -934,8 +1015,8 @@ class SiqiFram(_PluginBase):
         crops = re.sub(r"[，,]\s*", "、", crops.strip())
         return f"{prefix}\n━━━{crops}\n━━━{summary.strip()}"
 
-    def _farm_task(self) -> None:
-        """执行定时自动化任务并发送格式化通知。"""
+    def _farm_task(self, reschedule: bool = False) -> None:
+        """执行定时自动化任务，完成后按最早成熟时间重排精准任务。"""
         logs = []
         try:
             run_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -965,6 +1046,12 @@ class SiqiFram(_PluginBase):
             data = self.get_farm_data()
             if data.get("success"):
                 self.save_data("farm_status", data)
+                self._schedule_next_harvest(data)
+            else:
+                self.save_data("next_harvest_at", 0)
+                self._next_run_time = None
+                if reschedule and self._enabled:
+                    Scheduler().update_plugin_job(self._runtime_plugin_id())
             summary = data.get("summary") or {}
             username = data.get("current_username") or "-"
             user_bonus = data.get("user_bonus", "-")

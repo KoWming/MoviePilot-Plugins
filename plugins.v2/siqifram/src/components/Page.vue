@@ -175,7 +175,7 @@
       </div>
       <div class="siqi-topbar__right">
         <v-btn-group variant="tonal" density="compact" class="elevation-0">
-          <v-btn color="success" size="small" min-width="40" class="px-0 px-sm-3" @click="refresh" :loading="loading">
+          <v-btn color="success" size="small" min-width="40" class="px-0 px-sm-3" @click="refresh(true)" :loading="loading">
             <v-icon icon="mdi-refresh" size="18" class="mr-sm-1" />
             <span class="d-none d-sm-inline">刷新</span>
           </v-btn>
@@ -224,7 +224,7 @@
           </v-card-title>
           <v-card-text class="seed-shop-body">
             <div class="seed-grid">
-              <button v-for="seed in farm.seeds || []" :key="seed.id" class="seed" :class="{selected: selectedSeed === seed.id, locked: !isSeedUnlocked(seed)}" @click="selectSeed(seed)">
+              <button v-for="seed in farm.seeds || []" :key="seed.id" class="seed" :class="{selected: selectedSeed === String(seed.id), locked: !isSeedUnlocked(seed)}" @click="selectSeed(seed)">
                 <div class="seed-icon">{{ seed.icon }}</div>
                 <div class="seed-main">
                   <div class="seed-name">{{ seed.name }}</div>
@@ -436,7 +436,7 @@
 </template>
 
 <script setup>
-import { computed, h, onMounted, reactive, ref, resolveComponent } from 'vue'
+import { computed, h, onMounted, reactive, ref, resolveComponent, watch } from 'vue'
 
 const props = defineProps({ api: Object, initialConfig: { type: Object, default: () => ({}) } })
 defineEmits(['switch', 'close'])
@@ -444,7 +444,10 @@ const PLUGIN_ID = 'SiqiFram'
 const loading = ref(false)
 const loadingOCR = ref(false)
 const farm = ref({})
-const selectedSeed = ref(props.initialConfig.seed_id || '1')
+const selectedSeed = ref(String(props.initialConfig.seed_id || '1'))
+watch(() => props.initialConfig.seed_id, (seedId) => {
+  selectedSeed.value = String(seedId || '1')
+})
 const message = ref('')
 const messageType = ref('success')
 let messageTimer = null
@@ -510,17 +513,32 @@ function show(text, type = 'success') {
     messageTimer = null
   }, 3000)
 }
-async function refresh() {
+async function loadFarmData({ force = false, notify = false } = {}) {
   loading.value = true
   try {
-    const res = await apiGet('/data')
+    const res = force ? await apiPost('/refresh') : await apiGet('/data')
     if (res.success) {
       farm.value = res
       if (!visitUsername.value.trim()) visitUsername.value = res.current_username || res.username || res.user_name || ''
       prefetchStageImages()
+      if (notify) show('刷新完成')
+    } else {
+      show(res.message || res.msg || (force ? '刷新失败' : '暂无缓存数据，请点击刷新'), 'error')
     }
-    else show(res.message || res.msg || '加载失败', 'error')
-  } catch (e) { show(`加载失败：${e.message}`, 'error') } finally { loading.value = false }
+  } catch (e) { show(`${force ? '刷新' : '加载'}失败：${e.message}`, 'error') } finally { loading.value = false }
+}
+
+async function loadDefaultSeed() {
+  try {
+    const config = await apiGet('/config')
+    if (config?.seed_id !== undefined) selectedSeed.value = String(config.seed_id || '1')
+  } catch (e) {
+    console.warn('加载默认种子失败', e)
+  }
+}
+
+function refresh(notify = false) {
+  return loadFarmData({ force: true, notify })
 }
 function formatSeconds(seconds) {
   const s = Number(seconds || 0)
@@ -554,7 +572,7 @@ function inventoryUnitReward(item) {
   return Math.round(base * (100 + inventoryDecorBonus()) / 100)
 }
 function isSeedUnlocked(seed) { return Number(farm.value.user_stats?.total_harvest || 0) >= Number(seed.unlock_harvest || 0) }
-function selectSeed(seed) { if (isSeedUnlocked(seed)) selectedSeed.value = seed.id; else show('种子未解锁', 'error') }
+function selectSeed(seed) { if (isSeedUnlocked(seed)) selectedSeed.value = String(seed.id); else show('种子未解锁', 'error') }
 function landUnlocked(land) { return Number(farm.value.user_stats?.total_harvest || 0) >= Number(land.unlock_harvest || 0) }
 function seedById(id) { return (farm.value.seeds || []).find(s => Number(s.id) === Number(id)) }
 function landPlotCountLabel(land) {
@@ -939,7 +957,10 @@ function formatLogTime(time) {
   return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-onMounted(refresh)
+onMounted(() => {
+  loadDefaultSeed()
+  loadFarmData()
+})
 </script>
 
 <style scoped>
