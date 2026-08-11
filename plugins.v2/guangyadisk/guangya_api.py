@@ -18,6 +18,18 @@ from app.core.config import global_vars, settings
 from app.log import logger
 from app.modules.filemanager.storages import transfer_process
 
+try:
+    from app.schemas.exception import StorageQueryError
+except ImportError:  # pragma: no cover - 兼容旧版 MoviePilot
+    class StorageQueryError(Exception):
+        """
+        用于表示存储查询无法确认结果的异常类。
+        当文件信息查询因网络、限流或接口错误失败（区别于「确认不存在」）时抛出。
+        """
+
+        pass
+
+
 from .guangya_client import GuangYaClient
 
 
@@ -469,6 +481,68 @@ class GuangYaApi:
         except Exception as err:
             logger.debug(f"【光鸭云盘】获取文件信息失败: {err}")
             return None
+
+    def get_item_strict(self, path: Path) -> Optional[schemas.FileItem]:
+        """
+        严格获取文件或目录：确认不存在返回 None，无法确认状态时抛出 StorageQueryError。
+
+        与 get_item 的区别：查询接口失败（网络、限流、接口错误）时不静默返回 None，
+        而是抛出 StorageQueryError，供整理流程判定「无法确认」以跳过覆盖，避免误覆盖已有文件。
+        """
+        normalized = self._normalize_path(str(path))
+        if normalized == "/":
+            return self.get_item(path)
+
+        cached = self._item_cache.get(normalized)
+        if cached:
+            return schemas.FileItem(**cached)
+
+        parent_path = path.parent
+        parent_path_str = (
+            parent_path.as_posix() if parent_path.as_posix() not in ("", ".") else "/"
+        )
+        try:
+            parent_id = self._path_to_id(parent_path_str)
+        except StorageQueryError:
+            raise
+        except FileNotFoundError:
+            # 父目录确认不存在，目标文件必不存在
+            return None
+        except Exception as err:
+            # 解析父目录时查询失败，无法确认目标状态
+            logger.warning(
+                f"【光鸭云盘】严格查询无法确认父目录 {parent_path_str} 状态: {err}"
+            )
+            raise StorageQueryError(
+                f"无法确认父目录 {parent_path_str} 状态: {err}"
+            ) from err
+
+        try:
+            response = self.client.get_file_list(
+                parent_id=parent_id or "",
+                page_size=max(self._page_size, 100),
+                order_by=self._order_by,
+                sort_type=self._sort_type,
+                file_types=[],
+                page=0,
+            )
+            if not self._is_success(response):
+                raise StorageQueryError(
+                    f"查询目标目录失败，无法确认 {normalized} 是否存在: {response}"
+                )
+        except StorageQueryError:
+            raise
+        except Exception as err:
+            raise StorageQueryError(
+                f"查询目标目录异常，无法确认 {normalized} 是否存在: {err}"
+            ) from err
+
+        target_name = path.name
+        for raw in self._extract_list(response):
+            item = self._to_file_item(raw, parent_path_str)
+            if item.name == target_name:
+                return item
+        return None
 
     def get_parent(self, fileitem: schemas.FileItem) -> Optional[schemas.FileItem]:
         """
