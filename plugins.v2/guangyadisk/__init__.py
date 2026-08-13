@@ -24,7 +24,7 @@ class GuangyaDisk(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/GuangyaDisk.png"
     # 插件版本
-    plugin_version = "1.1.2"
+    plugin_version = "1.1.3"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -523,6 +523,10 @@ class GuangyaDisk(_PluginBase):
             }
             self.update_config(new_config)
             self.init_plugin(new_config)
+            if self._enabled:
+                eventmanager.enable_event_handler(type(self))
+            else:
+                eventmanager.disable_event_handler(type(self))
             return {
                 "success": True,
                 "message": "配置保存成功",
