@@ -251,13 +251,14 @@
     "name": "MoviePilot Tools 同步",
     "description": "为 MoviePilot-Tools 扩展提供服务端文件同步与直接下载能力。",
     "labels": "工具,同步",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/LocalPluginInstall.png",
     "author": "KoWming",
     "level": 1,
     "v2": true,
     "release": true,
     "history": {
+      "v1.1.0": "新增备份管理页面：打开插件详情页自动按用户分组展示 MoviePilot-Tools 扩展同步的备份快照（解析 manifest.json 展示创建时间/扩展版本/内容/密钥 ID），支持查看快照文件清单、删除快照，内置拟态确认弹窗与深色模式适配。",
       "v1.0.0": "初始版本：提供 upload/download/list/delete/health 文件端点，落盘插件数据目录，供 MoviePilot-Tools 扩展可选同步。"
     }
   }

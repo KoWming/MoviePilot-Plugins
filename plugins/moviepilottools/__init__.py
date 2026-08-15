@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 import re
 import time
 from pathlib import Path
@@ -47,6 +48,21 @@ _BLOCKED_NAME_PARTS = (
     "credential_key",
 )
 
+# 备份快照目录名（扩展生成，UTC 紧凑 ISO：YYYYMMDDTHHmmssSSSZ）
+_SNAPSHOT_DIR_RE = re.compile(r"^\d{8}T\d{9}Z$")
+# 备份内容中文标签（与扩展 services/backup-snapshot.ts BACKUP_CONTENT_LABELS 对齐）
+_BACKUP_CONTENT_LABELS = {
+    "authAccounts": "MoviePilot 账号",
+    "totp": "两步验证",
+    "credentials": "凭据",
+    "ocrCorrections": "OCR 纠错词表",
+    "publicSettings": "公共设置",
+    "webdavSettings": "WebDAV 备份设置",
+    "background": "自定义背景",
+    "iconPack": "高清图标包",
+    "ocrOfflinePack": "离线 OCR 模型包",
+}
+
 
 class MoviePilotTools(_PluginBase):
     # 插件名称
@@ -56,7 +72,7 @@ class MoviePilotTools(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/LocalPluginInstall.png"
     # 插件版本
-    plugin_version = "1.0.0"
+    plugin_version = "1.1.0"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -123,7 +139,515 @@ class MoviePilotTools(_PluginBase):
         return []
 
     def get_page(self) -> List[dict]:
-        pass
+        """拼装备份管理详情页面（列表直接内联展示，不使用弹窗）。"""
+        api_token_value = settings.API_TOKEN
+        js_safe_api_token = json.dumps(api_token_value)
+
+        load_backup_js = f"""
+        (async () => {{
+            const container = document.getElementById('mpt2-backup-list');
+            const errorAlert = document.getElementById('mpt2-backup-error');
+            const successAlert = document.getElementById('mpt2-backup-success');
+            if (!container || container.dataset.loaded === '1') return;
+            container.dataset.loaded = '1';
+
+            const apiKey = {js_safe_api_token};
+            const apiBase = '/api/v1/plugin/MoviePilotTools';
+
+            const formatSize = (size) => {{
+                if (size === null || size === undefined) return '-';
+                const units = ['B', 'KB', 'MB', 'GB'];
+                let value = size;
+                let index = 0;
+                while (value >= 1024 && index < units.length - 1) {{
+                    value /= 1024;
+                    index += 1;
+                }}
+                return `${{value.toFixed(index === 0 ? 0 : 2)}} ${{units[index]}}`;
+            }};
+
+            const formatTime = (iso) => {{
+                if (!iso) return '-';
+                const d = new Date(iso);
+                if (Number.isNaN(d.getTime())) return String(iso);
+                const pad = (n) => String(n).padStart(2, '0');
+                return `${{d.getFullYear()}}-${{pad(d.getMonth() + 1)}}-${{pad(d.getDate())}} ${{pad(d.getHours())}}:${{pad(d.getMinutes())}}`;
+            }};
+
+            const contentLabels = (contents) => {{
+                if (!contents || !contents.length) return '未识别';
+                const labels = {{
+                    'authAccounts': 'MoviePilot 账号',
+                    'totp': '两步验证',
+                    'credentials': '凭据',
+                    'ocrCorrections': 'OCR 纠错词表',
+                    'publicSettings': '公共设置',
+                    'webdavSettings': 'WebDAV 备份设置',
+                    'background': '自定义背景',
+                    'iconPack': '高清图标包',
+                    'ocrOfflinePack': '离线 OCR 模型包'
+                }};
+                return contents.map((c) => labels[c] || c).join('、');
+            }};
+
+            const showConfirm = (message, okText = '确认', color = '#ef4444') => new Promise((resolve) => {{
+                const confirmModal = document.getElementById('mpt2-backup-confirm-modal');
+                const confirmText = document.getElementById('mpt2-backup-confirm-text');
+                const confirmCancelBtn = document.getElementById('mpt2-backup-confirm-cancel');
+                const confirmOkBtn = document.getElementById('mpt2-backup-confirm-ok');
+                if (!confirmModal || !confirmText || !confirmCancelBtn || !confirmOkBtn) {{
+                    resolve(false);
+                    return;
+                }}
+                confirmText.textContent = message;
+                confirmOkBtn.textContent = okText;
+                confirmOkBtn.style.background = color;
+                confirmModal.style.display = 'flex';
+                const cleanup = () => {{
+                    confirmModal.style.display = 'none';
+                    confirmCancelBtn.onclick = null;
+                    confirmOkBtn.onclick = null;
+                }};
+                confirmCancelBtn.onclick = () => {{
+                    cleanup();
+                    resolve(false);
+                }};
+                confirmOkBtn.onclick = () => {{
+                    cleanup();
+                    resolve(true);
+                }};
+            }});
+
+            const bindEvents = () => {{
+                container.querySelectorAll('.mpt2-backup-manifest').forEach((item) => {{
+                    item.addEventListener('click', () => {{
+                        const modal = document.getElementById('mpt2-backup-files-modal');
+                        const list = document.getElementById('mpt2-backup-files-list');
+                        const snapshotIdEl = document.getElementById('mpt2-backup-files-snapshot');
+                        if (!modal || !list) return;
+                        let files = [];
+                        try {{
+                            files = JSON.parse(decodeURIComponent(item.getAttribute('data-files') || '[]'));
+                        }} catch (error) {{
+                            files = [];
+                        }}
+                        if (snapshotIdEl) snapshotIdEl.textContent = item.getAttribute('data-id') || '';
+                        list.innerHTML = files.map((file) => {{
+                            const name = file.name || '未知';
+                            const size = formatSize(file.size);
+                            const typeLabel = file.type === 'encrypted' ? '加密数据' : (file.type === 'json' ? 'JSON 元信息' : (file.type || '文件'));
+                            const canRestore = name === 'backup.mpt2';
+                            const badge = canRestore
+                                ? '<span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;background:rgba(34,197,94,.12);color:#16a34a;font-size:12px;font-weight:700;line-height:1;">完整备份</span>'
+                                : '<span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;background:rgba(148,163,184,.15);color:#64748b;font-size:12px;font-weight:700;line-height:1;">元信息</span>';
+                            return `
+                                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid rgba(128,128,128,.15);">
+                                    <div style="min-width:0;flex:1;">
+                                        <div style="font-weight:600;word-break:break-all;">${{name}}</div>
+                                        <div style="font-size:12px;color:rgba(128,128,128,.9);margin-top:2px;">${{typeLabel}} ｜ 大小：${{size}}</div>
+                                    </div>
+                                    ${{badge}}
+                                </div>
+                            `;
+                        }}).join('');
+                        if (!files.length) {{
+                            list.innerHTML = '<div class="text-medium-emphasis" style="padding:16px;text-align:center;">该快照暂无可用的文件清单信息。</div>';
+                        }}
+                        modal.style.display = 'flex';
+                    }});
+                }});
+
+                container.querySelectorAll('.mpt2-backup-delete').forEach((item) => {{
+                    item.addEventListener('click', async (event) => {{
+                        const btn = event.currentTarget;
+                        const user = btn.getAttribute('data-user');
+                        const id = btn.getAttribute('data-id');
+                        const confirmed = await showConfirm(`确认删除用户 ${{user}} 的备份快照 ${{id}} 吗？删除后不可恢复。`, '确认删除', '#ef4444');
+                        if (!confirmed) return;
+                        btn.disabled = true;
+                        const original = btn.textContent;
+                        btn.textContent = '删除中...';
+                        try {{
+                            const response = await fetch(`${{apiBase}}/backup/delete?apikey=${{encodeURIComponent(apiKey)}}`, {{
+                                method: 'POST',
+                                headers: {{ 'Content-Type': 'application/json' }},
+                                body: JSON.stringify({{ user: user, id: id }})
+                            }});
+                            const result = await response.json();
+                            if (response.ok && result.code === 200) {{
+                                if (successAlert) {{
+                                    successAlert.textContent = result.message || '备份快照已删除';
+                                    successAlert.style.display = 'block';
+                                }}
+                                await loadList();
+                            }} else {{
+                                if (errorAlert) {{
+                                    errorAlert.textContent = result.message || '删除失败';
+                                    errorAlert.style.display = 'block';
+                                }}
+                            }}
+                        }} catch (error) {{
+                            if (errorAlert) {{
+                                errorAlert.textContent = '删除失败: ' + error;
+                                errorAlert.style.display = 'block';
+                            }}
+                            console.error('Delete backup error:', error);
+                        }} finally {{
+                            btn.disabled = false;
+                            btn.textContent = original;
+                        }}
+                    }});
+                }});
+            }};
+
+            const loadList = async () => {{
+                container.innerHTML = '<div class="text-medium-emphasis" style="padding:16px;text-align:center;">正在加载备份快照...</div>';
+                try {{
+                    const response = await fetch(`${{apiBase}}/backup/list?apikey=${{encodeURIComponent(apiKey)}}`);
+                    const result = await response.json();
+                    if (!(response.ok && result.code === 200)) {{
+                        throw new Error(result.message || '获取备份快照列表失败');
+                    }}
+                    const data = result.data || {{}};
+                    const groups = data.groups || [];
+                    if (!groups.length) {{
+                        container.innerHTML = '<div class="text-medium-emphasis" style="padding:16px;text-align:center;">暂无备份快照。请先在 MoviePilot-Tools 扩展中执行「MoviePilot 服务端备份」。</div>';
+                        return;
+                    }}
+                    const html = groups.map((group) => {{
+                        const rows = (group.snapshots || []).map((snap, index) => {{
+                            const latestTag = index === 0 ? '<span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:rgba(34,197,94,.12);color:#16a34a;font-size:12px;font-weight:700;line-height:1;">最新</span>' : '';
+                            const manifestBtn = snap.has_manifest
+                                ? `<button type="button" class="mpt2-backup-manifest" data-id="${{snap.id}}" data-files="${{encodeURIComponent(JSON.stringify(snap.files || []))}}" style="border:1px solid rgba(148,163,184,.4);border-radius:8px;padding:5px 14px;background:#fff;color:#475569;cursor:pointer;font-weight:600;font-size:13px;line-height:1.2;">清单</button>`
+                                : '';
+                            return `
+                                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid rgba(128,128,128,.15);flex-wrap:wrap;">
+                                    <div style="min-width:260px;flex:1;">
+                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:600;word-break:break-all;">
+                                            <span>${{snap.id}}</span>
+                                            ${{latestTag}}
+                                        </div>
+                                        <div style="font-size:12px;color:rgba(128,128,128,.9);margin-top:4px;">
+                                            创建时间：${{formatTime(snap.created_at)}} ｜ 扩展版本：${{snap.app_version || '-'}} ｜ 大小：${{formatSize(snap.size)}}
+                                        </div>
+                                        <div style="font-size:12px;color:rgba(128,128,128,.9);margin-top:2px;">
+                                            内容：${{snap.contents_label}}
+                                            ${{snap.key_id ? ` ｜ 密钥 ID：${{snap.key_id}}` : ''}}
+                                        </div>
+                                    </div>
+                                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                        ${{manifestBtn}}
+                                        <button type="button" class="mpt2-backup-delete" data-user="${{snap.user}}" data-id="${{snap.id}}" style="border:1px solid rgba(239,68,68,.32);border-radius:8px;padding:5px 14px;background:#fff;color:#ef4444;cursor:pointer;font-weight:600;font-size:13px;line-height:1.2;">删除</button>
+                                    </div>
+                                </div>
+                            `;
+                        }}).join('');
+                        return `
+                            <details class="mpt2-backup-group" open style="border:1px solid rgba(128,128,128,.2);border-radius:12px;padding:12px 16px;background:rgba(22,177,255,.04);overflow:hidden;">
+                                <summary style="cursor:pointer;font-weight:700;outline:none;">用户 ${{group.user}} <span style="color:rgba(128,128,128,.9);font-weight:400;">(${{group.count}} 个快照)</span></summary>
+                                <div class="mpt2-backup-scroll" style="margin-top:12px;padding-right:4px;box-sizing:border-box;max-height:300px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.5) transparent;">${{rows}}</div>
+                            </details>
+                        `;
+                    }}).join('');
+                    container.innerHTML = html;
+                    bindEvents();
+                }} catch (error) {{
+                    container.innerHTML = '<div style="color:#ff5252;padding:16px;text-align:center;">' + error + '</div>';
+                    if (errorAlert) {{
+                        errorAlert.textContent = '获取备份快照列表失败: ' + error;
+                        errorAlert.style.display = 'block';
+                    }}
+                    console.error('Load backup list error:', error);
+                }}
+            }};
+
+            try {{
+                if (errorAlert) errorAlert.style.display = 'none';
+                if (successAlert) successAlert.style.display = 'none';
+                await loadList();
+            }} catch (error) {{
+                if (errorAlert) {{
+                    errorAlert.textContent = '加载备份快照列表失败: ' + error;
+                    errorAlert.style.display = 'block';
+                }}
+            }}
+        }})()
+        """
+
+        page_structure = [
+            {
+                "component": "VRow",
+                "content": [
+                    {
+                        "component": "VCol",
+                        "props": {"cols": 12},
+                        "content": [
+                            {
+                                "component": "VCard",
+                                "props": {"variant": "flat", "class": "mb-4"},
+                                "content": [
+                                    {
+                                        "component": "VCardTitle",
+                                        "props": {"class": "d-flex align-center"},
+                                        "content": [
+                                            {
+                                                "component": "VIcon",
+                                                "props": {"style": "color: #16b1ff;", "class": "mr-2"},
+                                                "text": "mdi-backup-restore",
+                                            },
+                                            {"component": "span", "text": "备份管理"},
+                                        ],
+                                    },
+                                    {"component": "VDivider"},
+                                    {
+                                        "component": "VCardText",
+                                        "content": [
+                                            {
+                                                "component": "VAlert",
+                                                "props": {
+                                                    "type": "info",
+                                                    "variant": "tonal",
+                                                    "density": "comfortable",
+                                                    "icon": "mdi-information",
+                                                    "class": "mb-4",
+                                                },
+                                                "content": [
+                                                    {
+                                                        "component": "div",
+                                                        "props": {"class": "text-body-2"},
+                                                        "text": "备份由 MoviePilot-Tools 扩展加密生成并同步到本插件数据目录（用户名/backups/快照ID/）。服务端仅存储。恢复时在扩展设置中选择 MoviePilot 服务端备份快照即可直接还原。manifest.json 仅为元信息清单，不是完整备份数据。",
+                                                    }
+                                                ],
+                                            },
+                                            {
+                                                "component": "VAlert",
+                                                "props": {
+                                                    "type": "success",
+                                                    "variant": "tonal",
+                                                    "class": "mb-2",
+                                                    "density": "comfortable",
+                                                    "border": "start",
+                                                    "icon": "mdi-check-circle",
+                                                    "elevation": 1,
+                                                    "rounded": "lg",
+                                                    "id": "mpt2-backup-success",
+                                                    "style": "display: none;",
+                                                },
+                                                "content": [
+                                                    {"component": "div", "props": {"class": "text-body-1"}}
+                                                ],
+                                            },
+                                            {
+                                                "component": "VAlert",
+                                                "props": {
+                                                    "type": "error",
+                                                    "variant": "tonal",
+                                                    "class": "mb-2",
+                                                    "density": "comfortable",
+                                                    "border": "start",
+                                                    "icon": "mdi-alert",
+                                                    "elevation": 1,
+                                                    "rounded": "lg",
+                                                    "id": "mpt2-backup-error",
+                                                    "style": "display: none;",
+                                                },
+                                                "content": [
+                                                    {"component": "div", "props": {"class": "text-body-1"}}
+                                                ],
+                                            },
+                                            # 备份快照列表（直接内联展示，打开页面自动加载）
+                                            {
+                                                "component": "div",
+                                                "props": {
+                                                    "id": "mpt2-backup-list",
+                                                    "style": "border:1px solid rgba(128,128,128,.2);border-radius:12px;padding:16px;background:rgba(22,177,255,.03);",
+                                                },
+                                                "content": [
+                                                    {
+                                                        "component": "div",
+                                                        "props": {"class": "text-medium-emphasis"},
+                                                        "text": "正在加载备份快照...",
+                                                    }
+                                                ],
+                                            },
+                                        ],
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+            # 深色主题适配
+            {
+                "component": "style",
+                "text": ".mpt2-backup-group .mpt2-backup-scroll::-webkit-scrollbar{width:6px;}.mpt2-backup-group .mpt2-backup-scroll::-webkit-scrollbar-thumb{background:rgba(148,163,184,.5);border-radius:3px;}.mpt2-backup-group .mpt2-backup-scroll::-webkit-scrollbar-track{background:transparent;}.mpt2-backup-group + .mpt2-backup-group{margin-top:12px;}.v-theme--dark .mpt2-backup-group,[data-theme=\"dark\"] .mpt2-backup-group{background:rgba(37,99,235,.12) !important;border-color:rgba(71,85,105,.55) !important;}.v-theme--dark #mpt2-backup-list,[data-theme=\"dark\"] #mpt2-backup-list{border-color:rgba(71,85,105,.55) !important;background:rgba(37,99,235,.08) !important;}.v-theme--dark #mpt2-backup-files-modal,[data-theme=\"dark\"] #mpt2-backup-files-modal{background:rgba(15,23,42,.62) !important;}.v-theme--dark #mpt2-backup-files-card,[data-theme=\"dark\"] #mpt2-backup-files-card{background:#111827 !important;border-color:rgba(71,85,105,.55) !important;box-shadow:0 18px 42px rgba(0,0,0,.45) !important;}.v-theme--dark #mpt2-backup-files-title,[data-theme=\"dark\"] #mpt2-backup-files-title{color:#f9fafb !important;}.v-theme--dark #mpt2-backup-confirm-modal,[data-theme=\"dark\"] #mpt2-backup-confirm-modal{background:rgba(15,23,42,.62) !important;}.v-theme--dark #mpt2-backup-confirm-card,[data-theme=\"dark\"] #mpt2-backup-confirm-card{background:#111827 !important;border-color:rgba(71,85,105,.55) !important;box-shadow:0 18px 42px rgba(0,0,0,.45) !important;}.v-theme--dark #mpt2-backup-confirm-card div,[data-theme=\"dark\"] #mpt2-backup-confirm-card div{color:#f9fafb !important;}.v-theme--dark #mpt2-backup-confirm-cancel,[data-theme=\"dark\"] #mpt2-backup-confirm-cancel{background:#1f2937 !important;color:#e5e7eb !important;border-color:rgba(148,163,184,.3) !important;}.v-theme--dark .mpt2-backup-manifest,[data-theme=\"dark\"] .mpt2-backup-manifest{background:#1f2937 !important;color:#e5e7eb !important;border-color:rgba(148,163,184,.3) !important;}.v-theme--dark .mpt2-backup-delete,[data-theme=\"dark\"] .mpt2-backup-delete{background:#1f2937 !important;color:#ef4444 !important;border-color:rgba(239,68,68,.4) !important;}",
+            },
+            # 备份文件清单弹窗（内部拟态弹窗）
+            {
+                "component": "div",
+                "props": {
+                    "id": "mpt2-backup-files-modal",
+                    "onclick": "if (event.target === this) this.style.display='none'",
+                    "style": "display:none;position:fixed;inset:0;z-index:3000;background:rgba(15,23,42,.5);align-items:center;justify-content:center;padding:24px;",
+                },
+                "content": [
+                    {
+                        "component": "div",
+                        "props": {
+                            "id": "mpt2-backup-files-card",
+                            "style": "width:min(620px,100%);max-height:70vh;background:#ffffff;border:1px solid rgba(226,232,240,1);border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,.16);overflow:hidden;display:flex;flex-direction:column;",
+                        },
+                        "content": [
+                            {
+                                "component": "div",
+                                "props": {
+                                    "style": "display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid rgba(128,128,128,.18);flex:0 0 auto;",
+                                },
+                                "content": [
+                                    {
+                                        "component": "div",
+                                        "props": {"style": "display:flex;align-items:center;min-width:0;flex:1;"},
+                                        "content": [
+                                            {
+                                                "component": "span",
+                                                "props": {"id": "mpt2-backup-files-title", "style": "font-size:17px;font-weight:700;color:#111827;"},
+                                                "text": "备份文件清单",
+                                            },
+                                            {
+                                                "component": "span",
+                                                "props": {
+                                                    "id": "mpt2-backup-files-snapshot",
+                                                    "style": "margin-left:10px;font-size:12px;color:rgba(128,128,128,.85);font-weight:500;word-break:break-all;",
+                                                },
+                                                "text": "",
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        "component": "button",
+                                        "props": {
+                                            "type": "button",
+                                            "onclick": "this.closest('#mpt2-backup-files-modal').style.display='none'",
+                                            "style": "border:none;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#6b7280;padding:0 4px;",
+                                        },
+                                        "text": "×",
+                                    },
+                                ],
+                            },
+                            {
+                                "component": "div",
+                                "props": {"style": "padding:16px 22px;overflow-y:auto;flex:1;min-height:0;"},
+                                "content": [
+                                    {
+                                        "component": "div",
+                                        "props": {
+                                            "style": "font-size:12px;line-height:1.6;color:rgba(128,128,128,.9);background:rgba(22,177,255,.07);border:1px solid rgba(22,177,255,.2);border-radius:8px;padding:10px 12px;margin-bottom:12px;",
+                                        },
+                                        "text": "提示：backup.mpt2 是完整加密备份数据；manifest.json 仅为元信息清单，不是完整备份数据。恢复时在 MoviePilot-Tools 扩展设置中选择 MoviePilot 服务端备份快照直接还原。",
+                                    },
+                                    {
+                                        "component": "div",
+                                        "props": {"id": "mpt2-backup-files-list", "style": "min-height:40px;"},
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            },
+            # 删除确认弹窗（内部拟态弹窗）
+            {
+                "component": "div",
+                "props": {
+                    "id": "mpt2-backup-confirm-modal",
+                    "style": "display:none;position:fixed;inset:0;z-index:3002;background:rgba(15,23,42,.5);align-items:center;justify-content:center;padding:24px;",
+                },
+                "content": [
+                    {
+                        "component": "div",
+                        "props": {
+                            "id": "mpt2-backup-confirm-card",
+                            "style": "min-width:320px;max-width:min(460px,100%);background:#ffffff;border:1px solid rgba(226,232,240,1);border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,.18);padding:22px 22px 18px 22px;",
+                        },
+                        "content": [
+                            {
+                                "component": "div",
+                                "props": {"style": "display:flex;align-items:flex-start;gap:14px;"},
+                                "content": [
+                                    {
+                                        "component": "div",
+                                        "props": {"style": "display:flex;align-items:center;justify-content:center;flex:0 0 auto;width:28px;height:28px;color:#ef4444;font-size:20px;font-weight:700;"},
+                                        "content": [
+                                            {
+                                                "component": "VIcon",
+                                                "props": {"color": "#ef4444", "size": "22"},
+                                                "text": "mdi-alert",
+                                            }
+                                        ],
+                                    },
+                                    {
+                                        "component": "div",
+                                        "props": {"style": "flex:1;min-width:0;"},
+                                        "content": [
+                                            {
+                                                "component": "div",
+                                                "props": {"style": "font-size:16px;font-weight:700;color:#1f2937;margin-bottom:8px;"},
+                                                "text": "请确认操作",
+                                            },
+                                            {
+                                                "component": "div",
+                                                "props": {
+                                                    "id": "mpt2-backup-confirm-text",
+                                                    "style": "font-size:14px;line-height:1.6;color:#4b5563;word-break:break-word;",
+                                                },
+                                                "text": "",
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                            {
+                                "component": "div",
+                                "props": {"style": "display:flex;justify-content:flex-end;gap:10px;margin-top:18px;"},
+                                "content": [
+                                    {
+                                        "component": "button",
+                                        "props": {
+                                            "id": "mpt2-backup-confirm-cancel",
+                                            "type": "button",
+                                            "style": "border:1px solid rgba(148,163,184,.4);border-radius:10px;padding:7px 16px;background:#fff;color:#475569;font-size:13px;line-height:1.2;font-weight:700;cursor:pointer;",
+                                        },
+                                        "text": "取消",
+                                    },
+                                    {
+                                        "component": "button",
+                                        "props": {
+                                            "id": "mpt2-backup-confirm-ok",
+                                            "type": "button",
+                                            "style": "border:none;border-radius:10px;padding:7px 16px;background:#ef4444;color:#fff;font-size:13px;line-height:1.2;font-weight:700;cursor:pointer;",
+                                        },
+                                        "text": "确认",
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            },
+            # 自动触发加载的隐藏图片（data URI 立即加载成功触发 onload）
+            {
+                "component": "img",
+                "props": {
+                    "src": "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+                    "alt": "",
+                    "style": "display:none;width:0;height:0;",
+                    "onload": load_backup_js,
+                    "onerror": load_backup_js,
+                },
+            },
+        ]
+        return page_structure
 
     def get_service(self) -> List[Dict[str, Any]]:
         return []
@@ -200,6 +724,30 @@ class MoviePilotTools(_PluginBase):
                 "auth": "bear",
                 "summary": "直接添加下载任务",
                 "description": "跳过媒体识别，提交磁力链接或 base64 种子文件到 MoviePilot 下载器",
+            },
+            {
+                "path": "/backup/list",
+                "endpoint": self.api_backup_list,
+                "methods": ["GET"],
+                "auth": "bear",
+                "summary": "备份快照列表",
+                "description": "按用户分组列出扩展同步的备份快照（解析 manifest.json），query: user=可选用户名",
+            },
+            {
+                "path": "/backup/download",
+                "endpoint": self.api_backup_download,
+                "methods": ["GET"],
+                "auth": "bear",
+                "summary": "下载备份快照文件",
+                "description": "下载指定快照的 backup.mpt2 或 manifest.json，query: user, id, file",
+            },
+            {
+                "path": "/backup/delete",
+                "endpoint": self.api_backup_delete,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "删除备份快照",
+                "description": "删除指定用户的备份快照目录，body: {user, id}",
             },
             {
                 "path": "/health",
@@ -291,7 +839,7 @@ class MoviePilotTools(_PluginBase):
                 DownloadChain().download,
                 content=direct_content,
                 download_dir=download_dir,
-                cookie=None,
+                cookie=None,  # pyright: ignore[reportArgumentType]
                 label=labels,
                 downloader=downloader,
             )
@@ -658,9 +1206,185 @@ class MoviePilotTools(_PluginBase):
             logger.error(f"{self.plugin_name}: 删除失败 {rel_path}: {e}", exc_info=True)
             return self._err(500, f"删除失败: {e}")
 
+    async def api_backup_list(
+        self,
+        user: str = Query("", description="可选用户名，留空返回全部"),
+    ) -> JSONResponse:
+        if not self.get_state():
+            return self._err(403, "插件未启用，请在插件设置中启用后重试")
+        try:
+            groups = self._list_backup_snapshots(str(user or "").strip() or None)
+            return self._ok({"groups": groups, "count": sum(g["count"] for g in groups)})
+        except Exception as e:
+            logger.error(f"{self.plugin_name}: 备份快照列表失败: {e}", exc_info=True)
+            return self._err(500, f"备份快照列表失败: {e}")
+
+    async def api_backup_download(
+        self,
+        user: str = Query(..., description="用户名"),
+        id: str = Query(..., description="快照 ID，如 20260815T000000000Z"),
+        file: str = Query("backup.mpt2", description="文件名：backup.mpt2 或 manifest.json"),
+    ) -> JSONResponse:
+        if not self.get_state():
+            return self._err(403, "插件未启用，请在插件设置中启用后重试")
+        user_name = unquote(str(user or "")).strip()
+        snapshot_id = unquote(str(id or "")).strip()
+        file_name = str(file or "").strip()
+        if not _SAFE_PATH_RE.match(user_name) or not _SNAPSHOT_DIR_RE.match(snapshot_id):
+            return self._err(400, "user/id 参数无效")
+        if file_name not in ("backup.mpt2", "manifest.json"):
+            return self._err(400, "file 仅支持 backup.mpt2 或 manifest.json")
+
+        base = self.get_data_path()
+        target = (base / user_name / "backups" / snapshot_id / file_name).resolve()
+        try:
+            target.relative_to(base)
+        except ValueError:
+            return self._err(400, "路径越界，拒绝访问")
+        if not target.exists() or not target.is_file():
+            return self._err(404, "文件不存在")
+
+        try:
+            raw = target.read_bytes()
+            stat = target.stat()
+            return self._ok(
+                {
+                    "content": base64.b64encode(raw).decode("ascii"),
+                    "encoding": "base64",
+                    "size": stat.st_size,
+                    "filename": file_name,
+                    "user": user_name,
+                    "snapshot": snapshot_id,
+                    "updatedAt": int(stat.st_mtime * 1000),
+                }
+            )
+        except Exception as e:
+            logger.error(f"{self.plugin_name}: 下载备份文件失败 {target}: {e}", exc_info=True)
+            return self._err(500, f"下载失败: {e}")
+
+    async def api_backup_delete(self, payload: Dict[str, Any] = Body(...)) -> JSONResponse:
+        if not self.get_state():
+            return self._err(403, "插件未启用，请在插件设置中启用后重试")
+        body = payload or {}
+        user_name = str(body.get("user") or "").strip()
+        snapshot_id = str(body.get("id") or "").strip()
+        if not user_name or not snapshot_id:
+            return self._err(400, "缺少 user 或 id 参数")
+        if not _SAFE_PATH_RE.match(user_name) or not _SNAPSHOT_DIR_RE.match(snapshot_id):
+            return self._err(400, "user/id 参数无效")
+
+        base = self.get_data_path()
+        folder = (base / user_name / "backups" / snapshot_id).resolve()
+        try:
+            folder.relative_to(base)
+        except ValueError:
+            return self._err(400, "路径越界，拒绝访问")
+        if not folder.is_dir():
+            return self._err(404, "备份快照不存在")
+
+        try:
+            self._remove_tree(folder)
+            self._cleanup_empty_parents(folder.parent)
+            logger.info(f"{self.plugin_name}: 已删除备份快照 {user_name}/{snapshot_id}")
+            return self._ok({"user": user_name, "id": snapshot_id}, message="备份快照已删除")
+        except Exception as e:
+            logger.error(
+                f"{self.plugin_name}: 删除备份快照失败 {user_name}/{snapshot_id}: {e}", exc_info=True
+            )
+            return self._err(500, f"删除备份快照失败: {e}")
+
     # ------------------------------------------------------------------
     # Path helpers
     # ------------------------------------------------------------------
+
+    def _list_user_dirs(self) -> List[str]:
+        """列出插件数据根目录下的一级用户目录（跳过内部临时目录）。"""
+        base = self.get_data_path()
+        if not base.is_dir():
+            return []
+        ignored = {".chunks", "backups"}
+        return sorted(
+            (p.name for p in base.iterdir() if p.is_dir() and p.name not in ignored),
+            key=str.lower,
+        )
+
+    def _list_backup_snapshots(
+        self, user: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """按用户分组返回备份快照列表（解析 manifest.json 提取元信息）。"""
+        groups: List[Dict[str, Any]] = []
+        for u in self._list_user_dirs():
+            if user and u != user:
+                continue
+            snapshot_root = self.get_data_path() / u / "backups"
+            if not snapshot_root.is_dir():
+                continue
+            items: List[Dict[str, Any]] = []
+            folders = [
+                p
+                for p in snapshot_root.iterdir()
+                if p.is_dir() and _SNAPSHOT_DIR_RE.match(p.name)
+            ]
+            # 快照 ID 为 UTC 紧凑时间，字典序即时间序（新在前）
+            for folder in sorted(folders, key=lambda p: p.name, reverse=True):
+                backup_path = folder / "backup.mpt2"
+                if not backup_path.is_file():
+                    continue
+                manifest: Optional[Dict[str, Any]] = None
+                manifest_path = folder / "manifest.json"
+                if manifest_path.is_file():
+                    try:
+                        parsed = json.loads(manifest_path.read_text("utf-8"))
+                        if (
+                            isinstance(parsed, dict)
+                            and parsed.get("format") == "mpt2-backup-manifest"
+                            and parsed.get("id") == folder.name
+                        ):
+                            manifest = parsed
+                    except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+                        manifest = None
+                contents = manifest.get("contents", []) if manifest else []
+                label_parts: List[str] = []
+                for c in contents:
+                    c = str(c)
+                    label_parts.append(_BACKUP_CONTENT_LABELS.get(c, c))
+                contents_label = "、".join(label_parts) if label_parts else "未识别"
+                size = backup_path.stat().st_size
+                # 完整文件列表：扫描快照目录内的实际文件（含 backup.mpt2 与 manifest.json）
+                files: List[Dict[str, Any]] = []
+                try:
+                    for f in sorted(folder.iterdir(), key=lambda p: p.name.lower()):
+                        if not f.is_file() or ".tmp." in f.name:
+                            continue
+                        ftype = (
+                            "encrypted"
+                            if f.name == "backup.mpt2"
+                            else "json"
+                            if f.name == "manifest.json"
+                            else "file"
+                        )
+                        files.append({"name": f.name, "type": ftype, "size": f.stat().st_size})
+                except OSError:
+                    files = []
+                if not files:
+                    files = [{"name": "backup.mpt2", "type": "encrypted", "size": size}]
+                items.append(
+                    {
+                        "user": u,
+                        "id": folder.name,
+                        "created_at": manifest.get("createdAt") if manifest else None,
+                        "app_version": manifest.get("appVersion") if manifest else None,
+                        "key_id": manifest.get("keyId") if manifest else None,
+                        "size": size,
+                        "contents": contents,
+                        "contents_label": contents_label,
+                        "has_manifest": manifest is not None,
+                        "files": files,
+                    }
+                )
+            if items:
+                groups.append({"user": u, "count": len(items), "snapshots": items})
+        return groups
 
     @staticmethod
     def _merge_download_labels(labels: Any) -> Optional[str]:

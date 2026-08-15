@@ -36,7 +36,7 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 | 24 | [🦆 Vue-光鸭云盘储存 (GuangyaDisk)](#24--vue-光鸭云盘储存-guangyadisk) | v1.1.2 | 使存储支持光鸭云盘 | 存储,工具 |
 | 25 | [🖼️ Vue-Zpic图床 (Zpic)](#25-%EF%B8%8F-vue-zpic图床-zpic) | v1.0.1 | 上传、阅览、管理 Zpic 图床 | 图片,工具 |
 | 26 | [🩺 Vue-PT监护室 (Savept)](#26--vue-pt监护室-savept) | v1.1.1 | 展示PT站点运行状态、病危通知与站庆预告 | 站点,工具 |
-| 27 | [🔄 MoviePilot Tools 同步 (MoviePilotTools)](#27--moviepilot-tools-同步-moviepilottools) | v1.0.0 | 为 MoviePilot-Tools 扩展提供服务端文件同步与直接下载能力 | 工具,同步 |
+| 27 | [🔄 MoviePilot Tools 同步 (MoviePilotTools)](#27--moviepilot-tools-同步-moviepilottools) | v1.1.0 | 为 MoviePilot-Tools 扩展提供服务端文件同步、备份管理 | 工具,同步 |
 
 ## 🧩 插件详情
 
@@ -618,17 +618,20 @@ MoviePilot第三方插件库，提供了一系列实用的插件来增强MoviePi
 ### 27. 🔄 MoviePilot Tools 同步 (MoviePilotTools)
 
 <details>
-<summary><b>v1.0.0</b> · 工具,同步 · <i>为 MoviePilot-Tools 扩展提供服务端文件同步与直接下载能力</i></summary>
+<summary><b>v1.1.0</b> · 工具,同步 · <i>为 MoviePilot-Tools 扩展提供服务端文件同步与备份管理</i></summary>
 
 - **功能**：为 MoviePilot-Tools 扩展提供服务端文件同步与直接下载能力。
 - **标签**：工具,同步
 - **特点**：
   - 📤 提供 upload / upload_chunk / download / download_chunk / list / delete / health 文件端点
+  - 💾 提供 backup/list、backup/download、backup/delete 备份快照端点，按用户分组解析 manifest.json
+  - 📋 插件详情页内置备份管理页面：打开自动加载、按用户分组展示快照、查看文件清单（backup.mpt2 + manifest.json）、拟态确认删除弹窗、深色模式适配
   - 🧲 支持直接提交磁力或种子文件到 MoviePilot 下载器（跳过媒体识别）
   - 📁 数据落盘插件数据目录，按用户隔离存放
   - 🔒 Token / PIN / 密钥等敏感项由扩展本地加密，永不同步到本插件
   - 🔐 使用登录 JWT（Authorization: Bearer），亦可回退 API Token
 - **更新说明**：
+  - v1.1.0: 新增备份管理：提供 backup/list、backup/download、backup/delete 端点，解析快照 manifest.json 并按用户分组返回；插件详情页新增备份管理页面，打开自动加载备份快照列表，支持查看文件清单、删除快照，内置拟态确认弹窗与深色模式适配。
   - v1.0.0: 初始版本：提供 upload/download/list/delete/health 文件端点，落盘插件数据目录，供 MoviePilot-Tools 扩展可选同步。
 
 </details>
