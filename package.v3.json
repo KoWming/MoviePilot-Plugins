@@ -1,0 +1,30 @@
+{
+  "ZmedalRwd": {
+    "name": "织梦勋章套装奖励",
+    "description": "领取勋章套装奖励。",
+    "labels": "站点",
+    "version": "3.0.0",
+    "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/ZmedalRwd.png",
+    "author": "KoWming",
+    "level": 2,
+    "release": true,
+    "system_version": ">=3.0.0",
+    "history": {
+      "v3.0.0": "迁移至 V3：使用稳定 SDK 入口；「立即运行一次」改由宿主调度器执行，不再自建调度器；站点查询改用临时 Oper，不跨任务长期持有；通知类型使用 MessageType；站点表单固定使用 VCronField。"
+    }
+  },
+  "LocalPluginInstall": {
+    "name": "本地插件安装",
+    "description": "上传本地ZIP插件包进行安装。",
+    "labels": "工具",
+    "version": "3.0.0",
+    "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/LocalPluginInstall.png",
+    "author": "KoWming",
+    "level": 1,
+    "release": true,
+    "system_version": ">=3.0.0",
+    "history": {
+      "v3.0.0": "迁移至 V3：安装收尾补上本体装载登记，修复装好后无法加载的问题；插件类识别改用 AST 解析，不再执行上传源码；解压拒绝越界成员；依赖只报告本插件声明的部分，改交宿主依赖服务，不再自行 pip；运行时插件目录改由宿主配置解析；页面改用宿主注入的前端客户端，不再把 API 令牌写进 JS。"
+    }
+  }
+}

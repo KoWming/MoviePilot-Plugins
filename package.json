@@ -121,6 +121,7 @@
     "author": "KoWming",
     "level": 1,
     "v2": true,
+    "v3": false,
     "release": true,
     "history": {
       "v1.4.2": "修复本地插件安装后更新或重构容器安装的本地插件丢失问题。",
@@ -162,6 +163,7 @@
     "author": "KoWming",
     "level": 2,
     "v2": true,
+    "v3": false,
     "release": true,
     "history": {
       "v1.2.2": "修复使用站点Cookie开关失效、站点cookie快照被回写配置及cookie轮换后不更新的问题；修复已领取奖励被误报失败、获得电力统计不显示的问题；代理改为跟随站点配置。",
