@@ -176,6 +176,29 @@ class PluginUI:
                                                 ]
                                             }
                                         ]
+                                    },
+                                    {
+                                        'component': 'VRow',
+                                        'content': [
+                                            {
+                                                'component': 'VCol',
+                                                'props': {'cols': 12},
+                                                'content': [
+                                                    {
+                                                        'component': 'VTextField',
+                                                        'props': {
+                                                            'model': 'local_repo_path',
+                                                            'label': '本地插件仓库路径',
+                                                            'active': True,
+                                                            'persistent-hint': True,
+                                                            'prepend-inner-icon': 'mdi-folder',
+                                                            'placeholder': '留空则使用配置目录下的 plugin-repo',
+                                                            'hint': '插件包会写入该目录并按宿主的本地插件仓库布局登记，安装后由宿主建立本地来源'
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        ]
                                     }
                                 ]
                             }
@@ -361,7 +384,8 @@ class PluginUI:
         ], {
             "enabled": True,
             "backup_enabled": True,
-            "backup_retention": 10
+            "backup_retention": 10,
+            "local_repo_path": ""
         }
 
     def get_page(self, plugin_id: str) -> List[dict]:

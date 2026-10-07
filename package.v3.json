@@ -17,14 +17,29 @@
     "name": "本地插件安装",
     "description": "上传本地ZIP插件包进行安装。",
     "labels": "工具",
-    "version": "3.0.0",
+    "version": "3.1.0",
     "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/LocalPluginInstall.png",
     "author": "KoWming",
     "level": 1,
     "release": true,
     "system_version": ">=3.0.0",
     "history": {
+      "v3.1.0": "新增「本地插件仓库路径」配置项，留空则使用配置目录下的 plugin-repo：上传的插件包会按宿主的本地插件仓库布局写入该目录，自动维护仓库索引并把路径登记到 PLUGIN_LOCAL_REPO_PATHS，再交由宿主安装网关完成安装，装好后即建立本地来源，不再提示「需确认仓库」；本地仓库不可用时自动回落到直接安装。",
       "v3.0.0": "迁移至 V3：安装收尾补上本体装载登记，修复装好后无法加载的问题；插件类识别改用 AST 解析，不再执行上传源码；解压拒绝越界成员；依赖只报告本插件声明的部分，改交宿主依赖服务，不再自行 pip；运行时插件目录改由宿主配置解析；页面改用宿主注入的前端客户端，不再把 API 令牌写进 JS。"
+    }
+  },
+  "GuangyaDisk": {
+    "name": "Vue-光鸭云盘储存",
+    "description": "使存储支持光鸭云盘。",
+    "labels": "存储,工具",
+    "version": "3.0.0",
+    "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/GuangyaDisk.png",
+    "author": "KoWming",
+    "level": 1,
+    "release": true,
+    "system_version": ">=3.0.0",
+    "history": {
+      "v3.0.0": "迁移至 V3：全部宿主导入改走稳定 SDK 入口；get_file_item 改用严格查询以符合 V3 合同（宽松与严格两个入口共用该方法，静默返回空会被误判成文件不存在）；快照接口补齐 V3 模块合同要求的 previous_snapshot 参数，并去掉对插件类上并不存在的属性引用，目录监控快照不再恒为空；重复初始化、退出登录与停用时释放 HTTP 会话。"
     }
   }
 }

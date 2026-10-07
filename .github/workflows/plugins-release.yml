@@ -102,11 +102,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      # 探测 plugins.v2 插件是否包含前端源码（package.json）
+      # 探测 plugins.v2 / plugins.v3 插件是否包含前端源码（package.json）
       # 有 package.json → 需要编译（新方式）；否则视为已有构建产物（旧方式）
-      - name: Detect frontend source type for plugins.v2
+      - name: Detect frontend source type
         id: detect_frontend
-        if: ${{ matrix.plugin.backend_worker_path == 'plugins.v2' }}
+        if: ${{ matrix.plugin.backend_worker_path == 'plugins.v2' || matrix.plugin.backend_worker_path == 'plugins.v3' }}
         run: |
           FULL_SOURCE_PATH="${{ matrix.plugin.backend_worker_path }}/${{ matrix.plugin.backend_path }}"
           if [ -f "$FULL_SOURCE_PATH/package.json" ]; then
@@ -117,20 +117,20 @@ jobs:
             echo "[Info] 未检测到前端源码，将按旧方式使用已有的构建产物。"
           fi
 
-      - name: Setup Node.js for plugins.v2 build
-        if: ${{ matrix.plugin.backend_worker_path == 'plugins.v2' && steps.detect_frontend.outputs.has_frontend_src == 'true' }}
+      - name: Setup Node.js for frontend build
+        if: ${{ (matrix.plugin.backend_worker_path == 'plugins.v2' || matrix.plugin.backend_worker_path == 'plugins.v3') && steps.detect_frontend.outputs.has_frontend_src == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: ${{ matrix.plugin.backend_worker_path }}/${{ matrix.plugin.backend_path }}/package-lock.json
 
-      - name: Build frontend assets for plugins.v2
-        if: ${{ matrix.plugin.backend_worker_path == 'plugins.v2' && steps.detect_frontend.outputs.has_frontend_src == 'true' }}
+      - name: Build frontend assets
+        if: ${{ (matrix.plugin.backend_worker_path == 'plugins.v2' || matrix.plugin.backend_worker_path == 'plugins.v3') && steps.detect_frontend.outputs.has_frontend_src == 'true' }}
         run: |
           FULL_SOURCE_PATH="${{ matrix.plugin.backend_worker_path }}/${{ matrix.plugin.backend_path }}"
 
-          echo "[Info] 检测到 plugins.v2 插件，开始构建前端产物..."
+          echo "[Info] 检测到 ${{ matrix.plugin.backend_worker_path }} 插件，开始构建前端产物..."
           cd "$FULL_SOURCE_PATH"
 
           if [ -f "package-lock.json" ]; then
@@ -177,10 +177,10 @@ jobs:
           mkdir -p "$STAGING_PLUGIN_PATH"
 
           # 2. 根据插件类型选择打包策略
-          if [ "${{ matrix.plugin.backend_worker_path }}" = "plugins.v2" ]; then
+          if [ "${{ matrix.plugin.backend_worker_path }}" = "plugins.v2" ] || [ "${{ matrix.plugin.backend_worker_path }}" = "plugins.v3" ]; then
             if [ "${{ steps.detect_frontend.outputs.has_frontend_src }}" = "true" ]; then
               # 新方式：插件含前端源码，打包后端以及编译后的 dist 目录（排除前端源码）
-              echo "[Info] plugins.v2（含源码）：打包后端所有组件及前端编译产物..."
+              echo "[Info] ${{ matrix.plugin.backend_worker_path }}（含源码）：打包后端所有组件及前端编译产物..."
 
               if [ ! -f "$FULL_SOURCE_PATH/__init__.py" ]; then
                 echo "[Error] 缺少必要文件: $FULL_SOURCE_PATH/__init__.py"
@@ -211,11 +211,11 @@ jobs:
               rm -f "$STAGING_PLUGIN_PATH"/.prettier*
             else
               # 旧方式：插件已含构建产物，整目录打包
-              echo "[Info] plugins.v2（已有产物）：整目录打包..."
+              echo "[Info] ${{ matrix.plugin.backend_worker_path }}（无前端源码）：整目录打包..."
               cp -R "$FULL_SOURCE_PATH/." "$STAGING_PLUGIN_PATH/"
             fi
           else
-            echo "[Info] 非 plugins.v2 插件，保持原有整目录打包逻辑..."
+            echo "[Info] ${{ matrix.plugin.backend_worker_path }} 为存量目录，保持原有整目录打包逻辑..."
             cp -R "$FULL_SOURCE_PATH/." "$STAGING_PLUGIN_PATH/"
           fi
 

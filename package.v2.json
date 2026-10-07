@@ -180,6 +180,7 @@
         "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/GuangyaDisk.png",
         "author": "KoWming",
         "level": 1,
+        "v3": false,
         "release": true,
         "history": {
             "v1.1.3": "修复启用插件后光鸭云盘作为源存储或目标存储时媒体整理提示不支持存储类型的问题。",

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import json
 import re
 import shutil
 import threading
@@ -17,6 +18,7 @@ from fastapi import Body, File, UploadFile
 from pydantic import BaseModel, Field
 
 from app import schemas
+from app.adapters.external.market import PluginHelper
 from app.api.endpoints.plugin import register_plugin
 from app.db.oper.systemconfig import SystemConfigOper
 from app.schemas.types import SystemConfigKey
@@ -33,6 +35,14 @@ DEFAULT_MAX_FILE_SIZE = 20 * 1024 * 1024
 IGNORED_ARCHIVE_DIRS = {"__MACOSX"}
 # 插件类必须声明的展示属性
 REQUIRED_PLUGIN_ATTRS = ("plugin_name", "plugin_desc", "plugin_version")
+
+# 本地插件仓库：默认目录名，位于宿主的 CONFIG_PATH 下（docker 部署即 /config），
+# 刻意避开宿主的 <CONFIG_PATH>/plugins —— 那个目录已经被宿主用作插件持久化数据。
+DEFAULT_LOCAL_REPO_DIRNAME = "plugin-repo"
+# 本地仓库内的索引文件与插件源码目录，布局由宿主规定：<repo>/<索引> + <repo>/<代际>/<id小写>
+LOCAL_REPO_PACKAGE_FILE = "package.v3.json"
+LOCAL_REPO_PLUGIN_ROOT = "plugins.v3"
+LOCAL_REPO_PACKAGE_GENERATION = "v3"
 
 
 class DependencyStatus(BaseModel):
@@ -100,10 +110,13 @@ class PluginPackage:
     display_name: str
     version: str
     source_dir: Path
+    description: str = ""
+    icon: str = ""
+    author: str = ""
 
     @property
     def dir_name(self) -> str:
-        """运行时插件目录名。"""
+        """运行时插件目录名，同时也是本地仓库内的源码目录名。"""
         return self.plugin_id.lower()
 
 
@@ -115,7 +128,7 @@ class LocalPluginInstall(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/LocalPluginInstall.png"
     # 插件版本
-    plugin_version = "3.0.0"
+    plugin_version = "3.1.0"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -132,6 +145,8 @@ class LocalPluginInstall(_PluginBase):
     _backup_enabled: bool = True
     _backup_retention: int = 10
     _max_file_size: int = DEFAULT_MAX_FILE_SIZE
+    # 本地插件仓库路径；留空时用 CONFIG_PATH 下的默认目录
+    _local_repo_path: str = ""
     # 安装互斥锁只保护本实例；不同实例各自安装互不影响
     _install_lock: threading.Lock = threading.Lock()
 
@@ -149,6 +164,7 @@ class LocalPluginInstall(_PluginBase):
         except (TypeError, ValueError):
             retention = 10
         self._backup_retention = max(1, retention)
+        self._local_repo_path = str(config.get("local_repo_path") or "").strip()
         try:
             self.workspace.mkdir(parents=True, exist_ok=True)
         except OSError as error:
@@ -174,6 +190,19 @@ class LocalPluginInstall(_PluginBase):
     def plugins_root() -> Path:
         """解析宿主的运行时插件目录。"""
         return Path(settings.ROOT_PATH) / "app" / "plugins"
+
+    @property
+    def local_repo_root(self) -> Path:
+        """
+        本地插件仓库根目录。
+
+        未配置时回落到 CONFIG_PATH 下的默认目录；必须使用绝对路径，
+        因为宿主解析 PLUGIN_LOCAL_REPO_PATHS 里的相对路径时以 ROOT_PATH 为基准。
+        """
+        configured = self._local_repo_path
+        if configured:
+            return Path(configured).expanduser()
+        return Path(settings.CONFIG_PATH) / DEFAULT_LOCAL_REPO_DIRNAME
 
     def get_api(self) -> List[Dict[str, Any]]:
         """
@@ -256,9 +285,27 @@ class LocalPluginInstall(_PluginBase):
                 zip_path.unlink(missing_ok=True)
             if not result.success:
                 return schemas.Response(success=False, message=result.message)
+
+            message = result.message
+            if result.host_install is not None:
+                plugin_id, repo_url = result.host_install
+                installed, host_message = await self._install_via_host(plugin_id, repo_url)
+                if not installed:
+                    return schemas.Response(
+                        success=False,
+                        message=f"插件已写入本地仓库，但宿主安装失败：{host_message}",
+                    )
+                # 宿主安装命令是自包含的：落盘、来源身份、本体启用位、定向重载与
+                # 路由注册都在网关内完成（initializers/plugins.py:584-601 注入了
+                # loadable_marker / target_reloader / registration_refresher），
+                # 这里不再重复登记，避免同一个插件被重载与注册两次。
+                message = (
+                    f"插件 {plugin_id} 安装成功，已建立本地来源；"
+                    "请刷新页面在插件管理页面手动启用。"
+                )
             return schemas.Response(
                 success=True,
-                message=result.message,
+                message=message,
                 data=result.data,
             )
         except Exception as error:
@@ -339,7 +386,10 @@ class LocalPluginInstall(_PluginBase):
             if item.is_dir() and not item.name.startswith("__")
         ]
         if init_file.exists():
+            # 平铺布局：源码直接位于压缩包根。解压根是临时目录（extract_*），
+            # 它的名字与插件无关，不能拿来做目录名校验。
             package_dir = extract_root
+            wrapped_layout = False
         elif not plugin_dirs:
             return None, "ZIP包中没有找到插件目录或__init__.py文件"
         elif len(plugin_dirs) > 1:
@@ -349,8 +399,9 @@ class LocalPluginInstall(_PluginBase):
             init_file = package_dir / "__init__.py"
             if not init_file.exists():
                 return None, f"插件目录 '{package_dir.name}' 中缺少__init__.py文件"
+            wrapped_layout = True
 
-        return self._read_plugin_class(init_file, package_dir)
+        return self._read_plugin_class(init_file, package_dir, wrapped_layout)
 
     def _extract_members(self, archive: zipfile.ZipFile, extract_root: Path) -> bool:
         """
@@ -400,12 +451,15 @@ class LocalPluginInstall(_PluginBase):
         return target
 
     @staticmethod
-    def _read_plugin_class(init_file: Path, package_dir: Path) -> Tuple[Optional[PluginPackage], str]:
+    def _read_plugin_class(
+        init_file: Path, package_dir: Path, wrapped_layout: bool = True
+    ) -> Tuple[Optional[PluginPackage], str]:
         """
         用AST解析插件类，不执行上传的源码。
 
         :param init_file: __init__.py路径
         :param package_dir: 插件源码目录
+        :param wrapped_layout: 压缩包是否自带插件目录；平铺包没有可校验的目录名
         :return: (插件包事实, 错误信息)
         """
         try:
@@ -429,16 +483,21 @@ class LocalPluginInstall(_PluginBase):
             if missing:
                 return None, f"插件类缺少必要属性: {', '.join(missing)}"
             plugin_id = node.name
-            if package_dir.name.lower() != plugin_id.lower():
-                return None, (
-                    f"插件目录名 ('{package_dir.name}') 与插件类名的小写形式 "
-                    f"('{plugin_id.lower()}') 不一致，请调整ZIP包结构"
+            # 运行时目录名由类名推导（见 PluginPackage.dir_name），压缩包里的目录名
+            # 不影响安装结果。旧实现（V2）对两种布局也都照常安装，因此这里只记录不拒绝。
+            if wrapped_layout and package_dir.name.lower() != plugin_id.lower():
+                logger.info(
+                    f"压缩包目录名 '{package_dir.name}' 与插件类名 '{plugin_id}' 不一致，"
+                    f"仍将按类名安装到 '{plugin_id.lower()}'"
                 )
             return PluginPackage(
                 plugin_id=plugin_id,
                 display_name=attrs["plugin_name"],
                 version=attrs["plugin_version"],
                 source_dir=package_dir,
+                description=attrs.get("plugin_desc", ""),
+                icon=attrs.get("plugin_icon", ""),
+                author=attrs.get("plugin_author", ""),
             ), ""
         return None, "在 __init__.py 中没有找到继承 _PluginBase 的插件类"
 
@@ -464,9 +523,58 @@ class LocalPluginInstall(_PluginBase):
 
     def _install_package(self, package: PluginPackage) -> InstallOutcome:
         """
-        写入运行时插件目录并完成装载登记。
+        安装插件包。
+
+        优先把包发布到本地插件仓库，再把安装动作交给宿主的安装网关：只有经由宿主
+        的本地来源安装，插件才会拿到 LOCAL_ONLY 来源身份，卡片不再提示「需确认
+        仓库」。本地仓库不可用时回落到直接写运行时目录。
 
         :param package: 插件包事实
+        :return: 安装结果
+        """
+        repo_error = self._publish_to_local_repo(package)
+        if repo_error:
+            logger.warning(f"发布插件到本地仓库失败，改用直接安装：{repo_error}")
+            note = (
+                f"本地插件仓库不可用（{repo_error}），本次未建立本地来源，"
+                "卡片仍会提示「需确认仓库」"
+            )
+            return self._install_package_directly(package, note)
+
+        plugin_dir = self.local_repo_root / LOCAL_REPO_PLUGIN_ROOT / package.dir_name
+        dependencies = self._install_dependencies(plugin_dir)
+        if dependencies.status == "error":
+            logger.warning(f"插件依赖处理未成功：{dependencies.message}")
+
+        self._remember_installed(package.plugin_id)
+        repo_url = PluginHelper.make_local_repo_url(
+            package.plugin_id,
+            str(self.local_repo_root),
+            LOCAL_REPO_PACKAGE_GENERATION,
+        )
+        logger.info(
+            f"插件 {package.plugin_id} 已发布到本地仓库 {self.local_repo_root}，交由宿主安装"
+        )
+        return InstallOutcome(
+            success=True,
+            message=(
+                f"插件 {package.plugin_id} v{package.version} 已发布到本地仓库，"
+                "正在交由宿主安装"
+            ),
+            data=UploadResultData(
+                plugin_id=package.plugin_id,
+                plugin_display_name=package.display_name,
+                dependencies=dependencies,
+            ),
+            host_install=(package.plugin_id, repo_url),
+        )
+
+    def _install_package_directly(self, package: PluginPackage, note: str = "") -> InstallOutcome:
+        """
+        直接把插件包写入运行时目录并完成装载登记（本地仓库不可用时的兜底）。
+
+        :param package: 插件包事实
+        :param note: 追加在成功提示后的说明
         :return: 安装结果
         """
         target_dir = self.plugins_root() / package.dir_name
@@ -499,6 +607,8 @@ class LocalPluginInstall(_PluginBase):
             f"插件 {package.plugin_id} v{package.version} 安装成功，"
             "请刷新页面在插件管理页面手动启用。"
         )
+        if note:
+            message = f"{message}（{note}）"
         return InstallOutcome(
             success=True,
             message=message,
@@ -508,6 +618,145 @@ class LocalPluginInstall(_PluginBase):
                 dependencies=dependencies,
             ),
         )
+
+    def _publish_to_local_repo(self, package: PluginPackage) -> str:
+        """
+        把插件包按宿主规定的本地仓库布局落盘，并登记仓库路径。
+
+        布局为 <repo>/package.v3.json + <repo>/plugins.v3/<id小写>/，二者缺一，
+        宿主都不会把它识别成可用的本地候选。
+
+        :param package: 插件包事实
+        :return: 空字符串表示成功，否则为失败原因
+        """
+        repo_root = self.local_repo_root
+        plugin_dir = repo_root / LOCAL_REPO_PLUGIN_ROOT / package.dir_name
+        try:
+            repo_root.mkdir(parents=True, exist_ok=True)
+            shutil.rmtree(plugin_dir, ignore_errors=True)
+            plugin_dir.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(package.source_dir, plugin_dir)
+        except OSError as error:
+            return f"写入本地仓库失败：{error}"
+
+        index_error = self._update_local_repo_index(repo_root, package)
+        if index_error:
+            shutil.rmtree(plugin_dir, ignore_errors=True)
+            return index_error
+
+        return self._register_local_repo_path(repo_root)
+
+    @staticmethod
+    def _update_local_repo_index(repo_root: Path, package: PluginPackage) -> str:
+        """
+        在本地仓库索引里登记插件条目，保留索引中已有的其他插件与字段。
+
+        :param repo_root: 本地仓库根目录
+        :param package: 插件包事实
+        :return: 空字符串表示成功，否则为失败原因
+        """
+        index_file = repo_root / LOCAL_REPO_PACKAGE_FILE
+        index: Dict[str, Any] = {}
+        if index_file.is_file():
+            try:
+                loaded = json.loads(index_file.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as error:
+                return f"读取本地仓库索引失败：{error}"
+            if not isinstance(loaded, dict):
+                return f"本地仓库索引 {index_file} 不是合法对象"
+            index = loaded
+
+        existing = index.get(package.plugin_id)
+        entry: Dict[str, Any] = dict(existing) if isinstance(existing, dict) else {}
+        # version 是宿主索引里唯一必填字段；这里只覆盖插件包真实声明的展示信息，
+        # 不写 v3 代际标记——显式 v3:false 会让宿主直接拒绝这个候选。
+        entry.update(
+            {
+                "name": package.display_name,
+                "description": package.description,
+                "version": package.version,
+            }
+        )
+        if package.icon:
+            entry["icon"] = package.icon
+        if package.author:
+            entry["author"] = package.author
+        index[package.plugin_id] = entry
+
+        try:
+            index_file.write_text(
+                json.dumps(index, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        except OSError as error:
+            return f"写入本地仓库索引失败：{error}"
+        return ""
+
+    @staticmethod
+    def _register_local_repo_path(repo_root: Path) -> str:
+        """
+        确保本地仓库路径已出现在宿主的 PLUGIN_LOCAL_REPO_PATHS 中。
+
+        :param repo_root: 本地仓库根目录
+        :return: 空字符串表示成功，否则为失败原因
+        """
+        target = str(repo_root)
+        current = str(getattr(settings, "PLUGIN_LOCAL_REPO_PATHS", "") or "")
+        entries = [
+            item.strip()
+            for item in re.split(r"[\n,，]", current)
+            if item.strip()
+        ]
+        if any(LocalPluginInstall._same_path(item, target) for item in entries):
+            return ""
+
+        entries.append(target)
+        # 宿主用 set_key 写 <CONFIG_PATH>/app.env；该键已在环境变量中声明时会拒绝写入
+        success, message = settings.update_setting(
+            "PLUGIN_LOCAL_REPO_PATHS", ",".join(entries)
+        )
+        if success is False:
+            return message or "宿主拒绝写入 PLUGIN_LOCAL_REPO_PATHS"
+        logger.info(f"已把本地插件仓库 {target} 登记到 PLUGIN_LOCAL_REPO_PATHS")
+        return ""
+
+    @staticmethod
+    def _same_path(left: str, right: str) -> bool:
+        """
+        宽松比较两个路径字符串，避免仅因写法不同而重复登记。
+
+        :param left: 路径一
+        :param right: 路径二
+        :return: 是否指向同一路径
+        """
+        if left == right:
+            return True
+        try:
+            return Path(left).expanduser().resolve() == Path(right).expanduser().resolve()
+        except (OSError, RuntimeError, ValueError):
+            return False
+
+    @staticmethod
+    async def _install_via_host(plugin_id: str, repo_url: str) -> Tuple[bool, str]:
+        """
+        把安装动作交给宿主的插件安装网关，由它建立本地来源身份并写入运行时目录。
+
+        :param plugin_id: 插件ID
+        :param repo_url: 本地来源标识
+        :return: (是否成功, 说明)
+        """
+        helper = PluginHelper()
+        try:
+            # 必须走异步入口：同步版在事件循环内会被直接拒绝
+            return await helper.async_install(
+                plugin_id,
+                repo_url,
+                package_version=LOCAL_REPO_PACKAGE_GENERATION,
+                force_install=True,
+            )
+        except Exception as error:
+            logger.error(f"请求宿主安装 {plugin_id} 失败：{error}", exc_info=True)
+            return False, f"宿主安装失败：{error}"
 
     def _register_plugin(self, plugin_id: str) -> str:
         """
@@ -987,6 +1236,9 @@ class InstallOutcome:
     success: bool
     message: str = ""
     data: Any = None
+    # 需要在事件循环里交给宿主完成的安装步骤：(插件ID, 本地来源标识)。
+    # 为空表示已在本线程内直接装好（本地仓不可用时的兜底路径）。
+    host_install: Optional[Tuple[str, str]] = None
 
     @classmethod
     def failed(cls, message: str) -> "InstallOutcome":
