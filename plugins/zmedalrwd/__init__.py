@@ -1,3 +1,4 @@
+import re
 import pytz
 import requests
 
@@ -21,7 +22,7 @@ class ZmedalRwd(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/ZmedalRwd.png"
     # 插件版本
-    plugin_version = "1.2.1"
+    plugin_version = "1.2.2"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -37,7 +38,6 @@ class ZmedalRwd(_PluginBase):
     _enabled: bool = False
     _onlyonce: bool = False
     _notify: bool = True
-    _use_proxy: bool = True
     _auto_cookie: bool = False
 
     # 勋章系列开关
@@ -67,24 +67,22 @@ class ZmedalRwd(_PluginBase):
         # 创建站点操作实例
         self._siteoper = SiteOper()
 
+        # 手动配置的cookie,用于配置回写,避免站点cookie快照污染配置
+        manual_cookie = config.get("cookie") if config else None
+
         if config:
             self._enabled = config.get("enabled", False)
             self._cron_month = config.get("cron_month")
             self._cron_week = config.get("cron_week")
-            self._cookie = config.get("cookie")
             self._notify = config.get("notify", True)
             self._onlyonce = config.get("onlyonce", False)
-            self._use_proxy = config.get("use_proxy", True)
             self._anni_enabled = config.get("anni_enabled", False)
             self._terms_enabled = config.get("terms_enabled", False)
             self._plum_enabled = config.get("plum_enabled", False)
             self._auto_cookie = config.get("auto_cookie", False)
 
             # 处理自动获取cookie
-            if self._auto_cookie:
-                self._cookie = self.get_site_cookie()
-            else:
-                self._cookie = config.get("cookie")
+            self._cookie = self.get_site_cookie() if self._auto_cookie else manual_cookie
 
         if self._onlyonce:
             try:
@@ -107,9 +105,8 @@ class ZmedalRwd(_PluginBase):
                     "cron_month": self._cron_month,
                     "cron_week": self._cron_week,
                     "enabled": self._enabled,
-                    "cookie": self._cookie,
+                    "cookie": manual_cookie,
                     "notify": self._notify,
-                    "use_proxy": self._use_proxy,
                     "anni_enabled": self._anni_enabled,
                     "terms_enabled": self._terms_enabled,
                     "plum_enabled": self._plum_enabled,
@@ -142,8 +139,11 @@ class ZmedalRwd(_PluginBase):
             "plum": self._site_url + "/javaapi/user/drawMedalGroupReward?medalGroupId=3"
         }
         
+        # 使用站点Cookie时每次执行实时获取,避免站点cookie轮换/过期后持续使用旧快照
+        cookie = self.get_site_cookie() if self._auto_cookie else self._cookie
+
         self.headers = {
-            "cookie": self._cookie,
+            "cookie": cookie,
             "referer": self._site_url,
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0"
         }
@@ -168,8 +168,11 @@ class ZmedalRwd(_PluginBase):
                     response_data = response.json()
                     
                     if not response_data.get("success", False):
+                        error_code = response_data.get("errorCode")
                         error_msg = response_data.get("errorMsg", "未知错误")
-                        if "未收集完成" in error_msg:
+                        if error_code == 2004 or "已领取" in error_msg:
+                            results.append(f"{medal_names[mtype]}勋章: ℹ️ 已领取")
+                        elif "未收集完成" in error_msg:
                             results.append(f"{medal_names[mtype]}勋章: ⚠️ 未收集完成")
                         else:
                             results.append(f"{medal_names[mtype]}勋章: ❌ {error_msg}")
@@ -253,20 +256,21 @@ class ZmedalRwd(_PluginBase):
             if not results:
                 return "没有可领取的勋章套装奖励"
 
-            # 统计总电力
-            total_power = 0
+            # 统计本次获得电力
+            total_power = 0.0
             success_count = 0
+            already_count = 0
             incomplete_count = 0
             failed_count = 0
             
             for result in results:
                 if "✅" in result:
                     success_count += 1
-                    try:
-                        power = int(result.split("总电力:")[1].strip())
-                        total_power += power
-                    except:
-                        continue
+                    reward_match = re.search(r"获得([\d.]+)电力", result)
+                    if reward_match:
+                        total_power += float(reward_match.group(1))
+                elif "ℹ️" in result:
+                    already_count += 1
                 elif "⚠️" in result:
                     incomplete_count += 1
                 elif "❌" in result:
@@ -278,12 +282,14 @@ class ZmedalRwd(_PluginBase):
             
             # 只在有成功领取时显示电力
             if total_power > 0:
-                report += f"⚡ 获得电力：{total_power}\n"
+                report += f"⚡ 获得电力：{total_power:g}\n"
             
             # 只显示非零的统计
             stats = []
             if success_count > 0:
                 stats.append(f"成功:{success_count}")
+            if already_count > 0:
+                stats.append(f"已领取:{already_count}")
             if incomplete_count > 0:
                 stats.append(f"未集齐:{incomplete_count}")
             if failed_count > 0:
@@ -306,23 +312,17 @@ class ZmedalRwd(_PluginBase):
         
     def _get_proxies(self):
         """
-        获取代理设置
+        获取代理设置(跟随站点配置)
         """
-        if not self._use_proxy:
-            logger.info("未启用代理")
-            return None
-            
         try:
-            # 获取系统代理设置
-            if hasattr(settings, 'PROXY') and settings.PROXY:
-                logger.info(f"使用系统代理: {settings.PROXY}")
+            # 跟随站点配置:站点启用代理时使用系统代理,否则直连
+            site = self._siteoper.get_by_domain("zmpt.cc")
+            if site and site.proxy and settings.PROXY:
+                logger.info(f"站点已启用代理,使用系统代理: {settings.PROXY}")
                 return settings.PROXY
-            else:
-                logger.warning("系统代理未配置")
-                return None
         except Exception as e:
             logger.error(f"获取代理设置出错: {str(e)}")
-            return None
+        return None
         
     def get_site_cookie(self, domain: str = 'zmpt.cc') -> str:
         """
@@ -335,26 +335,17 @@ class ZmedalRwd(_PluginBase):
             str: 有效的cookie字符串,如果获取失败则返回空字符串
         """
         try:
-            # 优先使用手动配置的cookie
-            if self._cookie:
-                if str(self._cookie).strip().lower() == "cookie":
-                    logger.warning("手动配置的cookie无效")
-                    return ""
-                return self._cookie
-                
-            # 如果手动配置的cookie无效,则从站点配置获取
+            # 从站点配置获取cookie
             site = self._siteoper.get_by_domain(domain)
             if not site:
                 logger.warning(f"未找到站点: {domain}")
                 return ""
-                
+
             cookie = site.cookie
             if not cookie or str(cookie).strip().lower() == "cookie":
                 logger.warning(f"站点 {domain} 的cookie无效")
                 return ""
-                
-            # 将获取到的cookie保存到实例变量
-            self._cookie = cookie
+
             return cookie
             
         except Exception as e:
@@ -473,24 +464,6 @@ class ZmedalRwd(_PluginBase):
                                                         'props': {
                                                             'model': 'enabled',
                                                             'label': '启用插件',
-                                                            'color': 'primary',
-                                                            'hide-details': True
-                                                        }
-                                                    }
-                                                ]
-                                            },
-                                            {
-                                                'component': 'VCol',
-                                                'props': {
-                                                    'cols': 12,
-                                                    'sm': 3
-                                                },
-                                                'content': [
-                                                    {
-                                                        'component': 'VSwitch',
-                                                        'props': {
-                                                            'model': 'use_proxy',
-                                                            'label': '使用代理',
                                                             'color': 'primary',
                                                             'hide-details': True
                                                         }
@@ -887,7 +860,6 @@ class ZmedalRwd(_PluginBase):
             "enabled": False,
             "onlyonce": False,
             "notify": True,
-            "use_proxy": False,
             "anni_enabled": False,
             "terms_enabled": False,
             "plum_enabled": False,
