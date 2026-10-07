@@ -32,13 +32,14 @@
     "name": "Vue-光鸭云盘储存",
     "description": "使存储支持光鸭云盘。",
     "labels": "存储,工具",
-    "version": "3.0.0",
+    "version": "3.1.0",
     "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/GuangyaDisk.png",
     "author": "KoWming",
     "level": 1,
     "release": true,
     "system_version": ">=3.0.0",
     "history": {
+      "v3.1.0": "补齐 V3 存储适配：新增 get_folder 能力，并把 storage_manage 与 get_folder 一并登记进插件模块声明（宿主只分派声明过的方法），存储设置页的光鸭云盘不再显示「未配置」，依赖目录复建的流程不再失败；list_files / any_files 未初始化时改返回 None，避免被宿主当成「目录确实为空」而误删；快照条目补齐 fileid，同大小同时间戳的替换文件可被识别；接口按 V3 响应合同改造：五个端点全部声明 response_model，配置读取返回业务模型，其余改用统一三段式 envelope 并把业务字段移入 data，扫码等待不再按业务失败处理（此前每轮轮询都会误报错误）；另补齐 get_render_mode 静态方法签名、复用宿主自身的 StorageQueryError、宿主进度回调缺失时降级而不影响插件加载。",
       "v3.0.0": "迁移至 V3：全部宿主导入改走稳定 SDK 入口；get_file_item 改用严格查询以符合 V3 合同（宽松与严格两个入口共用该方法，静默返回空会被误判成文件不存在）；快照接口补齐 V3 模块合同要求的 previous_snapshot 参数，并去掉对插件类上并不存在的属性引用，目录监控快照不再恒为空；重复初始化、退出登录与停用时释放 HTTP 会话。"
     }
   }

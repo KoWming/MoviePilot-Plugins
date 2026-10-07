@@ -651,21 +651,22 @@ async function fetchQrCode(options = {}) {
     if (!result.success) {
       throw new Error(result.message || '获取二维码失败')
     }
-    const nextUserCode = result.user_code || ''
-    const nextVerificationUriComplete = result.verification_uri_complete || ''
-    const nextVerificationUri = result.verification_uri_complete || result.verification_uri || ''
+    const qrData = result.data || {}
+    const nextUserCode = qrData.user_code || ''
+    const nextVerificationUriComplete = qrData.verification_uri_complete || ''
+    const nextVerificationUri = qrData.verification_uri_complete || qrData.verification_uri || ''
     const nextQrText = nextVerificationUriComplete || nextVerificationUri || nextUserCode
 
     userCode.value = nextUserCode
     verificationUri.value = nextVerificationUri
     verificationUriComplete.value = nextVerificationUriComplete
     qrCodeImage.value = ''
-    updateQrCountdown(result.expires_in || 0)
+    updateQrCountdown(qrData.expires_in || 0)
     await buildQrCodeImage(nextQrText)
     if (requestSeq !== qrFetchRequestSeq) {
       return
     }
-    status.device_id = result.device_id || status.device_id
+    status.device_id = qrData.device_id || status.device_id
     startQrCountdown()
     if (showSuccessMessage) {
       setMessage('success', '二维码已生成，请使用光鸭云盘客户端扫码')
@@ -695,7 +696,12 @@ async function pollLoginOnce() {
     if (currentPollSessionSeq !== pollSessionSeq || currentPollRequestSeq !== pollRequestSeq) {
       return
     }
-    if (result.success) {
+    if (!result.success) {
+      setMessage('error', result.message || '登录失败')
+      return
+    }
+    const loginState = result.data || {}
+    if (loginState.logged_in) {
       stopPolling()
       polling.value = false
       // 登录成功后自动启用插件
@@ -710,7 +716,7 @@ async function pollLoginOnce() {
       setMessage('success', result.message || '登录成功，插件已自动启用')
       return
     }
-    if (!result.waiting) {
+    if (!loginState.waiting) {
       setMessage('error', result.message || '登录失败')
     }
   } catch (error) {

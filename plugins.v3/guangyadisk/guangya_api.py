@@ -14,20 +14,24 @@ from urllib.parse import urlparse
 import requests
 
 from app import schemas
-from app.modules.filemanager.storages import transfer_process
+# 必须复用宿主自己的 StorageQueryError：严格查询路径由宿主按该类型捕获，
+# 插件另立同名类会让「无法确认」以未知异常穿透，破坏覆盖保护。
+from app.schemas import StorageQueryError
 from app.sdk.config import global_vars, settings
 from app.sdk.logging import logger
 
 try:
-    from app.schemas.exception import StorageQueryError
-except ImportError:  # pragma: no cover - 兼容旧版 MoviePilot
-    class StorageQueryError(Exception):
+    from app.modules.filemanager.storages import transfer_process
+except ImportError:  # pragma: no cover - 宿主结构变更时的降级分支
+    def transfer_process(path: str):
         """
-        用于表示存储查询无法确认结果的异常类。
-        当文件信息查询因网络、限流或接口错误失败（区别于「确认不存在」）时抛出。
+        宿主未提供传输进度回调时的降级实现：只丢失进度展示，不影响传输本身。
         """
 
-        pass
+        def _noop(_percent: Any) -> None:
+            return None
+
+        return _noop
 
 
 from .guangya_client import GuangYaClient

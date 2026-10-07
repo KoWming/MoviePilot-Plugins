@@ -4,6 +4,8 @@ import os
 import time
 import uuid
 
+from pydantic import BaseModel
+
 from app import schemas
 from app.schemas import FileItem, StorageOperSelectionEventData, StorageQueryError
 from app.schemas.types import ChainEventType
@@ -16,6 +18,57 @@ from .guangya_api import GuangYaApi
 from .guangya_client import GuangYaClient
 
 
+class PluginConfigData(BaseModel):
+    """
+    `/config` 的业务数据：插件配置与登录态快照。
+    """
+
+    enabled: bool = False
+    access_token: str = ""
+    refresh_token: str = ""
+    client_id: str = ""
+    device_id: str = ""
+    poll_interval: int = 5
+    page_size: int = 100
+    order_by: int = 3
+    sort_type: int = 1
+    permanently_delete: bool = False
+    logged_in: bool = False
+    user_code: str = ""
+    verification_uri: str = ""
+    qr_expires_in: int = 0
+    user_name: str = ""
+    user_id: str = ""
+    vip_level: str = ""
+    member_expire_time: int = 0
+    total_space: int = 0
+    used_space: int = 0
+    free_space: int = 0
+    file_count: int = 0
+
+
+class QrCodeData(BaseModel):
+    """
+    `/login/qrcode` 的业务数据：设备码扫码登录信息。
+    """
+
+    user_code: str = ""
+    verification_uri: str = ""
+    verification_uri_complete: str = ""
+    expires_in: int = 0
+    device_id: str = ""
+
+
+class LoginPollData(BaseModel):
+    """
+    `/login/poll` 的业务数据：扫码轮询结果。
+    """
+
+    logged_in: bool = False
+    waiting: bool = False
+    device_id: str = ""
+
+
 class GuangyaDisk(_PluginBase):
     # 插件名称
     plugin_name = "Vue-光鸭云盘储存"
@@ -24,7 +77,7 @@ class GuangyaDisk(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/GuangyaDisk.png"
     # 插件版本
-    plugin_version = "3.0.0"
+    plugin_version = "3.1.0"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -203,7 +256,8 @@ class GuangyaDisk(_PluginBase):
     def get_command() -> List[Dict[str, Any]]:
         return []
 
-    def get_render_mode(self) -> Tuple[str, Optional[str]]:
+    @staticmethod
+    def get_render_mode() -> Tuple[str, Optional[str]]:
         """
         返回 Vue 渲染模式。
         """
@@ -220,6 +274,7 @@ class GuangyaDisk(_PluginBase):
                 "auth": "bear",
                 "methods": ["GET"],
                 "summary": "获取配置",
+                "response_model": PluginConfigData,
             },
             {
                 "path": "/config",
@@ -227,6 +282,7 @@ class GuangyaDisk(_PluginBase):
                 "auth": "bear",
                 "methods": ["POST"],
                 "summary": "保存配置",
+                "response_model": schemas.Response[PluginConfigData],
             },
             {
                 "path": "/login/qrcode",
@@ -234,6 +290,7 @@ class GuangyaDisk(_PluginBase):
                 "auth": "bear",
                 "methods": ["GET"],
                 "summary": "获取扫码登录二维码",
+                "response_model": schemas.Response[QrCodeData],
             },
             {
                 "path": "/login/poll",
@@ -241,6 +298,7 @@ class GuangyaDisk(_PluginBase):
                 "auth": "bear",
                 "methods": ["GET"],
                 "summary": "轮询扫码登录状态",
+                "response_model": schemas.Response[LoginPollData],
             },
             {
                 "path": "/login/logout",
@@ -248,6 +306,7 @@ class GuangyaDisk(_PluginBase):
                 "auth": "bear",
                 "methods": ["POST"],
                 "summary": "退出登录",
+                "response_model": schemas.Response[PluginConfigData],
             },
         ]
 
@@ -274,7 +333,7 @@ class GuangyaDisk(_PluginBase):
         """
         return []
 
-    def _get_config(self) -> Dict[str, Any]:
+    def _get_config(self) -> PluginConfigData:
         """
         获取当前配置。
         """
@@ -351,7 +410,7 @@ class GuangyaDisk(_PluginBase):
                     config["used_space"] = 0
                     config["free_space"] = 0
                     config["file_count"] = 0
-                    return config
+                    return PluginConfigData.model_validate(config)
                 if _is_auth_invalid(user_info):
                     logger.warning(f"【光鸭云盘】用户信息接口认证异常，但未确认 refresh_token 失效，暂不清空登录态: {user_info}")
                     config["user_name"] = ""
@@ -362,7 +421,7 @@ class GuangyaDisk(_PluginBase):
                     config["used_space"] = 0
                     config["free_space"] = 0
                     config["file_count"] = 0
-                    return config
+                    return PluginConfigData.model_validate(config)
 
                 user_data = user_info.get("data") if isinstance(user_info.get("data"), dict) else user_info
                 user_name = _pick_first(
@@ -410,7 +469,7 @@ class GuangyaDisk(_PluginBase):
                     config["used_space"] = 0
                     config["free_space"] = 0
                     config["file_count"] = 0
-                    return config
+                    return PluginConfigData.model_validate(config)
 
                 config["user_name"] = "" if user_name is None else str(user_name)
                 config["user_id"] = "" if user_id is None else str(user_id)
@@ -435,14 +494,14 @@ class GuangyaDisk(_PluginBase):
                     config["used_space"] = 0
                     config["free_space"] = 0
                     config["file_count"] = 0
-                    return config
+                    return PluginConfigData.model_validate(config)
                 if _is_auth_invalid(assets_info):
                     logger.warning(f"【光鸭云盘】空间信息接口认证异常，但未确认 refresh_token 失效，暂不清空登录态: {assets_info}")
                     config["total_space"] = 0
                     config["used_space"] = 0
                     config["free_space"] = 0
                     config["file_count"] = 0
-                    return config
+                    return PluginConfigData.model_validate(config)
 
                 assets_data = assets_info.get("data") if isinstance(assets_info.get("data"), dict) else assets_info
                 total_space = _to_int(
@@ -504,9 +563,9 @@ class GuangyaDisk(_PluginBase):
             config["free_space"] = 0
             config["file_count"] = 0
         
-        return config
+        return PluginConfigData.model_validate(config)
 
-    def _save_config(self, config_payload: dict) -> Dict[str, Any]:
+    def _save_config(self, config_payload: dict) -> schemas.Response[PluginConfigData]:
         """
         保存插件配置。
         """
@@ -533,21 +592,24 @@ class GuangyaDisk(_PluginBase):
                 eventmanager.enable_event_handler(type(self))
             else:
                 eventmanager.disable_event_handler(type(self))
-            return {
-                "success": True,
-                "message": "配置保存成功",
-                "data": self._get_config(),
-            }
+            return schemas.Response(
+                success=True,
+                message="配置保存成功",
+                data=self._get_config(),
+            )
         except Exception as err:
             logger.error(f"【光鸭云盘】保存配置失败: {err}")
-            return {
-                "success": False,
-                "message": f"保存配置失败: {err}",
-            }
+            return schemas.Response(
+                success=False,
+                message=f"保存配置失败: {err}",
+            )
 
     def get_module(self) -> Dict[str, Any]:
         """
         获取插件模块声明。
+
+        宿主只按本映射里登记的方法名分派（未登记的方法一律不会被调用），
+        因此模块方法新增后必须同时在这里暴露。
         """
         return {
             "list_files": self.list_files,
@@ -556,14 +618,12 @@ class GuangyaDisk(_PluginBase):
             "upload_file": self.upload_file,
             "delete_file": self.delete_file,
             "rename_file": self.rename_file,
+            "create_folder": self.create_folder,
+            "get_folder": self.get_folder,
             "get_file_item": self.get_file_item,
             "get_parent_item": self.get_parent_item,
             "snapshot_storage": self.snapshot_storage,
-            "storage_usage": self.storage_usage,
-            "support_transtype": self.support_transtype,
-            "create_folder": self.create_folder,
-            "exists": self.exists,
-            "get_item": self.get_item,
+            "storage_manage": self.storage_manage,
         }
 
     @eventmanager.register(ChainEventType.StorageOperSelection)
@@ -585,8 +645,10 @@ class GuangyaDisk(_PluginBase):
         """
         if fileitem.storage != self._disk_name:
             return None
+        # 未初始化时返回 None（未接管）。不能返回 []：宿主把 [] 当成「目录确实为空」的
+        # 权威结论，清理流程会据此判定并删除目录；None 才是「无法确认」。
         if not self._guangya_api:
-            return []
+            return None
 
         result: List[schemas.FileItem] = []
 
@@ -614,8 +676,9 @@ class GuangyaDisk(_PluginBase):
         """
         if fileitem.storage != self._disk_name:
             return None
+        # 同上：False 对宿主是「确认没有媒体文件」，未初始化时必须返回 None。
         if not self._guangya_api:
-            return False
+            return None
 
         def _any(_item: FileItem) -> bool:
             items = self._guangya_api.list(_item)
@@ -644,6 +707,16 @@ class GuangyaDisk(_PluginBase):
         if not self._guangya_api:
             return None
         return self._guangya_api.create_folder(fileitem=fileitem, name=name)
+
+    def get_folder(self, storage: str, path: Path) -> Optional[schemas.FileItem]:
+        """
+        获取目录，不存在时自动创建。宿主 StorageChain.get_folder 由此应答。
+        """
+        if storage != self._disk_name:
+            return None
+        if not self._guangya_api:
+            return None
+        return self._guangya_api.get_folder(path)
 
     def download_file(
         self, fileitem: schemas.FileItem, path: Path = None
@@ -676,18 +749,6 @@ class GuangyaDisk(_PluginBase):
         if not self._guangya_api:
             return None
         return self._guangya_api.rename(fileitem, name)
-
-    def exists(self, fileitem: schemas.FileItem) -> Optional[bool]:
-        if fileitem.storage != self._disk_name:
-            return None
-        return True if self.get_item(fileitem) else False
-
-    def get_item(self, fileitem: schemas.FileItem) -> Optional[schemas.FileItem]:
-        if fileitem.storage != self._disk_name:
-            return None
-        if not self._guangya_api:
-            return None
-        return self._guangya_api.get_item(Path(fileitem.path))
 
     def get_file_item(self, storage: str, path: Path) -> Optional[schemas.FileItem]:
         # V3 的 get_file_item 同时服务宽松与严格两个入口：StorageChain.get_file_item_strict
@@ -728,9 +789,12 @@ class GuangyaDisk(_PluginBase):
                 for _sub_file in self._guangya_api.list(_fileitem) or []:
                     _snapshot(_sub_file, _current_depth + 1)
             else:
+                # 键与宿主 StorageBase.snapshot 保持一致（含 fileid）：fileid 参与快照比对
+                # 与整理历史门控，缺了会让「同大小同时间戳的替换文件」识别不出来。
                 files_info[_fileitem.path] = {
                     "size": _fileitem.size or 0,
                     "modify_time": getattr(_fileitem, "modify_time", 0) or 0,
+                    "fileid": getattr(_fileitem, "fileid", None),
                     "type": _fileitem.type,
                 }
 
@@ -760,7 +824,25 @@ class GuangyaDisk(_PluginBase):
             return None
         return {"move": "移动", "copy": "复制"}
 
-    def get_qrcode(self) -> Dict[str, Any]:
+    def storage_manage(self, storage: str, action: str, **params) -> Optional[Dict[str, Any]]:
+        """
+        V3 存储管理路由。
+
+        宿主以 run_module("storage_manage") 分派存储管理动作，插件模块先于宿主文件管理
+        模块执行：本存储的动作在此应答，其余一律返回 None 交回宿主，避免抢占其它存储。
+        宿主的用量查询只认派生的存储实现，"usage" 不走这里就会失败，
+        存储卡片会因为没有用量数据而显示「未配置」。
+        """
+        if storage != self._disk_name:
+            return None
+        if action == "usage":
+            usage = self.storage_usage(storage) or schemas.StorageUsage()
+            return {"success": True, "data": usage.model_dump()}
+        if action == "support_transtype":
+            return {"success": True, "data": {"transtype": self.support_transtype(storage) or {}}}
+        return None
+
+    def get_qrcode(self) -> schemas.Response[QrCodeData]:
         """
         获取扫码二维码。
         """
@@ -775,7 +857,7 @@ class GuangyaDisk(_PluginBase):
             )
             result = temp_client.get_device_code()
             if not result:
-                return {"success": False, "message": "获取二维码失败"}
+                return schemas.Response(success=False, message="获取二维码失败")
 
             self._device_code = result.get("device_code") or ""
             self._poll_interval = int(result.get("interval") or self._poll_interval or 5)
@@ -784,26 +866,28 @@ class GuangyaDisk(_PluginBase):
             expires_in = int(result.get("expires_in") or 300)
             self._qr_expires_at = time.time() + expires_in
 
-            return {
-                "success": True,
-                "user_code": self._user_code,
-                "verification_uri": self._verification_uri,
-                "verification_uri_complete": result.get("verification_uri_complete") or "",
-                "expires_in": expires_in,
-                "device_id": self._device_id,
-            }
+            return schemas.Response(
+                success=True,
+                data=QrCodeData(
+                    user_code=self._user_code,
+                    verification_uri=self._verification_uri,
+                    verification_uri_complete=result.get("verification_uri_complete") or "",
+                    expires_in=expires_in,
+                    device_id=self._device_id,
+                ),
+            )
         except Exception as err:
             logger.error(f"【光鸭云盘】获取二维码失败: {err}")
-            return {"success": False, "message": f"获取二维码失败: {err}"}
+            return schemas.Response(success=False, message=f"获取二维码失败: {err}")
 
-    def poll_login(self) -> Dict[str, Any]:
+    def poll_login(self) -> schemas.Response[LoginPollData]:
         """
         轮询扫码登录状态。
         """
         if not self._device_code:
-            return {"success": False, "message": "请先获取二维码"}
+            return schemas.Response(success=False, message="请先获取二维码")
         if self._qr_expires_at and time.time() > self._qr_expires_at:
-            return {"success": False, "message": "二维码已过期，请重新获取"}
+            return schemas.Response(success=False, message="二维码已过期，请重新获取")
 
         try:
             temp_client = GuangYaClient(
@@ -813,10 +897,18 @@ class GuangyaDisk(_PluginBase):
                 device_id=self._device_id,
             )
             result = temp_client.poll_device_code(self._device_code)
+            # 等待扫码属于「查询正常完成、只是结果尚未命中」，按宿主响应合同必须保持
+            # success=True，否则插件客户端会把每一轮轮询都当成业务失败并弹错误提示。
             if result and result.get("waiting"):
-                return {"success": False, "message": result.get("message") or "等待扫码中...", "waiting": True}
+                return schemas.Response(
+                    success=True,
+                    data=LoginPollData(waiting=True, device_id=self._device_id),
+                )
             if not result or not result.get("access_token"):
-                return {"success": False, "message": "等待扫码中...", "waiting": True}
+                return schemas.Response(
+                    success=True,
+                    data=LoginPollData(waiting=True, device_id=self._device_id),
+                )
 
             self._access_token = result.get("access_token") or ""
             self._refresh_token = result.get("refresh_token") or ""
@@ -850,16 +942,19 @@ class GuangyaDisk(_PluginBase):
             )
             self._device_code = ""
             logger.info("【光鸭云盘】扫码登录成功")
-            return {
-                "success": True,
-                "message": "登录成功",
-                "device_id": self._device_id,
-            }
+            return schemas.Response(
+                success=True,
+                message="登录成功",
+                data=LoginPollData(
+                    logged_in=True,
+                    device_id=self._device_id,
+                ),
+            )
         except Exception as err:
             logger.error(f"【光鸭云盘】轮询登录失败: {err}")
-            return {"success": False, "message": f"轮询失败: {err}"}
+            return schemas.Response(success=False, message=f"轮询失败: {err}")
 
-    def logout(self) -> Dict[str, Any]:
+    def logout(self) -> schemas.Response[PluginConfigData]:
         """
         退出登录。
         """
@@ -888,7 +983,11 @@ class GuangyaDisk(_PluginBase):
                 "permanently_delete": self._permanently_delete,
             }
         )
-        return {"success": True, "message": "已退出登录"}
+        return schemas.Response(
+            success=True,
+            message="已退出登录",
+            data=self._get_config(),
+        )
 
     def stop_service(self):
         """
