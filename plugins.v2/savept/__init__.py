@@ -1,4 +1,6 @@
 import re
+import threading
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -25,7 +27,7 @@ class Savept(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/savept.png"
     # 插件版本
-    plugin_version = "1.1.1"
+    plugin_version = "1.1.2"
     # 插件作者
     plugin_author = "KoWming"
     # 作者主页
@@ -56,6 +58,12 @@ class Savept(_PluginBase):
     _use_browser_emulation: bool = False
     # 缓存上一次抓取结果
     _last_snapshot: Dict[str, Any] = {}
+    # 上一次实时抓取完成时间，用于合并并发请求
+    _snapshot_at: float = 0.0
+    # 两次实时抓取的最小间隔（秒）
+    _refresh_min_interval: float = 10.0
+    # 页面源码大小上限（字节），超出视为抓取失败
+    _max_html_bytes: int = 4 * 1024 * 1024
     # 浏览器仿真实例缓存
     _playwright: Optional[PlaywrightHelper] = None
 
@@ -73,6 +81,7 @@ class Savept(_PluginBase):
         super().__init__()
         self.siteoper = SiteOper()
         self.sites = SitesHelper()
+        self._snapshot_lock = threading.Lock()
 
     def init_plugin(self, config: dict = None) -> None:
         """初始化插件配置并设置默认值。"""
@@ -345,39 +354,56 @@ class Savept(_PluginBase):
         """加载缓存快照，必要时刷新或回退到兜底数据。"""
         if self._last_snapshot and not force_refresh:
             return self._last_snapshot
-        try:
-            snapshot = self._fetch_live_snapshot()
+        # 打开页面会并发请求 summary、sites 与 refresh，在锁内合并为一次抓取，
+        # 避免同一份页面源码被重复解析、站点索引被重复构建
+        with self._snapshot_lock:
+            if self._last_snapshot and (
+                not force_refresh
+                or time.time() - self._snapshot_at < self._refresh_min_interval
+            ):
+                return self._last_snapshot
+            try:
+                snapshot = self._fetch_live_snapshot()
+            except Exception as err:
+                return self._fallback_snapshot(err)
             if snapshot.get("sites"):
                 self._last_snapshot = snapshot
+                self._snapshot_at = time.time()
                 self.save_data("last_snapshot", snapshot)
                 return snapshot
-        except Exception as err:
-            cached = self.get_data("last_snapshot") or {}
-            if cached:
-                cached["warning"] = f"实时抓取失败，已回退缓存：{err}"
-                self._last_snapshot = cached
-                return cached
-            empty_snapshot = {
-                "source_url": self._source_url,
-                "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "summary": {
-                    "total": 0,
-                    "healthy": 0,
-                    "critical": 0,
-                    "closed": 0,
-                    "internal": 0,
-                    "external": 0,
-                    "today_anniv": 0,
-                    "years": 0,
-                },
-                "alerts": [],
-                "year_groups": [],
-                "sites": [],
-                "default_internal_only": self._default_internal_only,
-                "warning": f"实时抓取失败，暂无缓存可用：{err}",
-            }
-            self._last_snapshot = empty_snapshot
-            return empty_snapshot
+            return self._fallback_snapshot(RuntimeError("未解析到站点卡片"))
+
+    def _fallback_snapshot(self, err: Exception) -> Dict[str, Any]:
+        """实时抓取失败时回退到持久缓存，无缓存时返回空快照。"""
+        cached = self.get_data("last_snapshot") or {}
+        if cached:
+            cached["warning"] = f"实时抓取失败，已回退缓存：{err}"
+            self._last_snapshot = cached
+            self._snapshot_at = time.time()
+            return cached
+
+        empty_snapshot = {
+            "source_url": self._source_url,
+            "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "summary": {
+                "total": 0,
+                "healthy": 0,
+                "critical": 0,
+                "closed": 0,
+                "internal": 0,
+                "external": 0,
+                "today_anniv": 0,
+                "years": 0,
+            },
+            "alerts": [],
+            "year_groups": [],
+            "sites": [],
+            "default_internal_only": self._default_internal_only,
+            "warning": f"实时抓取失败，暂无缓存可用：{err}",
+        }
+        self._last_snapshot = empty_snapshot
+        self._snapshot_at = time.time()
+        return empty_snapshot
 
     def _get_page_source(self, url: str) -> Optional[str]:
         """获取页面 HTML 源码，支持代理和浏览器仿真。"""
@@ -395,7 +421,10 @@ class Savept(_PluginBase):
                 timeout=max(self._request_timeout, 60),
             )
 
-        response = RequestUtils(proxies=proxies).get_res(url=url)
+        response = RequestUtils(proxies=proxies).get_res(
+            url=url,
+            timeout=self._request_timeout,
+        )
         if response and response.status_code == 200:
             return response.text
 
@@ -424,10 +453,13 @@ class Savept(_PluginBase):
         html = self._get_page_source(self._source_url)
         if not html:
             raise requests.RequestException("获取页面源码失败")
+        if len(html) > self._max_html_bytes:
+            raise requests.RequestException(f"页面源码过大（{len(html)} 字符），已跳过解析")
 
-        alert_texts = self._extract_notice_texts(html)
-        year_groups = self._extract_year_groups(html)
-        sites = self._annotate_sites_with_mp_status(self._extract_site_cards(html))
+        soup = BeautifulSoup(html, "html.parser")
+        alert_texts = self._extract_notice_texts(soup)
+        year_groups = self._extract_year_groups(soup)
+        sites = self._annotate_sites_with_mp_status(self._extract_site_cards(soup))
         summary = self._build_summary(sites, year_groups)
 
         return {
@@ -440,9 +472,8 @@ class Savept(_PluginBase):
             "default_internal_only": self._default_internal_only,
         }
 
-    def _extract_notice_texts(self, html: str) -> List[Dict[str, str]]:
+    def _extract_notice_texts(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
         """从页面中提取公告文本并返回标准化结果。"""
-        soup = BeautifulSoup(html, "html.parser")
         notice_map = {
             "病危通知：": "critical",
             "恢复公告：": "success",
@@ -470,39 +501,51 @@ class Savept(_PluginBase):
 
         return results
 
-    def _extract_year_groups(self, html: str) -> List[Dict[str, Any]]:
+    def _extract_year_groups(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
         """解析页面中的年份分组统计数据。"""
         groups: List[Dict[str, Any]] = []
-        for year, count in re.findall(r">\s*(\d{4}|未知)\s*年\s*<.*?\((\d+) 个站点\)", html, re.S):
-            groups.append({"year": year, "count": int(count)})
+        for section in soup.select(".year-section"):
+            year = self._clean_text(section.get("data-section-year"))
+            count_node = section.find(class_="year-count-text")
+            if not year or not count_node:
+                continue
+            matched = re.search(r"[(（](\d+)\s*个站点[)）]", count_node.get_text(" ", strip=True))
+            if matched:
+                groups.append({"year": year, "count": int(matched.group(1))})
         return groups
 
-    def _extract_site_cards(self, html: str) -> List[Dict[str, Any]]:
+    def _extract_site_cards(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
         """解析站点卡片并返回结构化站点列表。"""
         cards: List[Dict[str, Any]] = []
-        pattern = re.compile(
-            r'<a href="(?P<url>[^"]+)"[^>]*class="card-link"[^>]*data-year="(?P<year>[^"]+)"[^>]*data-status="(?P<status_key>[^"]+)"[^>]*data-search="(?P<search>[^"]*)"[^>]*data-type="(?P<site_type>[^"]+)"[^>]*data-anniversary="(?P<anniversary_flag>[^"]+)"[^>]*>\s*<div class="card[^>]*"[^>]*data-opentime="(?P<open_time>[^"]*)"[^>]*data-closetime="(?P<close_time>[^"]*)"[^>]*>.*?<div class="status-strip[^"]*" title="(?P<status_text>[^"]+)">.*?</div>\s*(?:<div class="anniversary-badge">\s*(?P<anniversary_text>[^<]+)\s*</div>)?\s*(?:<div class="duration-badge">\s*(?P<duration_text>[^<]+)\s*</div>)?\s*<img class="site-icon"[^>]*src="(?P<icon>[^"]+)"[^>]*>\s*<div class="card-title">\s*(?P<title>[^<]+)\s*</div>',
-            re.S,
-        )
-        for match in pattern.finditer(html):
-            item = match.groupdict()
+        for anchor in soup.select("a.card-link[href]"):
+            card = anchor.find("div", class_="card")
+            if not card:
+                continue
+            status_node = card.find("div", class_="status-strip")
+            title_node = card.find("div", class_="card-title")
+            icon_node = card.find("img", class_="site-icon")
+            anniversary_node = card.find("div", class_="anniversary-badge")
+            duration_node = card.find("div", class_="duration-badge")
+
+            status_text = self._clean_text(status_node.get("title") if status_node else "")
+            url = anchor.get("href") or ""
             cards.append(
                 {
-                    "name": self._clean_text(item.get("title")),
-                    "url": item.get("url"),
-                    "domain": self._extract_domain(item.get("url")),
-                    "icon": item.get("icon"),
-                    "year": item.get("year"),
-                    "status": self._normalize_status(item.get("status_key"), item.get("status_text")),
-                    "status_text": self._clean_text(item.get("status_text")),
-                    "site_type": "内站" if item.get("site_type") == "internal" else "外站",
-                    "site_type_key": item.get("site_type"),
-                    "anniversary_flag": item.get("anniversary_flag"),
-                    "anniversary_text": self._clean_text(item.get("anniversary_text")),
-                    "duration_text": self._clean_text(item.get("duration_text")),
-                    "open_time": item.get("open_time"),
-                    "close_time": item.get("close_time"),
-                    "search": self._clean_text(item.get("search")),
+                    "name": self._clean_text(title_node.get_text(" ", strip=True)) if title_node else "",
+                    "url": url,
+                    "domain": self._extract_domain(url),
+                    "icon": icon_node.get("src") if icon_node else None,
+                    "year": self._clean_text(anchor.get("data-year")),
+                    "status": self._normalize_status(anchor.get("data-status"), status_text),
+                    "status_text": status_text,
+                    "site_type": "内站" if anchor.get("data-type") == "internal" else "外站",
+                    "site_type_key": anchor.get("data-type"),
+                    "anniversary_flag": anchor.get("data-anniversary"),
+                    "anniversary_text": self._clean_text(anniversary_node.get_text(" ", strip=True)) if anniversary_node else "",
+                    "duration_text": self._clean_text(duration_node.get_text(" ", strip=True)) if duration_node else "",
+                    "open_time": self._clean_text(card.get("data-opentime")),
+                    "close_time": self._clean_text(card.get("data-closetime")),
+                    "search": self._clean_text(anchor.get("data-search")),
                 }
             )
         return cards
