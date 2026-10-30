@@ -31,6 +31,7 @@
         "author": "KoWming",
         "level": 2,
         "release": true,
+        "v3": false,
         "history": {
             "v1.1": "同步适配@DDSRem大佬探索源插件的最新版本。",
             "v1.0.2": "模块化处理，适配新插件加载机制。",
