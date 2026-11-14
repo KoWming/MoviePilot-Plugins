@@ -351,6 +351,9 @@ class GuangYaApi:
     def list(self, fileitem: schemas.FileItem, page: int = 0, page_size: int = 100) -> List[schemas.FileItem]:
         """
         获取目录下的文件列表。
+
+        默认全量分页拉取，避免目录条目数超过单页上限时后段条目不可见。
+        显式传入 page 时退化为单页查询，供调用方自行翻页。
         """
         if fileitem.type == "file":
             item = self.detail(fileitem)
@@ -361,6 +364,22 @@ class GuangYaApi:
         else:
             file_id = fileitem.fileid or self._path_to_id(fileitem.path)
 
+        # 显式分页请求：保持单页语义，由调用方控制翻页
+        if page:
+            return self._list_one_page(file_id, fileitem.path or "/", page, page_size)
+
+        return self._iter_parent_items(file_id, fileitem.path or "/")
+
+    def _list_one_page(
+            self,
+            file_id: str,
+            parent_path: str,
+            page: int,
+            page_size: int = 100,
+    ) -> List[schemas.FileItem]:
+        """
+        查询指定父目录的单个分页结果。
+        """
         items: List[schemas.FileItem] = []
         try:
             response = self.client.get_file_list(
@@ -375,7 +394,7 @@ class GuangYaApi:
                 logger.debug(f"【光鸭云盘】获取文件列表失败: {response}")
                 return items
             for raw in self._extract_list(response):
-                items.append(self._to_file_item(raw, fileitem.path or "/"))
+                items.append(self._to_file_item(raw, parent_path))
         except Exception as err:
             logger.debug(f"【光鸭云盘】获取信息失败: {err}")
         return items
@@ -521,32 +540,40 @@ class GuangYaApi:
                 f"无法确认父目录 {parent_path_str} 状态: {err}"
             ) from err
 
-        try:
-            response = self.client.get_file_list(
-                parent_id=parent_id or "",
-                page_size=max(self._page_size, 100),
-                order_by=self._order_by,
-                sort_type=self._sort_type,
-                file_types=[],
-                page=0,
-            )
+        # 全量分页查找目标项：目录条目数可能超过单页上限，
+        # 只查第一页会把后段条目误判为「不存在」。
+        target_name = path.name
+        page = 0
+        page_size = max(self._page_size, 100)
+        while True:
+            try:
+                response = self.client.get_file_list(
+                    parent_id=parent_id or "",
+                    page_size=page_size,
+                    order_by=self._order_by,
+                    sort_type=self._sort_type,
+                    file_types=[],
+                    page=page,
+                )
+            except Exception as err:
+                raise StorageQueryError(
+                    f"查询目标目录异常，无法确认 {normalized} 是否存在: {err}"
+                ) from err
             if not self._is_success(response):
                 raise StorageQueryError(
                     f"查询目标目录失败，无法确认 {normalized} 是否存在: {response}"
                 )
-        except StorageQueryError:
-            raise
-        except Exception as err:
-            raise StorageQueryError(
-                f"查询目标目录异常，无法确认 {normalized} 是否存在: {err}"
-            ) from err
-
-        target_name = path.name
-        for raw in self._extract_list(response):
-            item = self._to_file_item(raw, parent_path_str)
-            if item.name == target_name:
-                return item
-        return None
+            raw_items = self._extract_list(response)
+            if not raw_items:
+                return None
+            for raw in raw_items:
+                item = self._to_file_item(raw, parent_path_str)
+                if item.name == target_name:
+                    return item
+            total = (response.get("data") or {}).get("total") or 0
+            if len(raw_items) < page_size or (total and (page + 1) * page_size >= total):
+                return None
+            page += 1
 
     def get_parent(self, fileitem: schemas.FileItem) -> Optional[schemas.FileItem]:
         """
