@@ -93,6 +93,12 @@ class GroupChatZone(_PluginBase):
     _retry_lock: Optional[threading.Lock] = None  # 重试任务锁
     _failed_messages_max: int = 100  # 失败消息最大保留条数，防止内存增长
 
+    # 重新注册（重建服务）防抖相关
+    _reregister_lock: Optional[threading.Lock] = None  # 重建请求锁，用于合并同一轮的重复请求
+    _reregister_pending: bool = False                  # 是否已有待执行的延迟重建请求
+    _reregister_delay: int = 15                        # 本次任务收尾后再触发重建的延迟（秒）
+    _reregister_stopped: bool = False                  # 插件已停止，抑制延迟重建
+
     def _prune_failed_messages(self) -> None:
         """
         失败消息内存清理：超过最大阈值时，仅保留最新的 100 条。
@@ -111,6 +117,7 @@ class GroupChatZone(_PluginBase):
         self._lock = threading.Lock()
         self._zm_lock = threading.Lock()
         self._retry_lock = threading.Lock()
+        self._reregister_stopped = False
         self.sites = SitesHelper()
         self.siteoper = SiteOper()
         
@@ -887,12 +894,59 @@ class GroupChatZone(_PluginBase):
                     pass
             logger.debug("喊话任务执行完成")
 
-    def reregister_plugin(self) -> None:
+    def reregister_plugin(self, delay: Optional[int] = None) -> None:
         """
-        重新注册插件
+        重新注册插件服务（延迟到本次任务收尾之后再执行）
+
+        为什么不能立即重建：本方法均在任务函数（send_site_messages /
+        send_zm_site_messages / _create_retry_task 等）内部调用，而
+        Scheduler().update_plugin_job() 会先移除本插件全部作业、再按 get_service()
+        重新注册。重新注册时同名 job_id 会走一遍 remove_plugin_job() +
+        _assign_job_generation()，于是 _jobs[job_id] 被替换成新的 dict 且 generation
+        递增；宿主 progress._finish_job() 要求「current_job is job 且 generation 相同」
+        才写终态，匹配失败即直接丢弃。结果是本次运行跑完了、排程也正常，但
+        「设置 → 定时任务」里的进度永远停在「运行中」，直到缓存 TTL（24 小时）过期。
+
+        因此这里不在任务函数栈内立即重建，而是起一个守护线程，等本次任务彻底返回后
+        再触发重建；并用锁 + pending 标记把同一轮内的多次请求合并成一次，避免反复
+        「移除服务/注册服务」抖动。
+
+        :param delay: 延迟秒数，默认取 _reregister_delay
         """
-        logger.info("重新注册插件")
-        Scheduler().update_plugin_job(self.__class__.__name__)
+        if delay is None:
+            delay = self._reregister_delay
+
+        # 惰性初始化锁，兼容插件热加载后属性未初始化的场景
+        if self._reregister_lock is None:
+            self._reregister_lock = threading.Lock()
+
+        with self._reregister_lock:
+            if self._reregister_pending:
+                # 本轮已有待执行的重建请求，合并掉，避免重复重建
+                logger.debug("已有待执行的重建请求，本次合并")
+                return
+            self._reregister_pending = True
+
+        def _do_reregister():
+            try:
+                # 等本次任务函数返回、调度器收尾之后再重建
+                time.sleep(max(0, delay))
+                if self._reregister_stopped:
+                    logger.debug("插件已停止，跳过延迟重建")
+                    return
+                logger.info("重新注册插件")
+                Scheduler().update_plugin_job(self.__class__.__name__)
+            except Exception as e:
+                logger.error(f"重新注册插件失败: {str(e)}")
+            finally:
+                with self._reregister_lock:
+                    self._reregister_pending = False
+
+        threading.Thread(
+            target=_do_reregister,
+            name=f"GroupChatZone-Reregister-{self.__class__.__name__}",
+            daemon=True,
+        ).start()
 
     def _send_notification(self, site_results: Dict[str, Dict], all_feedback: List[Dict], daily_bonus_result: Dict = None, lottery_result: Dict = None):
         """
@@ -1179,6 +1233,10 @@ class GroupChatZone(_PluginBase):
         退出插件
         """
         try:
+            # 抑制可能仍在等待中的延迟重建
+            self._reregister_stopped = True
+            self._reregister_pending = False
+
             if self._scheduler:
                 if self._lock and hasattr(self._lock, 'locked') and self._lock.locked():
                     logger.info("等待当前任务执行完成...")
